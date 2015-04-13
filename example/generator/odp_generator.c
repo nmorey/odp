@@ -30,7 +30,7 @@
 #include <odp/helper/icmp.h>
 
 #define MAX_WORKERS            32		/**< max number of works */
-#define SHM_PKT_POOL_SIZE      (512*2048)	/**< pkt pool size */
+#define SHM_PKT_POOL_SIZE      (64*2048)	/**< pkt pool size */
 #define SHM_PKT_POOL_BUF_SIZE  1856		/**< pkt pool buf size */
 
 #define APPL_MODE_UDP    0			/**< UDP mode */
@@ -944,7 +944,7 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 
 		case 'i':
 			appl_args->interval = atoi(optarg);
-			if (appl_args->interval <= 200 && geteuid() != 0) {
+			if (appl_args->interval <= 200) {
 				EXAMPLE_ERR("should be root user\n");
 				exit(EXIT_FAILURE);
 			}
