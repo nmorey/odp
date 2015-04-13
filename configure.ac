@@ -54,6 +54,7 @@ AX_VALGRIND_CHECK
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
+  [k1-nodeos*], [ARCH=nodeos],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
@@ -273,6 +274,7 @@ AC_CONFIG_FILES([Makefile
 		 pkgconfig/libodp.pc
 		 platform/Makefile
 		 platform/linux-generic/Makefile
+		 platform/k1-nodeos/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
