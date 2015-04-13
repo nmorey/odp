@@ -54,6 +54,10 @@ AX_VALGRIND_CHECK
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
+  [k1-nodeos], [ARCH=nodeos
+  				AM_CFLAGS="$AM_CFLAGS"],
+  [k1-nodeos-magic], [ARCH=nodeos
+  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
@@ -80,6 +84,9 @@ AC_SUBST([with_platform])
 if test "${with_platform}" == "linux-generic";
 then
     m4_include([./platform/linux-generic/m4/configure.m4])
+elif test "${with_platform}" == "k1-nodeos";
+then
+    m4_include([./platform/k1-nodeos/m4/configure.m4])
 else
     echo "UNSUPPORTED PLATFORM: ${with_platform}"
     exit 1
@@ -181,9 +188,11 @@ AC_ARG_ENABLE([debug],
     [  --enable-debug          include additional code],
     [if ! test "x$enableval" = "xyes"; then
         ODP_DEBUG=0
+	else
+		CFLAGS="-O0 -g3"
     fi])
 ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
-
+AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
 ##########################################################################
 # Check for pthreads availability
 ##########################################################################
@@ -257,7 +266,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 ##########################################################################
 # Default warning setup
 ##########################################################################
-ODP_CFLAGS="$ODP_CFLAGS -W -Wall -Werror -Wstrict-prototypes -Wmissing-prototypes"
+ODP_CFLAGS="$ODP_CFLAGS -W -Wall -Wstrict-prototypes -Wmissing-prototypes"
 ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-arith"
 ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wcast-qual -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
@@ -279,6 +288,7 @@ AC_CONFIG_FILES([Makefile
 		 pkgconfig/libodp.pc
 		 platform/Makefile
 		 platform/linux-generic/Makefile
+		 platform/k1-nodeos/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
