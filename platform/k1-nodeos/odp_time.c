@@ -9,9 +9,14 @@
 #include <odp/time.h>
 #include <odp/hints.h>
 #include <odp/system_info.h>
+#include <HAL/hal/hal.h>
 
 #define GIGA 1000000000
 
+uint64_t odp_time_cycles(void)
+{
+	return __k1_read_dsu_timestamp();
+}
 uint64_t odp_time_diff_cycles(uint64_t t1, uint64_t t2)
 {
 	if (odp_likely(t2 > t1))
