@@ -1,0 +1,10 @@
+#ifndef COMMON_H
+#define COMMON_H 
+
+#define MAGIC_SCALL_INIT 0x600
+#define MAGIC_SCALL_OPEN 0x601
+#define MAGIC_SCALL_GETMAC 0x602
+#define MAGIC_SCALL_RECV 0x603
+#define MAGIC_SCALL_SEND 0x604
+
+#endif /* COMMON_H */
