@@ -35,3 +35,4 @@ test-driver
 core
 .dirstamp
 CUnit-Memory-Dump.xml
+syscall/build_x86_64
