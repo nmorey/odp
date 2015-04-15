@@ -138,11 +138,8 @@ int odp_cpumask_isset(const odp_cpumask_t *mask, int cpu)
 
 int odp_cpumask_count(const odp_cpumask_t *mask)
 {
-	// Copied from https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 	unsigned v = mask->set;
-	v = v - ((v >> 1) & 0x55555555);                    // reuse input as temporary
-	v = (v & 0x33333333) + ((v >> 2) & 0x33333333);     // temp
-	return ((v + ((v >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24; // count
+	return __builtin_popcount(v);
 }
 
 void odp_cpumask_and(odp_cpumask_t *dest, const odp_cpumask_t *src1,
