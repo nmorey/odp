@@ -73,7 +73,7 @@ static int tun_alloc(const char *fmt, char *name)
 	 *
 	 *        IFF_NO_PI - Do not provide packet information
 	 */
-	ifr.ifr_flags = IFF_TAP ;
+	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 	if (*fmt) strncpy(ifr.ifr_name, fmt, IFNAMSIZ);
 
 	int err = ioctl(fd, TUNSETIFF, (void *)&ifr);
@@ -100,6 +100,14 @@ static void set_mac(char* if_name, unsigned char mac[6])
 	if( ioctl(sock, SIOCSIFHWADDR, &ifr) )
 	{
 		fprintf(stderr, "socket SIOCSIFHWADDR: %s\n", strerror(errno));
+		close(sock);
+		exit(-1);
+	}
+
+	ifr.ifr_flags |= IFF_UP;
+	ifr.ifr_flags |= IFF_RUNNING;
+	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0)  {
+		fprintf(stderr, "socket SSIOCGIFFLAGS: %s\n", strerror(errno));
 		close(sock);
 		exit(-1);
 	}
