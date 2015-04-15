@@ -54,7 +54,10 @@ AX_VALGRIND_CHECK
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
-  [k1-nodeos*], [ARCH=nodeos],
+  [k1-nodeos], [ARCH=nodeos
+  				AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
+  [k1-nodeos-magic], [ARCH=nodeos
+  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
