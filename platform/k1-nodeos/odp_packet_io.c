@@ -73,6 +73,10 @@ int odp_pktio_init_global(void)
 		queue_entry = queue_to_qentry(qid);
 		queue_entry->s.pktout = _odp_cast_scalar(odp_pktio_t, id);
 	}
+	int ret = magic_global_init();
+	printf("ret=%d\n", ret);
+	if(ret)
+		return -1;
 
 	return 0;
 }
@@ -183,7 +187,7 @@ static int free_pktio_entry(odp_pktio_t id)
 }
 
 
-static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool ODP_UNUSED)
+static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 {
 	odp_pktio_t id;
 	pktio_entry_t *pktio_entry;
@@ -208,7 +212,23 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool ODP_UNUSED
 		return ODP_PKTIO_INVALID;
 
 	/* FIXME: Open device/Noc/If, etc... */
+	if(!strncmp("magic", dev, strlen("magic"))){
+		pktio_entry->s.type = ODP_PKTIO_TYPE_MAGIC;
+		pktio_entry->s.magic.id = atoi(dev + strlen("magic"));
+	} else {
+		ODP_ERR("Invalid dev name '%s'", dev);
+		return ODP_PKTIO_INVALID;
+	}
+
 	ret = 0;
+	switch(pktio_entry->s.type){
+	case ODP_PKTIO_TYPE_MAGIC:
+		pktio_entry->s.magic.pool = pool;
+		ret = magic_init(pktio_entry->s.magic.id, pktio_entry, pool);
+		break;
+	default:
+		break;
+	}
 
 	if (ret != 0) {
 		unlock_entry_classifier(pktio_entry);
@@ -298,7 +318,7 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 	return id;
 }
 
-int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len ODP_UNUSED)
+int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
 	int pkts;
@@ -309,7 +329,9 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len ODP_UNUSED)
 
 	lock_entry(pktio_entry);
 	switch (pktio_entry->s.type) {
-		/* FIXME */
+	case ODP_PKTIO_TYPE_MAGIC:
+		pkts = magic_recv(&pktio_entry->s.magic, pkt_table, len);
+		break;
 	default:
 		pkts = -1;
 		break;
@@ -325,7 +347,7 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len ODP_UNUSED)
 	return pkts;
 }
 
-int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[] ODP_UNUSED, int len ODP_UNUSED)
+int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
 	int pkts;
@@ -335,7 +357,9 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[] ODP_UNUSED, int len 
 
 	lock_entry(pktio_entry);
 	switch (pktio_entry->s.type) {
-		/* FIXME */
+	case ODP_PKTIO_TYPE_MAGIC:
+		pkts = magic_send(&pktio_entry->s.magic, pkt_table, len);
+		break;
 	default:
 		pkts = -1;
 	}
@@ -659,7 +683,9 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
 	}
 
 	switch (entry->s.type) {
-		/* FIXME */
+	case ODP_PKTIO_TYPE_MAGIC:
+		magic_get_mac(&entry->s.magic, mac_addr);
+		break;
 	default:
 		ODP_ABORT("Wrong socket type %d\n", entry->s.type);
 	}

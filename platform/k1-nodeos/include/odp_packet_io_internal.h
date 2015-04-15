@@ -31,9 +31,20 @@ extern "C" {
  * Packet IO types
  */
 typedef enum {
-	ODP_PKTIO_TYPE_SOCKET_BASIC = 0x1,
-	/* FIXME */
+	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
+	ODP_PKTIO_TYPE_MAGIC,
+	ODP_PKTIO_TYPE_ETH,
+	ODP_PKTIO_TYPE_ETH40G,
+	ODP_PKTIO_TYPE_CLUSTER,
+	ODP_PKTIO_TYPE_IOCLUS
 } odp_pktio_type_t;
+
+typedef struct {
+	int id;
+	odp_pool_t pool; /**< pool to alloc packets from */
+	size_t max_frame_len; /**< max frame len = buf_size - sizeof(pkt_hdr) */
+	size_t buf_size; /**< size of buffer payload in 'pool' */
+} pkt_magic_t;
 
 struct pktio_entry {
 	odp_spinlock_t lock;		/**< entry spinlock */
@@ -48,6 +59,10 @@ struct pktio_entry {
 	char name[MAX_PKTIO_NAMESIZE];		/**< name of pktio provided to
 										   pktio_open() */
 	odp_bool_t promisc;		/**< promiscuous mode state */
+
+	union {
+		pkt_magic_t magic;
+	};
 };
 
 typedef union {
@@ -82,6 +97,12 @@ static inline pktio_entry_t *get_pktio_entry(odp_pktio_t pktio)
 }
 
 int pktin_poll(pktio_entry_t *entry);
+
+int magic_global_init(void);
+int magic_init(int if_id, pktio_entry_t * pktio_entry, odp_pool_t pool);
+void magic_get_mac(const pkt_magic_t *const pkt_magic, void * mac_addr);
+int magic_recv(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], int len);
+int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned len);
 
 #ifdef __cplusplus
 }
