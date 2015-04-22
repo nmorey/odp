@@ -46,6 +46,7 @@ $b.target("build") do
                :env => $env)
     $b.run(:cmd => "make -Cplatform V=1", :env => $env)
     $b.run(:cmd => "make -Ctest", :env => $env)
+    $b.run(:cmd => "make -Ctest/validation", :env => $env)
     $b.run(:cmd => "make -Cexample/generator", :env => $env)
 end
 
