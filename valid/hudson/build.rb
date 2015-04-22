@@ -40,8 +40,9 @@ $b.target("build") do
     cd odp_path
     
     $b.run(:cmd => "./syscall/run.sh", :env => $env)
+    $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $b.run(:cmd => "./bootstrap", :env => $env)
-    $b.run(:cmd => "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure  --host=k1-nodeos-magic -with-platform=k1-nodeos #{$debug_flags} ",
+    $b.run(:cmd => "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure  --host=k1-nodeos-magic -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/cunit/build/ #{$debug_flags} ",
                :env => $env)
     $b.run(:cmd => "make -Cplatform V=1", :env => $env)
     $b.run(:cmd => "make -Ctest", :env => $env)
