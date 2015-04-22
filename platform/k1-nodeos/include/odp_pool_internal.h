@@ -54,8 +54,10 @@ typedef struct _odp_buffer_pool_init_t {
 /* Local cache for buffer alloc/free acceleration */
 typedef struct local_cache_t {
 	odp_buffer_hdr_t *buf_freelist;  /* The local cache */
+#ifdef POOL_STATS
 	uint64_t bufallocs;              /* Local buffer alloc count */
 	uint64_t buffrees;               /* Local buffer free count */
+#endif
 } local_cache_t;
 
 /* Use ticketlock instead of spinlock */
@@ -120,6 +122,7 @@ struct pool_entry_s {
 	odp_buffer_hdr_t       *buf_freelist;
 	void                   *blk_freelist;
 	odp_atomic_u32_t        bufcount;
+#ifdef POOL_STATS
 	odp_atomic_u32_t        blkcount;
 	odp_atomic_u64_t        bufallocs;
 	odp_atomic_u64_t        buffrees;
@@ -129,6 +132,7 @@ struct pool_entry_s {
 	odp_atomic_u64_t        blkempty;
 	odp_atomic_u64_t        high_wm_count;
 	odp_atomic_u64_t        low_wm_count;
+#endif
 	uint32_t                buf_num;
 	uint32_t                seg_size;
 	uint32_t                blk_size;
@@ -163,12 +167,16 @@ static inline void *get_blk(struct pool_entry_s *pool)
 
 	if (odp_unlikely(myhead == NULL)) {
 		POOL_UNLOCK(&pool->blk_lock);
+#ifdef POOL_STATS
 		odp_atomic_inc_u64(&pool->blkempty);
+#endif
 	} else {
 		INVALIDATE(myhead);
 		STORE_PTR(pool->blk_freelist, myhead->next);
 		POOL_UNLOCK(&pool->blk_lock);
+#ifdef POOL_STATS
 		odp_atomic_dec_u32(&pool->blkcount);
+#endif
 	}
 
 	return myhead;
@@ -183,8 +191,10 @@ static inline void ret_blk(struct pool_entry_s *pool, void *block)
 
 	POOL_UNLOCK(&pool->blk_lock);
 
+#ifdef POOL_STATS
 	odp_atomic_inc_u32(&pool->blkcount);
 	odp_atomic_inc_u64(&pool->blkfrees);
+#endif
 }
 
 static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
@@ -195,7 +205,9 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 
 	if (odp_unlikely(myhead == NULL)) {
 		POOL_UNLOCK(&pool->buf_lock);
+#ifdef POOL_STATS
 		odp_atomic_inc_u64(&pool->bufempty);
+#endif
 	} else {
 		INVALIDATE(myhead);
 		STORE_PTR(pool->buf_freelist, myhead->next);
@@ -206,10 +218,14 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 		/* Check for low watermark condition */
 		if (bufcount == pool->low_wm && !LOAD_32(pool->low_wm_assert)) {
 			STORE_32(pool->low_wm_assert, 1);
+#ifdef POOL_STATS
 			odp_atomic_inc_u64(&pool->low_wm_count);
+#endif
 		}
 
+#ifdef POOL_STATS
 		odp_atomic_inc_u64(&pool->bufallocs);
+#endif
 		myhead->allocator = odp_thread_id();
 	}
 
@@ -240,10 +256,14 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 	/* Check if low watermark condition should be deasserted */
 	if (bufcount == pool->high_wm && LOAD_32(pool->low_wm_assert)) {
 		STORE_32(pool->low_wm_assert, 0);
+#ifdef POOL_STATS
 		odp_atomic_inc_u64(&pool->high_wm_count);
+#endif
 	}
 
+#ifdef POOL_STATS
 	odp_atomic_inc_u64(&pool->buffrees);
+#endif
 }
 
 static inline void *get_local_buf(local_cache_t *buf_cache,
@@ -262,7 +282,9 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 				void *blk = get_blk(pool);
 				if (odp_unlikely(blk == NULL)) {
 					ret_buf(pool, buf);
+#ifdef POOL_STATS
 					buf_cache->buffrees--;
+#endif
 					return NULL;
 				}
 				buf->addr[buf->segcount++] = blk;
@@ -272,7 +294,9 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 			buf->size = buf->segcount * pool->seg_size;
 		}
 
+#ifdef POOL_STATS
 		buf_cache->bufallocs++;
+#endif
 		buf->allocator = odp_thread_id();  /* Mark buffer allocated */
 	}
 
@@ -286,7 +310,9 @@ static inline void ret_local_buf(local_cache_t *buf_cache,
 	buf->next = buf_cache->buf_freelist;
 	buf_cache->buf_freelist = buf;
 
+#ifdef POOL_STATS
 	buf_cache->buffrees++;
+#endif
 }
 
 static inline void flush_cache(local_cache_t *buf_cache,
@@ -302,12 +328,15 @@ static inline void flush_cache(local_cache_t *buf_cache,
 		flush_count++;
 	}
 
+#ifdef POOL_STATS
 	odp_atomic_add_u64(&pool->bufallocs, buf_cache->bufallocs);
 	odp_atomic_add_u64(&pool->buffrees, buf_cache->buffrees - flush_count);
 
-	buf_cache->buf_freelist = NULL;
 	buf_cache->bufallocs = 0;
 	buf_cache->buffrees = 0;
+#endif
+
+	buf_cache->buf_freelist = NULL;
 }
 
 static inline odp_pool_t pool_index_to_handle(uint32_t pool_id)
