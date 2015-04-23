@@ -61,6 +61,7 @@ AS_CASE([$host],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
+AM_CONDITIONAL(TARGET_IS_K1_CLUSTER, [test "x${host}" = "xk1-nodeos-magic"])
 
 ##########################################################################
 # Set correct platform library version
