@@ -124,8 +124,9 @@ void odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
 		thread_tbl[i].start_args->start_routine = start_routine;
 		thread_tbl[i].start_args->arg           = arg;
 
-		pthread_create(&thread_tbl[i].thread, &thread_tbl[i].attr,
-			       odp_run_start_routine, thread_tbl[i].start_args);
+		if(pthread_create(&thread_tbl[i].thread, &thread_tbl[i].attr,
+				  odp_run_start_routine, thread_tbl[i].start_args))
+			ODP_ABORT("Thread failed");
 
 		cpu = odp_cpumask_next(&mask, cpu);
 	}
