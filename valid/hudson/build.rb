@@ -38,11 +38,11 @@ $debug_flags = options["debug"] == true ? "--enable-debug" : ""
 $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd odp_path
-    
+
     $b.run(:cmd => "./syscall/run.sh", :env => $env)
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $b.run(:cmd => "./bootstrap", :env => $env)
-    $b.run(:cmd => "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure  --host=k1-nodeos-magic -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/cunit/build/ #{$debug_flags} ",
+    $b.run(:cmd => "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure  --host=k1-nodeos-magic -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/cunit/build/ --enable-test-vald --enable-test-perf #{$debug_flags} ",
                :env => $env)
     $b.run(:cmd => "make -Cplatform V=1", :env => $env)
     $b.run(:cmd => "make -Ctest", :env => $env)
@@ -53,7 +53,7 @@ end
 $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd odp_path
-    
+
     $b.run(:cmd => " k1-cluster --mboard=large_memory --functional --user-syscall=syscall/build_x86_64/libuser_syscall.so -- test/performance/odp_atomic -t 1 -n 15 ", :env => $env)
 end
 
