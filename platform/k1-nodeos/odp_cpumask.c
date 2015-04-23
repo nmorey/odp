@@ -98,7 +98,7 @@ int32_t odp_cpumask_to_str(const odp_cpumask_t *mask, char *str, int32_t len)
 	value = 0;
 	do {
 		/* Set bit to go into the current nibble */
-		if (cpu & (1 << cpu))
+		if (mask->set & (1 << cpu))
 			value |= 1 << (cpu % 4);
 
 		/* If we are on a nibble boundary flush value to string */
