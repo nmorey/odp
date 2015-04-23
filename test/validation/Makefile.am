@@ -5,6 +5,10 @@ AM_LDFLAGS += -static
 
 TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR=${builddir}
 
+if TARGET_IS_K1_CLUSTER
+LOG_COMPILER :=	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libuser_syscall.so --
+endif
+
 EXECUTABLES = odp_buffer \
 	      odp_classification \
 	      odp_cpumask \
