@@ -40,7 +40,7 @@ static int sysconf_cpu_count(void)
 static int huge_page_size(void)
 {
 #ifdef __K1__
-	return 0;
+	return 4096;
 #else
 	DIR *dir;
 	struct dirent *dirent;
