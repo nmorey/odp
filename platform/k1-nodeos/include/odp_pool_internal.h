@@ -75,12 +75,6 @@ typedef struct local_cache_t {
 #define POOL_LOCK_INIT(a) odp_spinlock_init(a)
 #endif
 
-#define LOAD_32(p) ((void*)__builtin_k1_lwu((void*)(&p)))
-#define STORE_32(p, val) __builtin_k1_swu((void*)&(p), (uint32_t)(val))
-
-#define LOAD_PTR(p) LOAD_32(p)
-#define STORE_PTR(p, val) STORE_32((p), (val))
-
 struct pool_entry_s {
 #ifdef POOL_USE_TICKETLOCK
 	odp_ticketlock_t        lock ODP_ALIGNED_CACHE;

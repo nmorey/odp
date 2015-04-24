@@ -67,6 +67,14 @@ struct odp_atomic_u32_s {
 			__k1_dcache_invalidate_line((__k1_uintptr_t)(((unsigned char*)p) + ___idx));			\
 		}} while(0)
 
+#define LOAD_32(p) ((uint32_t)__builtin_k1_lwu((void*)(&p)))
+#define STORE_32(p, val) __builtin_k1_swu((void*)&(p), (uint32_t)(val))
+
+#define LOAD_64(p) ((uint64_t)__builtin_k1_ldu((void*)(&p)))
+#define STORE_64(p, val) __builtin_k1_sdu((void*)&(p), (uint64_t)(val))
+
+#define LOAD_PTR(p) ((void*)(unsigned long)(LOAD_32(p)))
+#define STORE_PTR(p, val) STORE_32((p), (unsigned long)(val))
 /** @addtogroup odp_synchronizers
  *  @{
  */
