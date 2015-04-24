@@ -48,19 +48,24 @@ struct odp_atomic_u32_s {
  * @param expr Expression used update the variable.
  * @return The old value of the variable.
  */
-#define ATOMIC_OP(atom, expr)													\
-	({																			\
-	uint64_t old_val;															\
-	/* Loop while lock is already taken, stop when lock becomes clear */		\
-	while (!__k1_atomic_test_and_clear(&atom->lock))							\
-		__k1_cpu_backoff(10);													\
-	__k1_dcache_invalidate_line((__k1_uintptr_t)&atom->v);						\
-	old_val = (atom)->v;														\
-	(expr); /* Perform whatever update is desired */							\
-	__k1_wmb();																	\
-	__builtin_k1_swu(&(atom)->lock, 0x1ULL);									\
-	old_val; /* Return old value */												\
-})
+#define ATOMIC_OP(atom, expr)												\
+	({														\
+		uint64_t old_val;											\
+		/* Loop while lock is already taken, stop when lock becomes clear */					\
+		while (!__k1_atomic_test_and_clear(&atom->lock))							\
+			__k1_cpu_backoff(10);										\
+		INVALIDATE(&atom->v);											\
+		old_val = (atom)->v;											\
+		(expr); /* Perform whatever update is desired */							\
+		__k1_wmb();												\
+		__builtin_k1_swu(&(atom)->lock, 0x1ULL);								\
+		old_val; /* Return old value */										\
+	})
+
+#define INVALIDATE(p) do { unsigned ___idx; for(___idx = 0; ___idx < sizeof(*p) + _K1_DCACHE_LINE_SIZE - 1;		\
+					      ___idx += _K1_DCACHE_LINE_SIZE){						\
+			__k1_dcache_invalidate_line((__k1_uintptr_t)(((unsigned char*)p) + ___idx));			\
+		}} while(0)
 
 /** @addtogroup odp_synchronizers
  *  @{

@@ -75,10 +75,6 @@ typedef struct local_cache_t {
 #define POOL_LOCK_INIT(a) odp_spinlock_init(a)
 #endif
 
-#define INVALIDATE(p) do { size_t ___idx; for(___idx = 0; ___idx < sizeof(*p) + _K1_DCACHE_LINE_SIZE - 1;				\
-											  ___idx += _K1_DCACHE_LINE_SIZE){											\
-		__k1_dcache_invalidate_line((__k1_uintptr_t)(((unsigned char*)p) + ___idx));									\
-		}} while(0)
 #define LOAD_32(p) ((void*)__builtin_k1_lwu((void*)(&p)))
 #define STORE_32(p, val) __builtin_k1_swu((void*)&(p), (uint32_t)(val))
 
