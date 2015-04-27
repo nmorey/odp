@@ -462,6 +462,7 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	}
 
 	UNLOCK(queue);
+	INVALIDATE(buf_hdr);
 
 	return buf_hdr;
 }
@@ -492,6 +493,7 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	}
 
 	for (i = 0; i < num && hdr; i++) {
+		INVALIDATE(hdr);
 		buf_hdr[i]       = hdr;
 		hdr              = hdr->next;
 		buf_hdr[i]->next = NULL;
