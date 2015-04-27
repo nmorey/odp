@@ -62,10 +62,16 @@ struct odp_atomic_u32_s {
 		old_val; /* Return old value */										\
 	})
 
-#define INVALIDATE(p) do { unsigned ___idx; for(___idx = 0; ___idx < sizeof(*p) + _K1_DCACHE_LINE_SIZE - 1;		\
-					      ___idx += _K1_DCACHE_LINE_SIZE){						\
-			__k1_dcache_invalidate_line((__k1_uintptr_t)(((unsigned char*)p) + ___idx));			\
-		}} while(0)
+
+#define INVALIDATE_AREA(p, s) do {									\
+		const char *__ptr;									\
+		for (__ptr = (char*)(p); __ptr < ((char*)(p)) + (s); __ptr += _K1_DCACHE_LINE_SIZE) {	\
+			__k1_dcache_invalidate_line((__k1_uintptr_t) __ptr);				\
+		}											\
+		__k1_dcache_invalidate_line((__k1_uintptr_t) __ptr);					\
+	}while(0)
+
+#define INVALIDATE(p) INVALIDATE_AREA((p), sizeof(*p))
 
 #define LOAD_32(p) ((uint32_t)__builtin_k1_lwu((void*)(&p)))
 #define STORE_32(p, val) __builtin_k1_swu((void*)&(p), (uint32_t)(val))
