@@ -206,8 +206,8 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 			odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
 
 		/* Check for low watermark condition */
-		if (bufcount == pool->low_wm && !LOAD_32(pool->low_wm_assert)) {
-			STORE_32(pool->low_wm_assert, 1);
+		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 1);
 #ifdef POOL_STATS
 			odp_atomic_inc_u64(&pool->low_wm_count);
 #endif
@@ -244,8 +244,8 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 	uint64_t bufcount = odp_atomic_fetch_add_u32(&pool->bufcount, 1) + 1;
 
 	/* Check if low watermark condition should be deasserted */
-	if (bufcount == pool->high_wm && LOAD_32(pool->low_wm_assert)) {
-		STORE_32(pool->low_wm_assert, 0);
+	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
+		STORE_U32(pool->low_wm_assert, 0);
 #ifdef POOL_STATS
 		odp_atomic_inc_u64(&pool->high_wm_count);
 #endif

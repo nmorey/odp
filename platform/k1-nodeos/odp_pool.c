@@ -579,7 +579,7 @@ void odp_buffer_free(odp_buffer_t buf)
 	odp_buffer_hdr_t *buf_hdr = odp_buf_to_hdr(buf);
 	pool_entry_t *pool = odp_buf_to_pool(buf_hdr);
 
-	if (odp_unlikely(LOAD_32(pool->s.low_wm_assert)))
+	if (odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
 		ret_buf(&pool->s, buf_hdr);
 	else
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
