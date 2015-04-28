@@ -40,6 +40,7 @@ $debug_flags = options["debug"] == true ? "--enable-debug" : ""
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
+    $b.run(:cmd => "rm -Rf build-k1-nodeos build-k1-nodeos-magic", :env => $env)
     $b.run(:cmd => "mkdir -p build-k1-nodeos build-k1-nodeos-magic", :env => $env)
     $b.run(:cmd => "cd build-k1-nodeos; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ../configure  --host=k1-nodeos -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/../cunit/build/ --enable-test-vald --enable-test-perf #{$debug_flags} ",
            :env => $env)
