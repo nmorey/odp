@@ -23,11 +23,12 @@ $env["LD_LIBRARY_PATH"] = "#{k1tools}/lib:#{k1tools}/lib64:#{ENV["LD_LIBRARY_PAT
 repo = Git.new(odp_clone,workspace)
 
 clean = Target.new("clean", repo, [])
-conf = ParallelTarget.new("configure", repo, [])
+prep = ParallelTarget.new("prepare", repo, [])
+conf = ParallelTarget.new("configure", repo, [prep])
 build = ParallelTarget.new("build", repo, [conf])
 valid = ParallelTarget.new("valid", repo, [build])
 
-$b = Builder.new("odp", options, [clean, conf, build, valid])
+$b = Builder.new("odp", options, [clean, prep, conf, build, valid])
 
 $b.logsession = "odp"
 
@@ -41,12 +42,16 @@ $b.target("configure") do
     $b.run(:cmd => "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure  --host=k1-nodeos-magic -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/cunit/build/ --enable-test-vald --enable-test-perf #{$debug_flags} ",
                :env => $env)
 end
+
+$b.target("prepare") do
+    $b.run(:cmd => "./syscall/run.sh", :env => $env)
+    $b.run(:cmd => "./cunit/bootstrap", :env => $env)
+end
+
 $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd odp_path
 
-    $b.run(:cmd => "./syscall/run.sh", :env => $env)
-    $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $b.run(:cmd => "make -Cplatform V=1", :env => $env)
     $b.run(:cmd => "make -Ctest", :env => $env)
     $b.run(:cmd => "make -Ctest/validation", :env => $env)
