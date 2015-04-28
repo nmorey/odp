@@ -55,9 +55,9 @@ AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
   [k1-nodeos], [ARCH=nodeos
-  				AM_CFLAGS="$AM_CFLAGS"],
+  				AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"],
   [k1-nodeos-magic], [ARCH=nodeos
-  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
+  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual"],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
@@ -269,7 +269,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 ##########################################################################
 ODP_CFLAGS="$ODP_CFLAGS -W -Wall -Wstrict-prototypes -Wmissing-prototypes"
 ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-arith"
-ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wcast-qual -Wformat-nonliteral"
+ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
 ODP_CFLAGS="$ODP_CFLAGS -std=c99"
 
