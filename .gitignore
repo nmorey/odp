@@ -37,3 +37,5 @@ core
 CUnit-Memory-Dump.xml
 syscall/build_x86_64
 .metabuild
+build-k1-nodeos-magic/
+build-k1-nodeos/
