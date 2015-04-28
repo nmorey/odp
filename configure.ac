@@ -240,10 +240,10 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 ##########################################################################
 # Check for OpenSSL availability
 ##########################################################################
-AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-             [AC_MSG_FAILURE([OpenSSL libraries required])])
-AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
-             [AC_MSG_ERROR([OpenSSL headers required])])
+#AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
+#             [AC_MSG_FAILURE([OpenSSL libraries required])])
+#AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
+#             [AC_MSG_ERROR([OpenSSL headers required])])
 
 ##########################################################################
 # Restore old saved variables

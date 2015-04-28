@@ -45,8 +45,6 @@ dist_odp_classification_SOURCES = classification/odp_classification_tests.c \
 				classification/odp_classification_basic.c \
 				odp_classification.c $(ODP_CU_COMMON)
 odp_crypto_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/crypto
-dist_odp_crypto_SOURCES = crypto/odp_crypto_test_inp.c \
-			  odp_crypto.c $(ODP_CU_COMMON)
 dist_odp_init_SOURCES	= odp_init.c
 dist_odp_init_abort_SOURCES = odp_init_abort.c
 dist_odp_init_log_SOURCES = odp_init_log.c
