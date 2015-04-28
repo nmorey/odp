@@ -12,6 +12,3 @@ if [ $? -ne 0 ]; then
 	echo "Automake/Autoconf returned with error."
 	exit 1
 fi
-
-CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ./configure --srcdir=`pwd` --prefix=$(pwd)/build/ --enable-debug --enable-automated --enable-basic --enable-console --enable-examples --enable-test --host=k1-nodeos
-make -j4 install

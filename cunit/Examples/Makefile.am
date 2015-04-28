@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
-EXAMPLE_DIRS = . 
+AM_CFLAGS =  -I${srcdir}
+EXAMPLE_DIRS = .
 
 if ENABLE_BASIC
 BASIC_EXAMPLE_DIRS = BasicTest

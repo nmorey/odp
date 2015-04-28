@@ -51,18 +51,34 @@ AX_VALGRIND_CHECK
 ##########################################################################
 # Which archetecture optimizations will we use
 ##########################################################################
+k1_core=k1a
+k1_cluster=no
+k1_jtag=no
+
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
-  [k1-nodeos], [ARCH=nodeos
-  				AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"],
-  [k1-nodeos-magic], [ARCH=nodeos
-  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual"],
+  [k1a-kalray-nodeos], [ARCH=k1a-nodeos
+  					    k1_jtag=yes
+						k1_core=k1a
+  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"], #  -mcore=k1a
+  [k1b-kalray-nodeos], [ARCH=k1b-nodeos
+  					    k1_jtag=yes
+						k1_core=k1b
+ 					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -mcore=k1b"],
+  [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
+    					     k1_cluster=yes
+							 k1_core=k1a
+  				 			 AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual"], #  -mcore=k1a
+  [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
+    					     k1_cluster=yes
+							 k1_core=k1b
+  				 			 AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual -mcore=k1b"],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
-AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${host}" = "xk1-nodeos-magic"])
-AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${host}" = "xk1-nodeos-nodeos"])
+AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
+AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
 
 ##########################################################################
 # Set correct platform library version

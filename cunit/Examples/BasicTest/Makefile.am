@@ -10,7 +10,8 @@ example_PROGRAMS = BasicTest
 BasicTest_SOURCES = BasicTest.c
 BasicTest_LDADD = -lcunit -lcunitexamples
 BasicTest_LDFLAGS = -L.. -lm
-INCLUDES = -I..
+AM_CFLAGS =  -I${srcdir}/..
+
 
 if ENABLE_CURSES
 BasicTest_LDADD += -l$(CURSES_LIB)

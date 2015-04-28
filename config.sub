@@ -2,7 +2,7 @@
 # Configuration validation subroutine script.
 #   Copyright 1992-2014 Free Software Foundation, Inc.
 
-timestamp='2015-04-13'
+timestamp='2015-04-28'
 
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -160,8 +160,7 @@ case $os in
 		os=
 		basic_machine=$1
 		;;
-	-nodeos)
-		basic_machine=$1
+	-nodeos|-nodeosmagic)
 		;;
 	-scout)
 		;;
@@ -268,7 +267,7 @@ case $basic_machine in
 	| hexagon \
 	| i370 | i860 | i960 | ia64 \
 	| ip2k | iq2000 \
-	| k1 | k1om \
+	| k1om \
 	| le32 | le64 \
 	| lm32 \
 	| m32c | m32r | m32rle | m68000 | m68k | m88k \
@@ -360,6 +359,14 @@ case $basic_machine in
 	i*86 | x86_64)
 	  basic_machine=$basic_machine-pc
 	  ;;
+	k1|k1-kalray)
+	  basic_machine=k1a-kalray
+	  ;;
+	k1a|k1b)
+	  basic_machine=$basic_machine-kalray
+	  ;;
+	k1*-kalray)
+	  ;;
 	# Object if more than one company name word.
 	*-*-*)
 		echo Invalid configuration \`$1\': machine \`$basic_machine\' not recognized 1>&2
@@ -386,7 +393,7 @@ case $basic_machine in
 	| hexagon-* \
 	| i*86-* | i860-* | i960-* | ia64-* \
 	| ip2k-* | iq2000-* \
-	| k1-* | k1om-* \
+	| k1om-* \
 	| le32-* | le64-* \
 	| lm32-* \
 	| m32c-* | m32r-* | m32rle-* \
@@ -775,6 +782,12 @@ case $basic_machine in
 	isi68 | isi)
 		basic_machine=m68k-isi
 		os=-sysv
+		;;
+	k1 | k1a)
+		basic_machine=k1-k1a
+		;;
+	k1b)
+		basic_machine=k1-k1b
 		;;
 	m68knommu)
 		basic_machine=m68k-unknown
@@ -1367,7 +1380,7 @@ case $os in
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
 	      | -sym* | -kopensolaris* | -plan9* \
 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
-	      | -aos* | -aros* | -nodeos \
+	      | -aos* | -aros* | -nodeos | -nodeosmagic \
 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
