@@ -13,41 +13,14 @@
 extern "C" {
 #endif
 
+#include <HAL/hal/hal.h>
 
 /**
  * Spin loop for ODP internal use
  */
 static inline void odp_spin(void)
 {
-#if defined __x86_64__ || defined __i386__
-
-#ifdef __SSE2__
-	__asm__ __volatile__ ("pause");
-#else
-	__asm__ __volatile__ ("rep; nop");
-#endif
-
-#elif defined __arm__
-
-#if __ARM_ARCH == 7
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-#endif
-
-#elif defined __OCTEON__
-
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-	__asm__ __volatile__ ("nop");
-
-#endif
+	__k1_cpu_backoff(10);
 }
 
 

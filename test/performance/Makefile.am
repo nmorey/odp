@@ -1,12 +1,14 @@
 include $(top_srcdir)/test/Makefile.inc
 
-TESTS_ENVIRONMENT = TEST_DIR=${builddir}
+TESTS_ENVIRONMENT = TEST_DIR=${builddir} ODP_PLATFORM=${with_platform}
 
 EXECUTABLES = odp_atomic
 
-COMPILE_ONLY = odp_scheduling
+COMPILE_ONLY = odp_l2fwd \
+	       odp_scheduling
 
-TESTSCRIPTS = odp_scheduling_run
+TESTSCRIPTS = odp_l2fwd_run \
+	      odp_scheduling_run
 
 if test_perf
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)

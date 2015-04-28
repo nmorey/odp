@@ -55,12 +55,14 @@ AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
   [k1-nodeos], [ARCH=nodeos
-  				AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
+  				AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"],
   [k1-nodeos-magic], [ARCH=nodeos
-  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory"],
+  				 	  AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual"],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
+AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${host}" = "xk1-nodeos-magic"])
+AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${host}" = "xk1-nodeos-nodeos"])
 
 ##########################################################################
 # Set correct platform library version
@@ -77,10 +79,20 @@ AC_ARG_WITH([platform],
         [select platform to be used, default linux-generic])],
     [],
     [with_platform=linux-generic
-     m4_include([./platform/linux-generic/m4/configure.m4])
     ])
 
 AC_SUBST([with_platform])
+
+if test "${with_platform}" == "linux-generic";
+then
+    m4_include([./platform/linux-generic/m4/configure.m4])
+elif test "${with_platform}" == "k1-nodeos";
+then
+    m4_include([./platform/k1-nodeos/m4/configure.m4])
+else
+    echo "UNSUPPORTED PLATFORM: ${with_platform}"
+    exit 1
+fi
 
 AC_ARG_WITH([sdk-install-path],
 AC_HELP_STRING([--with-sdk-install-path=DIR path to external libs and headers],
@@ -178,9 +190,11 @@ AC_ARG_ENABLE([debug],
     [  --enable-debug          include additional code],
     [if ! test "x$enableval" = "xyes"; then
         ODP_DEBUG=0
+	else
+		CFLAGS="-O0 -g3"
     fi])
 ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
-
+AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
 ##########################################################################
 # Check for pthreads availability
 ##########################################################################
@@ -206,14 +220,14 @@ AM_CONDITIONAL([HAVE_DOXYGEN], [test "x${DOXYGEN}" = "xdoxygen"])
 ##########################################################################
 # Set optional OpenSSL path
 ##########################################################################
-AC_ARG_WITH([openssl-path],
-AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
-               [(or in the default path if not specified).]),
-    [OPENSSL_PATH=$withval
-    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
-    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
-    ],[AC_MSG_RESULT([no])])
-
+#AC_ARG_WITH([openssl-path],
+#AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
+#               [(or in the default path if not specified).]),
+#    [OPENSSL_PATH=$withval
+#    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
+#    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
+#    ],[AC_MSG_RESULT([no])])
+#
 ##########################################################################
 # Save and set temporary compilation flags
 ##########################################################################
@@ -244,7 +258,7 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 #             [AC_MSG_FAILURE([OpenSSL libraries required])])
 #AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
 #             [AC_MSG_ERROR([OpenSSL headers required])])
-
+#
 ##########################################################################
 # Restore old saved variables
 ##########################################################################
@@ -256,7 +270,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 ##########################################################################
 ODP_CFLAGS="$ODP_CFLAGS -W -Wall -Wstrict-prototypes -Wmissing-prototypes"
 ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-arith"
-ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wcast-qual -Wformat-nonliteral"
+ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
 ODP_CFLAGS="$ODP_CFLAGS -std=c99"
 
@@ -271,7 +285,6 @@ AC_CONFIG_FILES([Makefile
 		 example/Makefile
 		 example/generator/Makefile
 		 example/ipsec/Makefile
-		 example/l2fwd/Makefile
 		 example/packet/Makefile
 		 example/timer/Makefile
 		 pkgconfig/libodp.pc
@@ -306,8 +319,9 @@ AC_MSG_RESULT([
 
 	Library version:	${ODP_LIBSO_VERSION}
 
-	arch			${ARCH}
-	with_platform:		${with_platform}
+	host:			${host}
+	arch:			${ARCH}
+	with_platform:	${with_platform}
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
 	libdir:			${libdir}

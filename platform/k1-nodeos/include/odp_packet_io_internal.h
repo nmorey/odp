@@ -40,11 +40,21 @@ typedef enum {
 } odp_pktio_type_t;
 
 typedef struct {
-	int id;
+	char name[MAX_PKTIO_NAMESIZE];		/**< True name of pktio */
+	int fd;
 	odp_pool_t pool; /**< pool to alloc packets from */
 	size_t max_frame_len; /**< max frame len = buf_size - sizeof(pkt_hdr) */
 	size_t buf_size; /**< size of buffer payload in 'pool' */
 } pkt_magic_t;
+
+typedef struct {
+	char name[MAX_PKTIO_NAMESIZE];		/**< True name of pktio */
+	int fd;
+	odp_pool_t pool; /**< pool to alloc packets from */
+	size_t max_frame_len; /**< max frame len = buf_size - sizeof(pkt_hdr) */
+	size_t buf_size; /**< size of buffer payload in 'pool' */
+	odp_queue_t loopq;		/**< loopback queue for "loop" device */
+} pkt_loopback_t;
 
 struct pktio_entry {
 	odp_spinlock_t lock;		/**< entry spinlock */
@@ -53,7 +63,6 @@ struct pktio_entry {
 	odp_pktio_t handle;		/**< pktio handle */
 	odp_queue_t inq_default;	/**< default input queue, if set */
 	odp_queue_t outq_default;	/**< default out queue */
-	odp_queue_t loopq;		/**< loopback queue for "loop" device */
 	odp_pktio_type_t type;		/**< pktio type */
 	classifier_t cls;		/**< classifier linked with this pktio*/
 	char name[MAX_PKTIO_NAMESIZE];		/**< name of pktio provided to
@@ -62,6 +71,7 @@ struct pktio_entry {
 
 	union {
 		pkt_magic_t magic;
+		pkt_loopback_t loop;
 	};
 };
 
@@ -99,7 +109,7 @@ static inline pktio_entry_t *get_pktio_entry(odp_pktio_t pktio)
 int pktin_poll(pktio_entry_t *entry);
 
 int magic_global_init(void);
-int magic_init(int if_id, pktio_entry_t * pktio_entry, odp_pool_t pool);
+int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool);
 void magic_get_mac(const pkt_magic_t *const pkt_magic, void * mac_addr);
 int magic_recv(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], int len);
 int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned len);

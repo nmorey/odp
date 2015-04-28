@@ -41,132 +41,93 @@
 #include <arpa/inet.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <linux/if_packet.h>
 #include "common.h"
 
-#define MAX_IFS     64
+#define MAX_IFS     1024
 #define PKT_SIZE	1600
 #define PORTNAME	"odp%d"
 
 struct iface {
-	int fd;
 	char name[IFNAMSIZ];
-	char mac[6];
+	unsigned char mac[6];
 };
 
 
 /* Tun structure */
 static struct iface ports[MAX_IFS];
-static struct pollfd pollfds[MAX_IFS];
 
-static int tun_alloc(const char *fmt, char *name)
-{
-	int fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK);
-	if (fd < 0)	{
-		perror("open(/dev/net/tun) failed");
-		return -1;
-	}
-
-	struct ifreq ifr;
-	memset(&ifr, 0, sizeof(ifr));
-	/* Flags: IFF_TUN   - TUN device (no Ethernet headers)
-	 *        IFF_TAP   - TAP device
-	 *
-	 *        IFF_NO_PI - Do not provide packet information
-	 */
-	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-	if (*fmt) strncpy(ifr.ifr_name, fmt, IFNAMSIZ);
-
-	int err = ioctl(fd, TUNSETIFF, (void *)&ifr);
-	if (err < 0) {
-		perror("ioctl(TUNSETIFF) failed");
-		close(fd);
-		return err;
-	}
-
-	strcpy(name, ifr.ifr_name);
-	return fd;
-}
-
-static void set_mac(char* if_name, unsigned char mac[6])
-{   	
-	struct ifreq ifr;
-	memset(&ifr, 0, sizeof(ifr));
-	if (*if_name) strncpy(ifr.ifr_name, if_name, IFNAMSIZ);
-	int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-	if(sock == -1){
-	}
-	memcpy(ifr.ifr_hwaddr.sa_data, mac, 6);
-	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-	if( ioctl(sock, SIOCSIFHWADDR, &ifr) )
-	{
-		fprintf(stderr, "socket SIOCSIFHWADDR: %s\n", strerror(errno));
-		close(sock);
-		exit(-1);
-	}
-
-	ifr.ifr_flags |= IFF_UP;
-	ifr.ifr_flags |= IFF_RUNNING;
-	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0)  {
-		fprintf(stderr, "socket SSIOCGIFFLAGS: %s\n", strerror(errno));
-		close(sock);
-		exit(-1);
-	}
-}
-
-errcode_t do_tun_init(debug_agent_interface_t *interface, int *sys_ret){
-	int i;
+errcode_t do_eth_init(debug_agent_interface_t *interface, int *sys_ret){
 	memset(ports, 0, sizeof(ports));
-	memset(pollfds, 0, sizeof(pollfds));
-
-	for (i = 0; i < MAX_IFS; i++) {
-		pollfds[i].fd = -1;
-		pollfds[i].events = POLLIN;
-		pollfds[i].revents = 0;
-	}
 
 	interface->set_return(interface->self, 0, 0);
 	return RET_OK;
 }
 
-errcode_t do_tun_open(debug_agent_interface_t *interface, int *sys_ret){
-	uint32_t i;
-	
-	ARG(0, i);
+errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
+	unsigned int if_idx;
+	uint32_t name, len;
 
-	if(i >= MAX_IFS){
+	struct ifreq ethreq;
+	struct sockaddr_ll sa_ll;
+
+	ARG(0, name);
+	ARG(1, len);
+
+	char ifName[IFNAMSIZ];
+
+	if( interface->read_dcache(interface->self, 0,  name, ifName, len) == RET_FAIL) {
+		fprintf(stderr, "Error, unable to write into simulator memory \n");
+		exit(1);
+	}
+
+	int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if (fd == -1) {
+		goto error;
+	}
+
+	/* get if index */
+	memset(&ethreq, 0, sizeof(struct ifreq));
+	snprintf(ethreq.ifr_name, IFNAMSIZ, "%s", ifName);
+	int err = ioctl(fd, SIOCGIFINDEX, &ethreq);
+	if (err != 0) {
+		goto error;
+	}
+	if_idx = ethreq.ifr_ifindex;
+
+	/* get MAC address */
+	memset(&ethreq, 0, sizeof(ethreq));
+	snprintf(ethreq.ifr_name, IFNAMSIZ, "%s", ifName);
+	err = ioctl(fd, SIOCGIFHWADDR, &ethreq);
+	if (err != 0) {
 		interface->set_return(interface->self, 0, -1);
 		return RET_OK;
 	}
+	memcpy(ports[fd].mac, (unsigned char *)ethreq.ifr_ifru.ifru_hwaddr.sa_data, 6);
 
-	if(pollfds[i].fd != -1){
-		interface->set_return(interface->self, 0, pollfds[i].fd);
-		return RET_OK;
+	/* bind socket to if */
+	memset(&sa_ll, 0, sizeof(sa_ll));
+	sa_ll.sll_family = AF_PACKET;
+	sa_ll.sll_ifindex = if_idx;
+	sa_ll.sll_protocol = htons(ETH_P_ALL);
+	if (bind(fd, (struct sockaddr *)&sa_ll, sizeof(sa_ll)) < 0) {
+		goto error;
 	}
-	
-	pollfds[i].fd = ports[i].fd = tun_alloc(PORTNAME, ports[i].name);
-	if(pollfds[i].fd == -1){
-		interface->set_return(interface->self, 0, -1);
-		return RET_OK;
-	}
-	unsigned char mac[6] = { 0x12, 0x34, 0x56, 0x78, 0x00 + i / 256, 0x00 + i % 256};
-	memcpy(ports[i].mac, mac, sizeof(mac));
-	set_mac(ports[i].name, mac);
-	
-	interface->set_return(interface->self, 0, 0);
+
+	interface->set_return(interface->self, 0, fd);
+	return RET_OK;
+
+ error:
+	interface->set_return(interface->self, 0, -1);
 	return RET_OK;
 }
 
-errcode_t do_get_mac(debug_agent_interface_t *interface, int *sys_ret){
-	uint32_t i, mac_addr;
-	ARG(0, i);
+errcode_t do_eth_get_mac(debug_agent_interface_t *interface, int *sys_ret){
+	uint32_t fd, mac_addr;
+	ARG(0, fd);
 	ARG(1, mac_addr);
 
-	if(i >= MAX_IFS || pollfds[i].fd == -1){
-		interface->set_return(interface->self, 0, -1);
-		return RET_OK;
-	}
-
-	if (interface->write_dcache(interface->self, 0, mac_addr, ports[i].mac, 6) != 0) {
+	if (interface->write_dcache(interface->self, 0, mac_addr, ports[fd].mac, 6) != 0) {
 		fprintf(stderr, "Failed to write to data cache\n");
 		exit(1);
 	}
@@ -174,23 +135,22 @@ errcode_t do_get_mac(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 }
 
-errcode_t do_recv_packet(debug_agent_interface_t *interface, int *sys_ret){
+errcode_t do_eth_recv_packet(debug_agent_interface_t *interface, int *sys_ret){
 
 	uint32_t packet;
-	unsigned int if_id;
+	unsigned int fd;
 
-	ARG(0, if_id);
+	ARG(0, fd);
 	ARG(1, packet);
 
-	if(if_id >= MAX_IFS || pollfds[if_id].fd == -1){
-		interface->set_return(interface->self, 0, -1);
-		return RET_OK;
-	}
-
-	int fd = pollfds[if_id].fd;
 	static char buf[PKT_SIZE];
 
-	ssize_t rz = read(fd, buf, sizeof(buf));
+
+	struct sockaddr_ll sll;
+	socklen_t addrlen = sizeof(sll);
+
+	ssize_t rz = recvfrom(fd, buf, PKT_SIZE, MSG_DONTWAIT,
+						  (struct sockaddr *)&sll, &addrlen);
 	if (rz <= 0) {
 		if(errno == EAGAIN)
 		{
@@ -212,22 +172,16 @@ errcode_t do_recv_packet(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 }
 
-errcode_t do_send_packet(debug_agent_interface_t *interface, int *sys_ret)
+errcode_t do_eth_send_packet(debug_agent_interface_t *interface, int *sys_ret)
 {
 	unsigned char packet[PKT_SIZE];
 	unsigned int packet_size;
 	uint32_t smem_addr;
-	unsigned int if_id;
-	ARG(0, if_id);
+	unsigned int fd;
+
+	ARG(0, fd);
 	ARG(1, smem_addr);
 	ARG(2, packet_size);
-	printf("Wruite packet\n");
-	if(if_id >= MAX_IFS || pollfds[if_id].fd == -1){
-		interface->set_return(interface->self, 0, -1);
-		return RET_OK;
-	}
-
-	int fd = pollfds[if_id].fd;
 
 	if( interface->read_dcache(interface->self, 0,  smem_addr, packet, packet_size) == RET_FAIL) {
 		fprintf(stderr, "Error, unable to write into simulator memory \n");
@@ -235,7 +189,7 @@ errcode_t do_send_packet(debug_agent_interface_t *interface, int *sys_ret)
 	}
 	ssize_t wz;
 	do {
-		wz = write(fd, packet, packet_size);
+		wz = send(fd, packet, packet_size, 0);
 	} while(wz == -1 && errno == EAGAIN);
 	if (wz != packet_size) {
 		perror("write() failed");
@@ -251,11 +205,11 @@ errcode_t do_send_packet(debug_agent_interface_t *interface, int *sys_ret)
  * For each syscall : number, number of args, return arg ? and function to call.
  */
 syscall_info_ syscall_table[] = {
-	{MAGIC_SCALL_INIT, 0, 0, (syscall_helper_fct) do_tun_init},
-	{MAGIC_SCALL_OPEN, 1, 0, (syscall_helper_fct) do_tun_open},
-	{MAGIC_SCALL_GETMAC, 2, 0, (syscall_helper_fct) do_get_mac},
-	{MAGIC_SCALL_RECV, 2, 0, (syscall_helper_fct) do_recv_packet},
-	{MAGIC_SCALL_SEND, 3, 0, (syscall_helper_fct) do_send_packet},
+	{MAGIC_SCALL_ETH_INIT, 0, 0, (syscall_helper_fct) do_eth_init},
+	{MAGIC_SCALL_ETH_OPEN, 2, 0, (syscall_helper_fct) do_eth_open},
+	{MAGIC_SCALL_ETH_GETMAC, 2, 0, (syscall_helper_fct) do_eth_get_mac},
+	{MAGIC_SCALL_ETH_RECV, 2, 0, (syscall_helper_fct) do_eth_recv_packet},
+	{MAGIC_SCALL_ETH_SEND, 3, 0, (syscall_helper_fct) do_eth_send_packet},
 	{0x000, 0, 0, (syscall_helper_fct) NULL} /* End of Table */
 };
 

@@ -13,6 +13,7 @@ void odp_barrier_init(odp_barrier_t *barrier, int count)
 {
 	barrier->count = (uint32_t)count;
 	odp_atomic_init_u32(&barrier->bar, 0);
+	__k1_wmb();
 }
 
 /*

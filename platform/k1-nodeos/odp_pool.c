@@ -88,6 +88,20 @@ int odp_pool_init_global(void)
 		pool->s.pool_hdl = pool_index_to_handle(i);
 		pool->s.pool_id = i;
 		pool_entry_ptr[i] = pool;
+		odp_atomic_init_u32(&pool->s.bufcount, 0);
+#ifdef POOL_STATS
+		odp_atomic_init_u32(&pool->s.blkcount, 0);
+
+		/* Initialize pool statistics counters */
+		odp_atomic_init_u64(&pool->s.bufallocs, 0);
+		odp_atomic_init_u64(&pool->s.buffrees, 0);
+		odp_atomic_init_u64(&pool->s.blkallocs, 0);
+		odp_atomic_init_u64(&pool->s.blkfrees, 0);
+		odp_atomic_init_u64(&pool->s.bufempty, 0);
+		odp_atomic_init_u64(&pool->s.blkempty, 0);
+		odp_atomic_init_u64(&pool->s.high_wm_count, 0);
+		odp_atomic_init_u64(&pool->s.low_wm_count, 0);
+#endif
 	}
 
 	ODP_DBG("\nPool init global\n");
@@ -343,8 +357,9 @@ odp_pool_t odp_pool_create(const char *name,
 
 		/* Initialization will increment these to their target vals */
 		odp_atomic_store_u32(&pool->s.bufcount, 0);
+#ifdef POOL_STATS
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
-
+#endif
 		uint8_t *buf = udata_base_addr - buf_stride;
 		uint8_t *udat = udata_stride == 0 ? NULL :
 			block_base_addr - udata_stride;
@@ -359,7 +374,7 @@ odp_pool_t odp_pool_create(const char *name,
 			tmp->flags.all = 0;
 			tmp->flags.zeroized = zeroized;
 			tmp->size = 0;
-			odp_atomic_store_u32(&tmp->ref_count, 0);
+			odp_atomic_init_u32(&tmp->ref_count, 0);
 			tmp->type = params->type;
 			tmp->pool_hdl = pool->s.pool_hdl;
 			tmp->udata_addr = (void *)udat;
@@ -397,6 +412,7 @@ odp_pool_t odp_pool_create(const char *name,
 				blk -= pool->s.seg_size;
 			} while (blk >= block_base_addr);
 
+#ifdef POOL_STATS
 		/* Initialize pool statistics counters */
 		odp_atomic_store_u64(&pool->s.bufallocs, 0);
 		odp_atomic_store_u64(&pool->s.buffrees, 0);
@@ -406,7 +422,7 @@ odp_pool_t odp_pool_create(const char *name,
 		odp_atomic_store_u64(&pool->s.blkempty, 0);
 		odp_atomic_store_u64(&pool->s.high_wm_count, 0);
 		odp_atomic_store_u64(&pool->s.low_wm_count, 0);
-
+#endif
 		/* Reset other pool globals to initial state */
 		pool->s.low_wm_assert = 0;
 		pool->s.quiesced = 0;
@@ -563,7 +579,7 @@ void odp_buffer_free(odp_buffer_t buf)
 	odp_buffer_hdr_t *buf_hdr = odp_buf_to_hdr(buf);
 	pool_entry_t *pool = odp_buf_to_pool(buf_hdr);
 
-	if (odp_unlikely(pool->s.low_wm_assert))
+	if (odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
 		ret_buf(&pool->s, buf_hdr);
 	else
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
@@ -575,7 +591,8 @@ void _odp_flush_caches(void)
 
 	for (i = 0; i < ODP_CONFIG_POOLS; i++) {
 		pool_entry_t *pool = get_pool_entry(i);
-		flush_cache(&local_cache[i], &pool->s);
+		if (pool->s.pool_shm != ODP_SHM_INVALID)
+			flush_cache(&local_cache[i], &pool->s);
 	}
 }
 
@@ -588,6 +605,7 @@ void odp_pool_print(odp_pool_t pool_hdl)
 	pool    = get_pool_entry(pool_id);
 
 	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.bufcount);
+#ifdef POOL_STATS
 	uint32_t blkcount  = odp_atomic_load_u32(&pool->s.blkcount);
 	uint64_t bufallocs = odp_atomic_load_u64(&pool->s.bufallocs);
 	uint64_t buffrees  = odp_atomic_load_u64(&pool->s.buffrees);
@@ -597,6 +615,17 @@ void odp_pool_print(odp_pool_t pool_hdl)
 	uint64_t blkempty  = odp_atomic_load_u64(&pool->s.blkempty);
 	uint64_t hiwmct    = odp_atomic_load_u64(&pool->s.high_wm_count);
 	uint64_t lowmct    = odp_atomic_load_u64(&pool->s.low_wm_count);
+#else
+	uint32_t blkcount  = 0;
+	uint64_t bufallocs = 0;
+	uint64_t buffrees  = 0;
+	uint64_t blkallocs = 0;
+	uint64_t blkfrees  = 0;
+	uint64_t bufempty  = 0;
+	uint64_t blkempty  = 0;
+	uint64_t hiwmct    = 0;
+	uint64_t lowmct    = 0;
+#endif
 
 	ODP_DBG("Pool info\n");
 	ODP_DBG("---------\n");

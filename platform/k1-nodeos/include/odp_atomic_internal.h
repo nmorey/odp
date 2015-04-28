@@ -20,6 +20,7 @@
 #include <odp/align.h>
 #include <odp/hints.h>
 #include <odp/atomic.h>
+#include <HAL/hal/hal.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +44,7 @@ ODP_ALIGNED(sizeof(void *)); /* Enforce alignement! */
  * @Note this is not the same as a plain boolean type.
  * _odp_atomic_flag_t is guaranteed to be able to operate on atomically.
  */
-typedef char _odp_atomic_flag_t;
+typedef uint64_t _odp_atomic_flag_t;
 
 /**
  * Memory orderings supported by ODP.
@@ -73,7 +74,107 @@ typedef enum {
  * Insert a full memory barrier (fence) in the compiler and instruction
  * sequence.
  */
-#define _ODP_FULL_BARRIER() __atomic_thread_fence(__ATOMIC_SEQ_CST)
+#define _ODP_FULL_BARRIER() __k1_mb()
+
+
+/*****************************************************************************
+ * Operations on flag atomics
+ * _odp_atomic_flag_init - no return value
+ * _odp_atomic_flag_load - return current value
+ * _odp_atomic_flag_tas - return old value
+ * _odp_atomic_flag_clear - no return value
+ *
+ * Flag atomics use Release Consistency memory consistency model, acquire
+ * semantics for TAS and release semantics for clear.
+ *****************************************************************************/
+
+/**
+ * Initialize a flag atomic variable
+ *
+ * @param[out] flag Pointer to a flag atomic variable
+ * @param val The initial value of the variable
+ */
+static inline void _odp_atomic_flag_init(_odp_atomic_flag_t *flag,
+		odp_bool_t val)
+{
+	__builtin_k1_wpurge();
+	__builtin_k1_swu(flag, val);
+	__builtin_k1_fence();
+}
+
+/**
+ * Load atomic flag variable
+ * @Note Operation has relaxed semantics.
+ *
+ * @param flag Pointer to a flag atomic variable
+ * @return The current value of the variable
+ */
+static inline int _odp_atomic_flag_load(_odp_atomic_flag_t *flag)
+{
+	return __builtin_k1_lwu(flag);
+}
+
+/**
+ * Test-and-set of atomic flag variable
+ * @Note Operation has acquire semantics. It pairs with a later
+ * release operation.
+ *
+ * @param[in,out] flag Pointer to a flag atomic variable
+ *
+ * @retval 1 if the flag was already true - lock not taken
+ * @retval 0 if the flag was false and is now set to true - lock taken
+ */
+static inline int _odp_atomic_flag_tas(_odp_atomic_flag_t *flag)
+{
+	return !__k1_atomic_test_and_clear(flag);
+}
+
+/**
+ * Clear atomic flag variable
+ * The flag variable is cleared (set to false).
+ * @Note Operation has release semantics. It pairs with an earlier
+ * acquire operation or a later load operation.
+ *
+ * @param[out] flag Pointer to a flag atomic variable
+ */
+static inline void _odp_atomic_flag_clear(_odp_atomic_flag_t *flag)
+{
+	__builtin_k1_swu(flag, 0x1ULL);
+}
+
+/*****************************************************************************
+ * Operations on 64-bit atomics
+ * _odp_atomic_u64_load_mm - return current value
+ * _odp_atomic_u64_store_mm - no return value
+ * _odp_atomic_u64_xchg_mm - return old value
+ * _odp_atomic_u64_cmp_xchg_strong_mm - return bool
+ * _odp_atomic_u64_fetch_add_mm - return old value
+ * _odp_atomic_u64_add_mm - no return value
+ * _odp_atomic_u64_fetch_sub_mm - return old value
+ * _odp_atomic_u64_sub_mm - no return value
+ *****************************************************************************/
+
+/**
+ * @internal
+ * Helper macro for lock-based atomic operations on 64-bit integers
+ * @param[in,out] atom Pointer to the 64-bit atomic variable
+ * @param expr Expression used update the variable.
+ * @param mm Memory order to use.
+ * @return The old value of the variable.
+ */
+#define ATOMIC_OP_MM(atom, expr, mm) \
+({ \
+	 uint64_t old_val; \
+	 /* Loop while lock is already taken, stop when lock becomes clear */ \
+	 while (_odp_atomic_flag_tas(&(atom)->lock))						  \
+		 (void)mm;														  \
+	 __k1_dcache_invalidate_line((__k1_uintptr_t)&atom->v);				  \
+	 old_val = (atom)->v;												  \
+	 (expr); /* Perform whatever update is desired */					  \
+	 __k1_wmb();														  \
+	_odp_atomic_flag_clear(&(atom)->lock);								  \
+	 old_val; /* Return old value */									  \
+})
 
 /*****************************************************************************
  * Operations on 32-bit atomics
@@ -96,9 +197,9 @@ typedef enum {
  * @return Value of the variable
  */
 static inline uint32_t _odp_atomic_u32_load_mm(const odp_atomic_u32_t *atom,
-		_odp_memmodel_t mmodel)
+		_odp_memmodel_t mmodel ODP_UNUSED)
 {
-	return __atomic_load_n(&atom->v, mmodel);
+	return __builtin_k1_lwu((void*)&atom->v);
 }
 
 /**
@@ -110,9 +211,9 @@ static inline uint32_t _odp_atomic_u32_load_mm(const odp_atomic_u32_t *atom,
  */
 static inline void _odp_atomic_u32_store_mm(odp_atomic_u32_t *atom,
 		uint32_t val,
-		_odp_memmodel_t mmodel)
+		_odp_memmodel_t mmodel ODP_UNUSED)
 {
-	__atomic_store_n(&atom->v, val, mmodel);
+	__builtin_k1_swu(&atom->v, val);
 }
 
 /**
@@ -129,7 +230,12 @@ static inline uint32_t _odp_atomic_u32_xchg_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	return __atomic_exchange_n(&atom->v, val, mmodel);
+	uint32_t orgval, oldval;
+	do {
+		orgval = _odp_atomic_u32_load_mm(atom, mmodel);
+		oldval = __builtin_k1_cws(&atom->v, val, orgval);
+	} while(orgval != oldval);
+	return oldval;
 }
 
 /**
@@ -151,11 +257,19 @@ static inline int _odp_atomic_u32_cmp_xchg_strong_mm(
 		odp_atomic_u32_t *atom,
 		uint32_t *exp,
 		uint32_t val,
-		_odp_memmodel_t success,
-		_odp_memmodel_t failure)
+		_odp_memmodel_t success ODP_UNUSED,
+		_odp_memmodel_t failure ODP_UNUSED)
 {
-	return __atomic_compare_exchange_n(&atom->v, exp, val,
-			false/*strong*/, success, failure);
+	uint32_t orgval, oldval;
+	orgval = __builtin_k1_lwu(exp);
+	oldval = __builtin_k1_cws(&atom->v, val, orgval);
+
+	if(orgval == oldval){
+		return 1;
+	}
+
+	*exp = orgval;
+	return 0;
 }
 
 /**
@@ -171,7 +285,7 @@ static inline uint32_t _odp_atomic_u32_fetch_add_mm(odp_atomic_u32_t *atom,
 		uint32_t val,
 		_odp_memmodel_t mmodel)
 {
-	return __atomic_fetch_add(&atom->v, val, mmodel);
+	return ATOMIC_OP_MM(atom, atom->v += val, mmodel);
 }
 
 /**
@@ -186,7 +300,7 @@ static inline void _odp_atomic_u32_add_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)__atomic_fetch_add(&atom->v, val, mmodel);
+	(void)ATOMIC_OP_MM(atom, atom->v += val, mmodel);
 }
 
 /**
@@ -202,7 +316,7 @@ static inline uint32_t _odp_atomic_u32_fetch_sub_mm(odp_atomic_u32_t *atom,
 		uint32_t val,
 		_odp_memmodel_t mmodel)
 {
-	return __atomic_fetch_sub(&atom->v, val, mmodel);
+	return ATOMIC_OP_MM(atom, atom->v -= val, mmodel);
 }
 
 /**
@@ -217,47 +331,8 @@ static inline void _odp_atomic_u32_sub_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)__atomic_fetch_sub(&atom->v, val, mmodel);
+	(void)ATOMIC_OP_MM(atom, atom->v -= val, mmodel);
 }
-
-/*****************************************************************************
- * Operations on 64-bit atomics
- * _odp_atomic_u64_load_mm - return current value
- * _odp_atomic_u64_store_mm - no return value
- * _odp_atomic_u64_xchg_mm - return old value
- * _odp_atomic_u64_cmp_xchg_strong_mm - return bool
- * _odp_atomic_u64_fetch_add_mm - return old value
- * _odp_atomic_u64_add_mm - no return value
- * _odp_atomic_u64_fetch_sub_mm - return old value
- * _odp_atomic_u64_sub_mm - no return value
- *****************************************************************************/
-
-/* Check if the compiler support lock-less atomic operations on 64-bit types */
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
-/**
- * @internal
- * Helper macro for lock-based atomic operations on 64-bit integers
- * @param[in,out] atom Pointer to the 64-bit atomic variable
- * @param expr Expression used update the variable.
- * @param mm Memory order to use.
- * @return The old value of the variable.
- */
-#define ATOMIC_OP_MM(atom, expr, mm) \
-({ \
-	 uint64_t old_val; \
-	 /* Loop while lock is already taken, stop when lock becomes clear */ \
-	 while (__atomic_test_and_set(&(atom)->lock, \
-		(mm) == _ODP_MEMMODEL_SC ? \
-		__ATOMIC_SEQ_CST : __ATOMIC_ACQUIRE)) \
-		(void)0; \
-	 old_val = (atom)->v; \
-	 (expr); /* Perform whatever update is desired */ \
-	 __atomic_clear(&(atom)->lock, \
-		 (mm) == _ODP_MEMMODEL_SC ? \
-		 __ATOMIC_SEQ_CST : __ATOMIC_RELEASE); \
-	 old_val; /* Return old value */ \
-})
-#endif
 
 /**
  * Atomic load of 64-bit atomic variable
@@ -270,11 +345,7 @@ static inline void _odp_atomic_u32_sub_mm(odp_atomic_u32_t *atom,
 static inline uint64_t _odp_atomic_u64_load_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	return ATOMIC_OP_MM(atom, (void)0, mmodel);
-#else
-	return __atomic_load_n(&atom->v, mmodel);
-#endif
 }
 
 /**
@@ -288,11 +359,7 @@ static inline void _odp_atomic_u64_store_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	(void)ATOMIC_OP_MM(atom, atom->v = val, mmodel);
-#else
-	__atomic_store_n(&atom->v, val, mmodel);
-#endif
 }
 
 /**
@@ -309,11 +376,7 @@ static inline uint64_t _odp_atomic_u64_xchg_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	return ATOMIC_OP_MM(atom, atom->v = val, mmodel);
-#else
-	return __atomic_exchange_n(&atom->v, val, mmodel);
-#endif
 }
 
 /**
@@ -334,16 +397,13 @@ static inline uint64_t _odp_atomic_u64_xchg_mm(odp_atomic_u64_t *atom,
 static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
 		uint64_t *exp,
 		uint64_t val,
-		_odp_memmodel_t success,
-		_odp_memmodel_t failure)
+		_odp_memmodel_t success ODP_UNUSED,
+		_odp_memmodel_t failure ODP_UNUSED)
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	/* Possibly we are a bit pessimistic with the memory models */
 	odp_bool_t ret_succ;
 	/* Loop while lock is already taken, stop when lock becomes clear */
-	while (__atomic_test_and_set(&(atom)->lock,
-		(success) == _ODP_MEMMODEL_SC ?
-		__ATOMIC_SEQ_CST : __ATOMIC_ACQUIRE))
+	while (_odp_atomic_flag_tas(&(atom)->lock))
 		(void)0;
 	if (atom->v == *exp) {
 		atom->v = val;
@@ -352,14 +412,9 @@ static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
 		*exp = atom->v;
 		ret_succ = 0;
 	}
-	__atomic_clear(&(atom)->lock,
-		       (ret_succ ? success : failure) == _ODP_MEMMODEL_SC ?
-		       __ATOMIC_SEQ_CST : __ATOMIC_RELEASE);
+	_odp_atomic_flag_clear(&(atom)->lock);
 	return ret_succ;
-#else
-	return __atomic_compare_exchange_n(&atom->v, exp, val,
-			false/*strong*/, success, failure);
-#endif
+
 }
 
 /**
@@ -375,11 +430,7 @@ static inline uint64_t _odp_atomic_u64_fetch_add_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	return ATOMIC_OP_MM(atom, atom->v += val, mmodel);
-#else
-	return __atomic_fetch_add(&atom->v, val, mmodel);
-#endif
 }
 
 /**
@@ -394,11 +445,7 @@ static inline void _odp_atomic_u64_add_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	(void)ATOMIC_OP_MM(atom, atom->v += val, mmodel);
-#else
-	(void)__atomic_fetch_add(&atom->v, val, mmodel);
-#endif
 }
 
 /**
@@ -414,11 +461,7 @@ static inline uint64_t _odp_atomic_u64_fetch_sub_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	return ATOMIC_OP_MM(atom, atom->v -= val, mmodel);
-#else
-	return __atomic_fetch_sub(&atom->v, val, mmodel);
-#endif
 }
 
 /**
@@ -433,16 +476,8 @@ static inline void _odp_atomic_u64_sub_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
 	(void)ATOMIC_OP_MM(atom, atom->v -= val, mmodel);
-#else
-	(void)__atomic_fetch_sub(&atom->v, val, mmodel);
-#endif
 }
-
-#if !defined __GCC_ATOMIC_LLONG_LOCK_FREE ||  __GCC_ATOMIC_LLONG_LOCK_FREE < 2
-#undef ATOMIC_OP_MM
-#endif
 
 /*****************************************************************************
  * Operations on pointer atomics
@@ -460,7 +495,7 @@ static inline void _odp_atomic_u64_sub_mm(odp_atomic_u64_t *atom,
  */
 static inline void _odp_atomic_ptr_init(_odp_atomic_ptr_t *atom, void *val)
 {
-	__atomic_store_n(&atom->v, val, __ATOMIC_RELAXED);
+	_odp_atomic_u32_store_mm((odp_atomic_u32_t*)atom, (uint32_t)val, __ATOMIC_RELAXED);
 }
 
 /**
@@ -474,7 +509,7 @@ static inline void _odp_atomic_ptr_init(_odp_atomic_ptr_t *atom, void *val)
 static inline void *_odp_atomic_ptr_load(const _odp_atomic_ptr_t *atom,
 		_odp_memmodel_t mmodel)
 {
-	return __atomic_load_n(&atom->v, mmodel);
+	return (void*)_odp_atomic_u32_load_mm((odp_atomic_u32_t*)atom, mmodel);
 }
 
 /**
@@ -488,7 +523,7 @@ static inline void _odp_atomic_ptr_store(_odp_atomic_ptr_t *atom,
 		void *val,
 		_odp_memmodel_t mmodel)
 {
-	__atomic_store_n(&atom->v, val, mmodel);
+	_odp_atomic_u32_store_mm((odp_atomic_u32_t*)atom, (uint32_t)val, mmodel);
 }
 
 /**
@@ -504,7 +539,7 @@ static inline void *_odp_atomic_ptr_xchg(_odp_atomic_ptr_t *atom,
 		void *val,
 		_odp_memmodel_t mmodel)
 {
-	return __atomic_exchange_n(&atom->v, val, mmodel);
+	return (void*)_odp_atomic_u32_xchg_mm((odp_atomic_u32_t*)atom, (uint32_t)val, mmodel);
 }
 
 /**
@@ -529,73 +564,7 @@ static inline int _odp_atomic_ptr_cmp_xchg_strong(
 		_odp_memmodel_t success,
 		_odp_memmodel_t failure)
 {
-	return __atomic_compare_exchange_n(&atom->v, exp, val,
-			false/*strong*/, success, failure);
-}
-
-/*****************************************************************************
- * Operations on flag atomics
- * _odp_atomic_flag_init - no return value
- * _odp_atomic_flag_load - return current value
- * _odp_atomic_flag_tas - return old value
- * _odp_atomic_flag_clear - no return value
- *
- * Flag atomics use Release Consistency memory consistency model, acquire
- * semantics for TAS and release semantics for clear.
- *****************************************************************************/
-
-/**
- * Initialize a flag atomic variable
- *
- * @param[out] flag Pointer to a flag atomic variable
- * @param val The initial value of the variable
- */
-static inline void _odp_atomic_flag_init(_odp_atomic_flag_t *flag,
-		odp_bool_t val)
-{
-	__atomic_clear(flag, __ATOMIC_RELAXED);
-	if (val)
-		__atomic_test_and_set(flag, __ATOMIC_RELAXED);
-}
-
-/**
- * Load atomic flag variable
- * @Note Operation has relaxed semantics.
- *
- * @param flag Pointer to a flag atomic variable
- * @return The current value of the variable
- */
-static inline int _odp_atomic_flag_load(_odp_atomic_flag_t *flag)
-{
-	return __atomic_load_n(flag, __ATOMIC_RELAXED);
-}
-
-/**
- * Test-and-set of atomic flag variable
- * @Note Operation has acquire semantics. It pairs with a later
- * release operation.
- *
- * @param[in,out] flag Pointer to a flag atomic variable
- *
- * @retval 1 if the flag was already true - lock not taken
- * @retval 0 if the flag was false and is now set to true - lock taken
- */
-static inline int _odp_atomic_flag_tas(_odp_atomic_flag_t *flag)
-{
-	return __atomic_test_and_set(flag, __ATOMIC_ACQUIRE);
-}
-
-/**
- * Clear atomic flag variable
- * The flag variable is cleared (set to false).
- * @Note Operation has release semantics. It pairs with an earlier
- * acquire operation or a later load operation.
- *
- * @param[out] flag Pointer to a flag atomic variable
- */
-static inline void _odp_atomic_flag_clear(_odp_atomic_flag_t *flag)
-{
-	__atomic_clear(flag, __ATOMIC_RELEASE);
+	return _odp_atomic_u32_cmp_xchg_strong_mm((odp_atomic_u32_t*)atom, (uint32_t*) exp, (uint32_t)val, success, failure);
 }
 
 /**

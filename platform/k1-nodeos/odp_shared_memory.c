@@ -282,8 +282,7 @@ int odp_shm_info(odp_shm_t shm, odp_shm_info_t *info)
 	info->name      = block->name;
 	info->addr      = block->addr;
 	info->size      = block->size;
-	/* FIXME */
-	info->page_size = 1024;
+	info->page_size = ODP_PAGE_SIZE;
 	info->flags     = block->flags;
 
 	return 0;

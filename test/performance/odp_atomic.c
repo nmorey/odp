@@ -48,7 +48,7 @@ static int odp_test_thread_exit(pthrd_arg *);
  * ops. For now using 5..
  */
 #define ADD_SUB_CNT	5
-#define	CNT 500000
+#define	CNT 5000
 #define	U32_INIT_VAL	(1UL << 10)
 #define	U64_INIT_VAL	(1ULL << 33)
 
@@ -415,6 +415,7 @@ int main(int argc, char *argv[])
 	} else {
 		printf("%s_%d_%d Result:fail\n",
 		       test_name[test_type], test_type, pthrdnum);
+		return -1;
 	}
 	return 0;
 

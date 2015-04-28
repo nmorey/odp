@@ -1,1 +1,1 @@
-SUBDIRS = generator l2fwd packet timer
+SUBDIRS = generator packet timer

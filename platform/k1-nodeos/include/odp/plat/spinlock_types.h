@@ -25,7 +25,7 @@ extern "C" {
  * ODP spinlock
  */
 struct odp_spinlock_s {
-	char lock;  /**< lock flag, should match odp_atomic_flag_t */
+	uint64_t lock;  /**< lock flag, should match odp_atomic_flag_t */
 };
 
 

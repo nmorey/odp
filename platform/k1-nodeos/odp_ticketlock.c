@@ -77,9 +77,7 @@ void odp_ticketlock_unlock(odp_ticketlock_t *ticketlock)
 	_odp_atomic_u32_store_mm(&ticketlock->cur_ticket, cur + 1,
 				 _ODP_MEMMODEL_RLS);
 
-#if defined __OCTEON__
 	odp_sync_stores(); /* SYNCW to flush write buffer */
-#endif
 }
 
 

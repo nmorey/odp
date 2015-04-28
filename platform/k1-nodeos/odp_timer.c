@@ -676,6 +676,8 @@ static void itimer_fini(odp_timer_pool *tp)
 	if (timer_delete(tp->timerid) != 0)
 		ODP_ABORT("timer_delete() returned error %s\n",
 			  strerror(errno));
+	if(_odp_timer_pool_global == tp)
+		_odp_timer_pool_global = NULL;
 }
 
 /******************************************************************************

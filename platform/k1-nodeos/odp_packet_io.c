@@ -59,6 +59,8 @@ int odp_pktio_init_global(void)
 
 		odp_spinlock_init(&pktio_entry->s.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.lock);
+		odp_spinlock_init(&pktio_entry->s.cls.l2_cos_table.lock);
+		odp_spinlock_init(&pktio_entry->s.cls.l3_cos_table.lock);
 
 		pktio_entry_ptr[id - 1] = pktio_entry;
 		/* Create a default output queue for each pktio resource */
@@ -74,7 +76,6 @@ int odp_pktio_init_global(void)
 		queue_entry->s.pktout = _odp_cast_scalar(odp_pktio_t, id);
 	}
 	int ret = magic_global_init();
-	printf("ret=%d\n", ret);
 	if(ret)
 		return -1;
 
@@ -186,7 +187,20 @@ static int free_pktio_entry(odp_pktio_t id)
 	return 0;
 }
 
+static int init_loop(pktio_entry_t *entry, odp_pktio_t id)
+{
+	char loopq_name[ODP_QUEUE_NAME_LEN];
 
+	snprintf(loopq_name, sizeof(loopq_name), "%" PRIu64 "-pktio_loopq",
+		 odp_pktio_to_u64(id));
+	entry->s.loop.loopq = odp_queue_create(loopq_name,
+					  ODP_QUEUE_TYPE_POLL, NULL);
+
+	if (entry->s.loop.loopq == ODP_QUEUE_INVALID)
+		return -1;
+
+	return 0;
+}
 static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 {
 	odp_pktio_t id;
@@ -212,9 +226,11 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 		return ODP_PKTIO_INVALID;
 
 	/* FIXME: Open device/Noc/If, etc... */
-	if(!strncmp("magic", dev, strlen("magic"))){
+	if(!strncmp("magic-", dev, strlen("magic-"))){
 		pktio_entry->s.type = ODP_PKTIO_TYPE_MAGIC;
-		pktio_entry->s.magic.id = atoi(dev + strlen("magic"));
+		snprintf(pktio_entry->s.magic.name, MAX_PKTIO_NAMESIZE, "%s", dev + strlen("magic-"));
+	} else	if(!strncmp("loop", dev, strlen("loop"))){
+		pktio_entry->s.type = ODP_PKTIO_TYPE_LOOPBACK;
 	} else {
 		ODP_ERR("Invalid dev name '%s'", dev);
 		return ODP_PKTIO_INVALID;
@@ -224,7 +240,10 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 	switch(pktio_entry->s.type){
 	case ODP_PKTIO_TYPE_MAGIC:
 		pktio_entry->s.magic.pool = pool;
-		ret = magic_init(pktio_entry->s.magic.id, pktio_entry, pool);
+		ret = magic_init(pktio_entry, pool);
+		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		ret = init_loop(pktio_entry, id);
 		break;
 	default:
 		break;
@@ -274,7 +293,11 @@ int odp_pktio_close(odp_pktio_t id)
 
 	lock_entry(entry);
 	if (!is_free(entry)) {
+		/* FIXME */
 		switch (entry->s.type) {
+		case ODP_PKTIO_TYPE_LOOPBACK:
+			res = odp_queue_destroy(entry->s.loop.loopq);
+			break;
 		default:
 			break;
 		}
@@ -318,6 +341,23 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 	return id;
 }
 
+static int deq_loopback(pktio_entry_t *pktio_entry, odp_packet_t pkts[],
+			unsigned len)
+{
+	int nbr, i;
+	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
+	queue_entry_t *qentry;
+
+	qentry = queue_to_qentry(pktio_entry->s.loop.loopq);
+	nbr = queue_deq_multi(qentry, hdr_tbl, len);
+
+	for (i = 0; i < nbr; ++i) {
+		pkts[i] = _odp_packet_from_buffer(odp_hdr_to_buf(hdr_tbl[i]));
+		_odp_packet_parse(pkts[i]);
+	}
+
+	return nbr;
+}
 int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
@@ -331,6 +371,9 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	switch (pktio_entry->s.type) {
 	case ODP_PKTIO_TYPE_MAGIC:
 		pkts = magic_recv(&pktio_entry->s.magic, pkt_table, len);
+		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		pkts = deq_loopback(pktio_entry, pkt_table, len);
 		break;
 	default:
 		pkts = -1;
@@ -347,6 +390,19 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	return pkts;
 }
 
+static int enq_loopback(pktio_entry_t *pktio_entry, odp_packet_t pkt_tbl[],
+			unsigned len)
+{
+	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
+	queue_entry_t *qentry;
+	unsigned i;
+
+	for (i = 0; i < len; ++i)
+		hdr_tbl[i] = odp_buf_to_hdr(_odp_packet_to_buffer(pkt_tbl[i]));
+
+	qentry = queue_to_qentry(pktio_entry->s.loop.loopq);
+	return queue_enq_multi(qentry, hdr_tbl, len);
+}
 int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
@@ -359,6 +415,9 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	switch (pktio_entry->s.type) {
 	case ODP_PKTIO_TYPE_MAGIC:
 		pkts = magic_send(&pktio_entry->s.magic, pkt_table, len);
+		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		pkts = enq_loopback(pktio_entry, pkt_table, len);
 		break;
 	default:
 		pkts = -1;
