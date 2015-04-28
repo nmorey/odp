@@ -8,6 +8,7 @@ include Metabuild
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
+                        "target"        => {"type" => "keywords", "keywords" => [:functional], "default" => "functional", "help" => "Execution target" },
                       })
 
 workspace  = options["workspace"]
