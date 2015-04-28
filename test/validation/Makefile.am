@@ -11,7 +11,6 @@ LOG_COMPILER =	k1-jtag-runner --exec-file "Cluster0:$$tst" ; echo
 EXECUTABLES  =  odp_buffer \
 	      odp_classification \
 	      odp_cpumask  \
-	      odp_crypto \
 	      odp_init \
 	      odp_init_abort \
 	      odp_init_log \
@@ -29,7 +28,6 @@ endif
 COMPILE_ONLY =  odp_buffer \
 	      odp_classification \
 	      odp_cpumask \
-	      odp_crypto \
 	      odp_init \
 	      odp_init_abort \
 	      odp_init_log \
