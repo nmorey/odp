@@ -1,5 +1,4 @@
-#! /bin/sh
-set -x
+#! /bin/sh -xe
 aclocal -I config -I m4
 libtoolize --copy
 autoheader
