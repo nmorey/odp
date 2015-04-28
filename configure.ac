@@ -61,7 +61,8 @@ AS_CASE([$host],
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
-AM_CONDITIONAL(TARGET_IS_K1_CLUSTER, [test "x${host}" = "xk1-nodeos-magic"])
+AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${host}" = "xk1-nodeos-magic"])
+AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${host}" = "xk1-nodeos-nodeos"])
 
 ##########################################################################
 # Set correct platform library version
@@ -318,8 +319,9 @@ AC_MSG_RESULT([
 
 	Library version:	${ODP_LIBSO_VERSION}
 
-	arch			${ARCH}
-	with_platform:		${with_platform}
+	host:			${host}
+	arch:			${ARCH}
+	with_platform:	${with_platform}
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
 	libdir:			${libdir}
