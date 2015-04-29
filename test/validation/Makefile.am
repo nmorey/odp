@@ -8,12 +8,25 @@ TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR=${builddir}
 
 if TARGET_IS_K1_JTAG
 LOG_COMPILER =	k1-jtag-runner --exec-file "Cluster0:$$tst" ; echo
+EXECUTABLES  =  odp_buffer \
+	      odp_classification \
+	      odp_cpumask  \
+	      odp_crypto \
+	      odp_init \
+	      odp_init_abort \
+	      odp_init_log \
+	      odp_packet \
+	      odp_pool \
+	      odp_system \
+	      odp_time \
+	      odp_errno \
+	      odp_thread
 endif
 if TARGET_IS_K1_CLUSTER
 LOG_COMPILER =	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libuser_syscall.so --
 endif
 
-EXECUTABLES = odp_buffer \
+COMPILE_ONLY =  odp_buffer \
 	      odp_classification \
 	      odp_cpumask \
 	      odp_crypto \
@@ -31,11 +44,10 @@ EXECUTABLES = odp_buffer \
 	      odp_time \
 	      odp_timer \
 	      odp_errno \
-	      odp_thread
+	      odp_thread \
+		  odp_pktio
 
-COMPILE_ONLY = odp_pktio
-
-TESTSCRIPTS = odp_pktio_run
+# TESTSCRIPTS = odp_pktio_run
 
 if test_vald
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
