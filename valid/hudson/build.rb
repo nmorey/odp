@@ -9,8 +9,8 @@ CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
-                        "configs"         => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
-                        "target"        => {"type" => "keywords", "keywords" => [:functional], "default" => "functional", "help" => "Execution target" },
+                        "configs"       => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
+                        "valid-configs" => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
                       })
 
 workspace  = options["workspace"]
@@ -36,14 +36,17 @@ $b = Builder.new("odp", options, [clean, prep, conf, build, valid])
 
 $b.logsession = "odp"
 
-$b.default_targets = [build]
+$b.default_targets = [valid]
 
-$current_target = options["target"]
 $debug_flags = options["debug"] == true ? "--enable-debug" : ""
-$configs = options["configs"].split(" ")
+
+$valid_configs = options["valid-configs"].split()
+
+$configs = (options["configs"].split(" ") + $valid_configs).uniq
 $configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS.index(conf) == nil
 }
+
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
@@ -88,7 +91,9 @@ $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd odp_path
 
-    $b.run(:cmd => " k1-cluster --mboard=large_memory --functional --user-syscall=syscall/build_x86_64/libuser_syscall.so -- build-k1-nodeos-magic/test/performance/odp_atomic -t 1 -n 15 ", :env => $env)
+     $valid_configs.each(){|conf|
+        $b.run(:cmd => "make -Cbuild-#{conf}/test/validation check", :env => $env)
+     }
 end
 
 $b.target("clean") do
