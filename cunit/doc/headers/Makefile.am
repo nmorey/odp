@@ -23,5 +23,6 @@ $(INCLUDE_FILES) : copy_headers
 
 copy_headers:
 	cp -f $(top_srcdir)/CUnit/Headers/*.h .
+	cp -f ./../../CUnit/Headers/*.h .
 	cp -f $(top_srcdir)/CUnit/Sources/Win/Win.h .
 
