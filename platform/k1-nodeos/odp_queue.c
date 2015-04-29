@@ -24,19 +24,28 @@
 
 #ifdef USE_TICKETLOCK
 #include <odp/ticketlock.h>
-#define LOCK(a)      do {					\
-		INVALIDATE(queue);				\
-		odp_ticketlock_lock(&(a)->s.lock);		\
+#define LOCK(a)      do {				\
+		__k1_wmb();				\
+		INVALIDATE(queue);			\
+		odp_ticketlock_lock(&(a)->s.lock);	\
 	} while(0)
-#define UNLOCK(a)    odp_ticketlock_unlock(&(a)->s.lock)
+
+#define UNLOCK(a)    do {				\
+		__k1_wmb();				\
+		odp_ticketlock_unlock(&(a)->s.lock);	\
+	}while(0)
+
 #define LOCK_INIT(a) odp_ticketlock_init(&(a)->s.lock)
 #else
 #include <odp/spinlock.h>
-#define LOCK(a)      do {					\
-		INVALIDATE(queue);				\
-		odp_spinlock_lock(&(a)->s.lock);		\
+#define LOCK(a)      do {				\
+		INVALIDATE(queue);			\
+		odp_spinlock_lock(&(a)->s.lock);	\
 	} while(0)
-#define UNLOCK(a)    odp_spinlock_unlock(&(a)->s.lock)
+#define UNLOCK(a)    do {				\
+		__k1_wmb();				\
+		odp_spinlock_unlock(&(a)->s.lock);	\
+	}while(0)
 #define LOCK_INIT(a) odp_spinlock_init(&(a)->s.lock)
 #endif
 
@@ -132,7 +141,7 @@ int odp_queue_init_global(void)
 	ODP_DBG("  queue_entry_t size        %zu\n",
 		sizeof(queue_entry_t));
 	ODP_DBG("\n");
-
+	__k1_wmb();
 	return 0;
 }
 
@@ -208,7 +217,7 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		queue = &queue_tbl->queue[i];
 
-		if (queue->s.status != QUEUE_STATUS_FREE)
+		if (LOAD_S32(queue->s.status) != QUEUE_STATUS_FREE)
 			continue;
 
 		LOCK(queue);
