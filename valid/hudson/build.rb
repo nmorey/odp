@@ -41,7 +41,9 @@ $b.default_targets = [build]
 $current_target = options["target"]
 $debug_flags = options["debug"] == true ? "--enable-debug" : ""
 $configs = options["configs"].split(" ")
-
+$configs.each(){|conf|
+    raise ("Invalid config '#{conf}'") if CONFIGS.index(conf) == nil
+}
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
