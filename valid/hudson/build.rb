@@ -4,10 +4,12 @@
 $LOAD_PATH.push('metabuild/lib')
 require 'metabuild'
 include Metabuild
+CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
 
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
+                        "configs"         => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
                         "target"        => {"type" => "keywords", "keywords" => [:functional], "default" => "functional", "help" => "Execution target" },
                       })
 
@@ -38,12 +40,12 @@ $b.default_targets = [build]
 
 $current_target = options["target"]
 $debug_flags = options["debug"] == true ? "--enable-debug" : ""
+$configs = options["configs"].split(" ")
 
-CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf build-#{conf}", :env => $env)
         $b.run(:cmd => "mkdir -p build-#{conf}", :env => $env)
         $b.run(:cmd => "cd build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ../configure  --host=#{conf}" +
@@ -57,7 +59,7 @@ $b.target("prepare") do
     cd odp_path
     $b.run(:cmd => "./syscall/run.sh", :env => $env)
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
          $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
         $b.run(:cmd => "cd cunit/build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++   ../configure --srcdir=`pwd`/.."+
@@ -72,7 +74,7 @@ $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd odp_path
 
-     CONFIGS.each(){|conf|
+     $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild-#{conf}/platform V=1", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test/validation", :env => $env)
@@ -91,7 +93,7 @@ $b.target("clean") do
     $b.logtitle = "Report for odp clean."
 
     cd odp_path
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf build-#{conf}", :env => $env)
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
     }
