@@ -92,7 +92,7 @@ $b.target("valid") do
     cd odp_path
 
      $valid_configs.each(){|conf|
-        $b.run(:cmd => "make -Cbuild-#{conf}/test/validation check", :env => $env)
+        $b.run(:cmd => "make -Cbuild-#{conf}/test/validation -j1 check", :env => $env)
      }
 end
 
