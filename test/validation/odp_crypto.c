@@ -8,7 +8,7 @@
 #include "odp_cunit_common.h"
 #include "odp_crypto_test_inp.h"
 
-#define SHM_PKT_POOL_SIZE	(512*2048*2)
+#define SHM_PKT_POOL_SIZE	(64*2048*2)
 #define SHM_PKT_POOL_BUF_SIZE	(1024 * 32)
 
 #define SHM_COMPL_POOL_SIZE	(128*1024)
