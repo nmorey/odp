@@ -61,7 +61,7 @@ AS_CASE([$host],
   [k1a-kalray-nodeos], [ARCH=k1a-nodeos
   					    k1_jtag=yes
 						k1_core=k1a
-  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"], #  -mcore=k1a
+  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1a"
 						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"], 
   [k1b-kalray-nodeos], [ARCH=k1b-nodeos
   					    k1_jtag=yes
@@ -71,7 +71,7 @@ AS_CASE([$host],
   [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
     					     k1_cluster=yes
 							 k1_core=k1a
-  				 			 AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual"], #  -mcore=k1a
+  				 			 AM_CFLAGS="$AM_CFLAGS -mboard=large_memory -Wno-cast-qual -march=k1a"
 							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
     					     k1_cluster=yes

@@ -27,9 +27,9 @@ LIBTOOL_SUFFIX=${LIBTOOL_SUFFIX1}.${LIBTOOL_AGE}.${LIBTOOL_REVISION}
 TOPDIR=`pwd`
 
 AS_CASE([$host],
-  [k1a-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual"],#-march=k1a
+  [k1a-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual -march=k1a"],
   [k1b-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual -march=k1b"],
-  [k1a-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual"], # -march=k1a
+  [k1a-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1a"],
   [k1b-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1b"]
 )
 

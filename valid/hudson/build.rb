@@ -39,7 +39,7 @@ $b.default_targets = [build]
 $current_target = options["target"]
 $debug_flags = options["debug"] == true ? "--enable-debug" : ""
 
-CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
+CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic", "k1b-kalray-nodeos", "k1b-kalray-nodeosmagic"]
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
@@ -59,7 +59,7 @@ $b.target("prepare") do
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     CONFIGS.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
-         $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
+        $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
         $b.run(:cmd => "cd cunit/build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++   ../configure --srcdir=`pwd`/.."+
                        " --prefix=$(pwd)/../install-#{conf}/ --enable-debug --enable-automated --enable-basic "+
                        " --enable-console --enable-examples --enable-test --host=#{conf}",
