@@ -8,7 +8,7 @@
 #include "odp_cunit_common.h"
 
 #define MAX_WORKERS_THREADS	32
-#define MSG_POOL_SIZE		(4*1024*1024)
+#define MSG_POOL_SIZE		(128*1024)
 #define QUEUES_PER_PRIO		16
 #define BUF_SIZE		64
 #define TEST_NUM_BUFS		100
