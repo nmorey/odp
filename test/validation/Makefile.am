@@ -34,7 +34,6 @@ COMPILE_ONLY =  odp_buffer \
 	      odp_packet \
 	      odp_pool \
 	      odp_queue \
-	      odp_random \
 	      odp_schedule \
 	      odp_shm \
 	      odp_system \
