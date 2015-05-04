@@ -19,6 +19,7 @@ EXECUTABLES  =  odp_buffer \
 	      odp_queue \
 	      odp_shm \
 	      odp_system \
+	      odp_synchronizers \
 	      odp_time \
 	      odp_errno \
 	      odp_thread
