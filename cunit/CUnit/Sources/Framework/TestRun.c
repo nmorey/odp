@@ -129,7 +129,7 @@ static CU_SuiteInitFailureMessageHandler    f_pSuiteInitFailureMessageHandler = 
 
 /** Pointer to the function to be called if a suite cleanup function returns an error. */
 static CU_SuiteCleanupFailureMessageHandler f_pSuiteCleanupFailureMessageHandler = NULL;
-static pthread_mutex_t f_lock = PTHREAD_MUTEX_INITIALIZER;
+static  __k1_spinlock_t f_lock = _K1_SPIN_INITUNLOCKED;
 
 /*=================================================================
  * Private function forward declarations
@@ -157,7 +157,8 @@ CU_BOOL CU_assertImplementation(CU_BOOL bValue,
                                 const char *strFunction,
                                 CU_BOOL bFatal)
 {
-  pthread_mutex_lock(&f_lock);
+  __k1_spin_lock(&f_lock);
+  __k1_rmb();
   /* not used in current implementation - stop compiler warning */
   CU_UNREFERENCED_PARAMETER(strFunction);
 
@@ -172,12 +173,13 @@ CU_BOOL CU_assertImplementation(CU_BOOL bValue,
                 uiLine, strCondition, strFile, f_pCurSuite, f_pCurTest);
 
     if ((CU_TRUE == bFatal) && (NULL != f_pCurTest->pJumpBuf)) {
-      pthread_mutex_unlock(&f_lock);
+	    __k1_wmb();
+      __k1_spin_unlock(&f_lock);
       longjmp(*(f_pCurTest->pJumpBuf), 1);
     }
   }
-
-  pthread_mutex_unlock(&f_lock);
+  __k1_wmb();
+  __k1_spin_unlock(&f_lock);
   return bValue;
 }
 
