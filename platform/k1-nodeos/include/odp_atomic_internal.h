@@ -111,7 +111,7 @@ static inline void _odp_atomic_flag_init(_odp_atomic_flag_t *flag,
  */
 static inline int _odp_atomic_flag_load(_odp_atomic_flag_t *flag)
 {
-	return __builtin_k1_lwu(flag);
+	return !__builtin_k1_lwu(flag);
 }
 
 /**
