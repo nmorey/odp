@@ -19,7 +19,7 @@
 #define RANGE_MS 2000
 
 /** @private Number of timers per thread */
-#define NTIMERS 2000
+#define NTIMERS 200
 
 /** @private Barrier for thread synchronisation */
 static odp_barrier_t test_barrier;

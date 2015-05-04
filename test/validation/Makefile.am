@@ -21,6 +21,7 @@ EXECUTABLES  =  odp_buffer \
 	      odp_system \
 	      odp_synchronizers \
 	      odp_time \
+	      odp_timer \
 	      odp_errno \
 	      odp_thread
 endif
