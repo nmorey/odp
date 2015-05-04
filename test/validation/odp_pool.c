@@ -9,7 +9,7 @@
 
 static int pool_name_number = 1;
 static const int default_buffer_size = 1500;
-static const int default_buffer_num = 1000;
+static const int default_buffer_num = 100;
 
 static void pool_create_destroy(odp_pool_param_t *params)
 {

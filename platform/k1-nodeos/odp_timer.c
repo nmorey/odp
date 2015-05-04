@@ -67,7 +67,7 @@
  *****************************************************************************/
 
 #ifndef ODP_ATOMIC_U128
-#define NUM_LOCKS 1024
+#define NUM_LOCKS 64
 static _odp_atomic_flag_t locks[NUM_LOCKS]; /* Multiple locks per cache line! */
 #define IDX2LOCK(idx) (&locks[(idx) % NUM_LOCKS])
 #endif

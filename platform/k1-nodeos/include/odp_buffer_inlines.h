@@ -51,8 +51,10 @@ static inline odp_buffer_hdr_t *odp_buf_to_hdr(odp_buffer_t buf)
 	index         = handle.index;
 	pool          = get_pool_entry(pool_id);
 
-	return (odp_buffer_hdr_t *)(void *)
+	odp_buffer_hdr_t * hdr = (odp_buffer_hdr_t *)(void *)
 		(pool->pool_mdata_addr + (index * ODP_CACHE_LINE_SIZE));
+	INVALIDATE(hdr);
+	return hdr;
 }
 
 static inline uint32_t odp_buffer_refcount(odp_buffer_hdr_t *buf)

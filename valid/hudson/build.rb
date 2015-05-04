@@ -4,11 +4,13 @@
 $LOAD_PATH.push('metabuild/lib')
 require 'metabuild'
 include Metabuild
+CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
 
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
-                        "target"        => {"type" => "keywords", "keywords" => [:functional], "default" => "functional", "help" => "Execution target" },
+                        "configs"       => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
+                        "valid-configs" => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
                       })
 
 workspace  = options["workspace"]
@@ -34,16 +36,21 @@ $b = Builder.new("odp", options, [clean, prep, conf, build, valid])
 
 $b.logsession = "odp"
 
-$b.default_targets = [build]
+$b.default_targets = [valid]
 
-$current_target = options["target"]
 $debug_flags = options["debug"] == true ? "--enable-debug" : ""
 
-CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic", "k1b-kalray-nodeos", "k1b-kalray-nodeosmagic"]
+$valid_configs = options["valid-configs"].split()
+
+$configs = (options["configs"].split(" ") + $valid_configs).uniq
+$configs.each(){|conf|
+    raise ("Invalid config '#{conf}'") if CONFIGS.index(conf) == nil
+}
+
 $b.target("configure") do
     cd odp_path
     $b.run(:cmd => "./bootstrap", :env => $env)
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf build-#{conf}", :env => $env)
         $b.run(:cmd => "mkdir -p build-#{conf}", :env => $env)
         $b.run(:cmd => "cd build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ../configure  --host=#{conf}" +
@@ -57,7 +64,7 @@ $b.target("prepare") do
     cd odp_path
     $b.run(:cmd => "./syscall/run.sh", :env => $env)
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
         $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
         $b.run(:cmd => "cd cunit/build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++   ../configure --srcdir=`pwd`/.."+
@@ -72,7 +79,7 @@ $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd odp_path
 
-     CONFIGS.each(){|conf|
+     $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild-#{conf}/platform V=1", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test/validation", :env => $env)
@@ -84,14 +91,16 @@ $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd odp_path
 
-    $b.run(:cmd => " k1-cluster --mboard=large_memory --functional --user-syscall=syscall/build_x86_64/libuser_syscall.so -- build-k1-nodeos-magic/test/performance/odp_atomic -t 1 -n 15 ", :env => $env)
+     $valid_configs.each(){|conf|
+        $b.run(:cmd => "make -Cbuild-#{conf}/test/validation -j1 check", :env => $env)
+     }
 end
 
 $b.target("clean") do
     $b.logtitle = "Report for odp clean."
 
     cd odp_path
-    CONFIGS.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf build-#{conf}", :env => $env)
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
     }
