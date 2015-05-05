@@ -8,13 +8,13 @@
 #include "odp_cunit_common.h"
 
 #define MAX_WORKERS_THREADS	32
-#define MSG_POOL_SIZE		(128*1024)
-#define QUEUES_PER_PRIO		16
+#define MSG_POOL_SIZE		(256*1024)
+#define QUEUES_PER_PRIO	        2
 #define BUF_SIZE		64
 #define TEST_NUM_BUFS		100
 #define BURST_BUF_SIZE		4
-#define NUM_BUFS_EXCL		10000
-#define NUM_BUFS_PAUSE		1000
+#define NUM_BUFS_EXCL		200
+#define NUM_BUFS_PAUSE		150
 #define NUM_BUFS_BEFORE_PAUSE	10
 
 #define GLOBALS_SHM_NAME	"test_globals"

@@ -17,6 +17,7 @@ EXECUTABLES  =  odp_buffer \
 	      odp_packet \
 	      odp_pool \
 	      odp_queue \
+	      odp_schedule \
 	      odp_shm \
 	      odp_system \
 	      odp_synchronizers \
