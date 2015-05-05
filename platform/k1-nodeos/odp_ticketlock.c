@@ -32,6 +32,7 @@ void odp_ticketlock_lock(odp_ticketlock_t *ticketlock)
 	while (ticket != _odp_atomic_u32_load_mm(&ticketlock->cur_ticket,
 						 _ODP_MEMMODEL_ACQ))
 		odp_spin();
+	__builtin_k1_dinval();
 }
 
 int odp_ticketlock_trylock(odp_ticketlock_t *tklock)
@@ -59,8 +60,10 @@ int odp_ticketlock_trylock(odp_ticketlock_t *tklock)
 						       &next,
 						       next + 1,
 						       _ODP_MEMMODEL_ACQ,
-						       _ODP_MEMMODEL_RLX))
+						       _ODP_MEMMODEL_RLX)){
+			__builtin_k1_dinval();
 			return 1;
+		}
 	}
 	return 0;
 }
@@ -72,6 +75,7 @@ void odp_ticketlock_unlock(odp_ticketlock_t *ticketlock)
 	 * 'cur_ticket', we don't need to do this with an (expensive)
 	 * atomic RMW operation. Instead load-relaxed the current value
 	 * and a store-release of the incremented value */
+	__k1_wmb();
 	uint32_t cur = _odp_atomic_u32_load_mm(&ticketlock->cur_ticket,
 					       _ODP_MEMMODEL_RLX);
 	_odp_atomic_u32_store_mm(&ticketlock->cur_ticket, cur + 1,
