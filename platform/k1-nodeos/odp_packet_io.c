@@ -205,7 +205,7 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 {
 	odp_pktio_t id;
 	pktio_entry_t *pktio_entry;
-	int ret;
+	int ret = 0;
 
 	if (strlen(dev) >= MAX_PKTIO_NAMESIZE) {
 		/* ioctl names limitation */
@@ -233,22 +233,22 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 		pktio_entry->s.type = ODP_PKTIO_TYPE_LOOPBACK;
 	} else {
 		ODP_ERR("Invalid dev name '%s'", dev);
-		return ODP_PKTIO_INVALID;
+		ret = 1;
 	}
 
-	ret = 0;
-	switch(pktio_entry->s.type){
-	case ODP_PKTIO_TYPE_MAGIC:
-		pktio_entry->s.magic.pool = pool;
-		ret = magic_init(pktio_entry, pool);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		ret = init_loop(pktio_entry, id);
-		break;
-	default:
-		break;
+	if(ret == 0){
+		switch(pktio_entry->s.type){
+		case ODP_PKTIO_TYPE_MAGIC:
+			pktio_entry->s.magic.pool = pool;
+			ret = magic_init(pktio_entry, pool);
+			break;
+		case ODP_PKTIO_TYPE_LOOPBACK:
+			ret = init_loop(pktio_entry, id);
+			break;
+		default:
+			break;
+		}
 	}
-
 	if (ret != 0) {
 		unlock_entry_classifier(pktio_entry);
 		free_pktio_entry(id);
