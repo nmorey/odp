@@ -155,6 +155,7 @@ static void custom_barrier_wait(custom_barrier_t *custom_barrier)
 
 		wait_cnt = odp_atomic_load_u32(&custom_barrier->wait_cnt);
 	}
+	INVALIDATE(global_mem);
 }
 
 static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
@@ -165,7 +166,7 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 	uint32_t thread_num, slow_thread_num, next_slow_thread, num_threads;
 	uint32_t lock_owner_delay, barrier_cnt1, barrier_cnt2;
 
-	thread_num = odp_cpu_id() + 1;
+	thread_num = odp_thread_id();
 	global_mem = per_thread_mem->global_mem;
 	num_threads = global_mem->g_num_threads;
 	iterations = BARRIER_ITERATIONS;
@@ -177,8 +178,8 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 		/* Wait here until all of the threads reach this point */
 		custom_barrier_wait(&global_mem->custom_barrier1[cnt]);
 
-		barrier_cnt1 = global_mem->barrier_cnt1;
-		barrier_cnt2 = global_mem->barrier_cnt2;
+		barrier_cnt1 = LOAD_U32(global_mem->barrier_cnt1);
+		barrier_cnt2 = LOAD_U32(global_mem->barrier_cnt2);
 
 		if ((barrier_cnt1 != cnt) || (barrier_cnt2 != cnt)) {
 			printf("thread_num=%"PRIu32" barrier_cnts of %"PRIu32
@@ -190,7 +191,7 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 		/* Wait here until all of the threads reach this point */
 		custom_barrier_wait(&global_mem->custom_barrier2[cnt]);
 
-		slow_thread_num = global_mem->slow_thread_num;
+		slow_thread_num = LOAD_U32(global_mem->slow_thread_num);
 		i_am_slow_thread = thread_num == slow_thread_num;
 		next_slow_thread = slow_thread_num + 1;
 		if (num_threads < next_slow_thread)
@@ -207,9 +208,9 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 		if (i_am_slow_thread) {
 			thread_delay(per_thread_mem, lock_owner_delay);
 			lock_owner_delay += BASE_DELAY;
-			if ((global_mem->barrier_cnt1 != cnt) ||
-			    (global_mem->barrier_cnt2 != cnt) ||
-			    (global_mem->slow_thread_num
+			if ((LOAD_U32(global_mem->barrier_cnt1) != cnt) ||
+			    (LOAD_U32(global_mem->barrier_cnt2) != cnt) ||
+			    (LOAD_U32(global_mem->slow_thread_num)
 					!= slow_thread_num))
 				barrier_errs++;
 		}
@@ -217,16 +218,19 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 		if (no_barrier_test == 0)
 			odp_barrier_wait(&global_mem->test_barriers[cnt]);
 
-		global_mem->barrier_cnt1 = cnt + 1;
+		STORE_U32(global_mem->barrier_cnt1, cnt + 1);
 		odp_sync_stores();
 
 		if (i_am_slow_thread) {
-			global_mem->slow_thread_num = next_slow_thread;
-			global_mem->barrier_cnt2 = cnt + 1;
+			STORE_U32(global_mem->slow_thread_num, next_slow_thread);
+			STORE_U32(global_mem->barrier_cnt2, cnt + 1);
 			odp_sync_stores();
 		} else {
-			while (global_mem->barrier_cnt2 != (cnt + 1))
+			uint32_t cnt2 = LOAD_U32(global_mem->barrier_cnt2);
+			while (cnt2 != (cnt + 1)){
 				thread_delay(per_thread_mem, BASE_DELAY);
+				cnt2 = LOAD_U32(global_mem->barrier_cnt2);
+			}
 		}
 	}
 
@@ -390,7 +394,7 @@ static void *no_lock_functional_test(void *arg UNUSED)
 	uint32_t thread_num, resync_cnt, rs_idx, iterations, cnt;
 	uint32_t sync_failures, current_errs, lock_owner_delay;
 
-	thread_num = odp_cpu_id() + 1;
+	thread_num = odp_thread_id();
 	per_thread_mem = thread_init();
 	global_mem = per_thread_mem->global_mem;
 	iterations = global_mem->g_iterations;
@@ -408,16 +412,16 @@ static void *no_lock_functional_test(void *arg UNUSED)
 		odp_sync_stores();
 		thread_delay(per_thread_mem, lock_owner_delay);
 
-		if (global_mem->global_lock_owner != thread_num) {
+		if (LOAD_U32(global_mem->global_lock_owner) != thread_num) {
 			current_errs++;
 			sync_failures++;
 		}
 
-		global_mem->global_lock_owner = 0;
+		STORE_U32(global_mem->global_lock_owner, 0);
 		odp_sync_stores();
 		thread_delay(per_thread_mem, MIN_DELAY);
 
-		if (global_mem->global_lock_owner == thread_num) {
+		if (LOAD_U32(global_mem->global_lock_owner) == thread_num) {
 			current_errs++;
 			sync_failures++;
 		}
@@ -461,7 +465,7 @@ static void *spinlock_functional_test(void *arg UNUSED)
 	uint32_t sync_failures, is_locked_errs, current_errs;
 	uint32_t lock_owner_delay;
 
-	thread_num = odp_cpu_id() + 1;
+	thread_num = odp_thread_id();
 	per_thread_mem = thread_init();
 	global_mem = per_thread_mem->global_mem;
 	iterations = global_mem->g_iterations;
@@ -483,7 +487,7 @@ static void *spinlock_functional_test(void *arg UNUSED)
 		if (odp_spinlock_is_locked(&global_mem->global_spinlock) != 1)
 			is_locked_errs++;
 
-		if (global_mem->global_lock_owner != 0) {
+		if (LOAD_U32(global_mem->global_lock_owner) != 0) {
 			current_errs++;
 			sync_failures++;
 		}
@@ -492,19 +496,19 @@ static void *spinlock_functional_test(void *arg UNUSED)
 		* then we see if anyone else has snuck in and changed the
 		* global_lock_owner to be themselves
 		*/
-		global_mem->global_lock_owner = thread_num;
+		STORE_U32(global_mem->global_lock_owner, thread_num);
 		odp_sync_stores();
 		thread_delay(per_thread_mem, lock_owner_delay);
-		if (global_mem->global_lock_owner != thread_num) {
+		if (LOAD_U32(global_mem->global_lock_owner) != thread_num) {
 			current_errs++;
 			sync_failures++;
 		}
 
 		/* Release shared lock, and make sure we no longer have it */
-		global_mem->global_lock_owner = 0;
+		STORE_U32(global_mem->global_lock_owner, 0);
 		odp_sync_stores();
 		odp_spinlock_unlock(&global_mem->global_spinlock);
-		if (global_mem->global_lock_owner == thread_num) {
+		if (LOAD_U32(global_mem->global_lock_owner) == thread_num) {
 			current_errs++;
 			sync_failures++;
 		}
@@ -544,7 +548,7 @@ static void *ticketlock_functional_test(void *arg UNUSED)
 	uint32_t sync_failures, is_locked_errs, current_errs;
 	uint32_t lock_owner_delay;
 
-	thread_num = odp_cpu_id() + 1;
+	thread_num = odp_thread_id();
 	per_thread_mem = thread_init();
 	global_mem = per_thread_mem->global_mem;
 	iterations = global_mem->g_iterations;
@@ -628,7 +632,7 @@ static void *rwlock_functional_test(void *arg UNUSED)
 	uint32_t thread_num, resync_cnt, rs_idx, iterations, cnt;
 	uint32_t sync_failures, current_errs, lock_owner_delay;
 
-	thread_num = odp_cpu_id() + 1;
+	thread_num = odp_thread_id();
 	per_thread_mem = thread_init();
 	global_mem = per_thread_mem->global_mem;
 	iterations = global_mem->g_iterations;
@@ -716,6 +720,7 @@ static void barrier_test_init(void)
 	global_mem->slow_thread_num = 1;
 	global_mem->barrier_cnt1 = 1;
 	global_mem->barrier_cnt2 = 1;
+	__k1_wmb();
 }
 
 static void test_atomic_inc_32(void)

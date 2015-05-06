@@ -7,7 +7,7 @@ TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR=${builddir}
 
 
 if TARGET_IS_K1_JTAG
-LOG_COMPILER =	k1-jtag-runner --exec-file "Cluster0:$$tst" ; echo
+LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
 EXECUTABLES  =  odp_buffer \
 	      odp_classification \
 	      odp_cpumask  \
@@ -16,8 +16,13 @@ EXECUTABLES  =  odp_buffer \
 	      odp_init_log \
 	      odp_packet \
 	      odp_pool \
+	      odp_queue \
+	      odp_schedule \
+	      odp_shm \
 	      odp_system \
+	      odp_synchronizers \
 	      odp_time \
+	      odp_timer \
 	      odp_errno \
 	      odp_thread
 endif

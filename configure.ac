@@ -297,7 +297,7 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 #             [AC_MSG_FAILURE([OpenSSL libraries required])])
 #AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
 #             [AC_MSG_ERROR([OpenSSL headers required])])
-#
+
 ##########################################################################
 # Restore old saved variables
 ##########################################################################

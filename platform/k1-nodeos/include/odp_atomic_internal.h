@@ -111,7 +111,7 @@ static inline void _odp_atomic_flag_init(_odp_atomic_flag_t *flag,
  */
 static inline int _odp_atomic_flag_load(_odp_atomic_flag_t *flag)
 {
-	return __builtin_k1_lwu(flag);
+	return !__builtin_k1_lwu(flag);
 }
 
 /**
@@ -261,7 +261,7 @@ static inline int _odp_atomic_u32_cmp_xchg_strong_mm(
 		_odp_memmodel_t failure ODP_UNUSED)
 {
 	uint32_t orgval, oldval;
-	orgval = __builtin_k1_lwu(exp);
+	orgval = *exp;
 	oldval = __builtin_k1_cws(&atom->v, val, orgval);
 
 	if(orgval == oldval){

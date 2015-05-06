@@ -8,13 +8,13 @@
 #include "odp_cunit_common.h"
 
 #define MAX_WORKERS_THREADS	32
-#define MSG_POOL_SIZE		(4*1024*1024)
-#define QUEUES_PER_PRIO		16
+#define MSG_POOL_SIZE		(256*1024)
+#define QUEUES_PER_PRIO	        2
 #define BUF_SIZE		64
 #define TEST_NUM_BUFS		100
 #define BURST_BUF_SIZE		4
-#define NUM_BUFS_EXCL		10000
-#define NUM_BUFS_PAUSE		1000
+#define NUM_BUFS_EXCL		200
+#define NUM_BUFS_PAUSE		150
 #define NUM_BUFS_BEFORE_PAUSE	10
 
 #define GLOBALS_SHM_NAME	"test_globals"
@@ -291,7 +291,7 @@ static void fill_queues(thread_args_t *args)
 				odp_buffer_t buf;
 				odp_event_t ev;
 				buf = odp_buffer_alloc(pool);
-				CU_ASSERT(buf != ODP_BUFFER_INVALID);
+				CU_ASSERT_FATAL(buf != ODP_BUFFER_INVALID);
 				ev = odp_buffer_to_event(buf);
 				CU_ASSERT(odp_queue_enq(queue, ev) == 0);
 				buf_count++;
@@ -563,7 +563,7 @@ static void test_schedule_pause_resume(void)
 
 	for (i = 0; i < NUM_BUFS_PAUSE; i++) {
 		buf = odp_buffer_alloc(pool);
-		CU_ASSERT(buf != ODP_BUFFER_INVALID);
+		CU_ASSERT_FATAL(buf != ODP_BUFFER_INVALID);
 		ev = odp_buffer_to_event(buf);
 		odp_queue_enq(queue, ev);
 	}
