@@ -199,6 +199,47 @@ errcode_t do_eth_send_packet(debug_agent_interface_t *interface, int *sys_ret)
 	return RET_OK;
 }
 
+errcode_t do_eth_promisc_set(debug_agent_interface_t *interface, int *sys_ret){
+	uint32_t sockfd, enable, ret;
+	ARG(0, sockfd);
+	ARG(1, enable);
+
+	struct ifreq ifr;
+	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", ports[sockfd].name);
+
+	ret = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	if (ret < 0) {
+		interface->set_return(interface->self, 0, ret);
+		return RET_OK;
+	}
+
+	if (enable)
+		ifr.ifr_flags |= IFF_PROMISC;
+	else
+		ifr.ifr_flags &= ~(IFF_PROMISC);
+
+	ret = ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+	interface->set_return(interface->self, 0, ret);
+
+	return RET_OK;
+}
+errcode_t do_eth_promisc_get(debug_agent_interface_t *interface, int *sys_ret){
+	uint32_t sockfd, ret;
+	ARG(0, sockfd);
+	struct ifreq ifr;
+
+	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", ports[sockfd].name);
+
+	ret = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	if (ret < 0) {
+		interface->set_return(interface->self, 0, ret);
+		return RET_OK;
+	}
+
+	interface->set_return(interface->self, 0, !!(ifr.ifr_flags & IFF_PROMISC));
+
+	return RET_OK;
+}
 
 /**
  * This table holds info about syscalls.
@@ -210,6 +251,8 @@ syscall_info_ syscall_table[] = {
 	{MAGIC_SCALL_ETH_GETMAC, 2, 0, (syscall_helper_fct) do_eth_get_mac},
 	{MAGIC_SCALL_ETH_RECV, 2, 0, (syscall_helper_fct) do_eth_recv_packet},
 	{MAGIC_SCALL_ETH_SEND, 3, 0, (syscall_helper_fct) do_eth_send_packet},
+	{MAGIC_SCALL_ETH_PROM_SET, 2, 0, (syscall_helper_fct) do_eth_promisc_set},
+	{MAGIC_SCALL_ETH_PROM_GET, 1, 0, (syscall_helper_fct) do_eth_promisc_get},
 	{0x000, 0, 0, (syscall_helper_fct) NULL} /* End of Table */
 };
 
