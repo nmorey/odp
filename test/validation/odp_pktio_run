@@ -78,7 +78,7 @@ run()
 {
 	if [ "$ODP_PLATFORM" != "linux-generic" -o "$(id -u)" != "0" ]; then
 		echo "pktio: using 'loop' device"
-		${TARGET_RUNNER} odp_pktio
+		${TARGET_RUNNER} odp_pktio.kelf
 		exit $?
 	fi
 
