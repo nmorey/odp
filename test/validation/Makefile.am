@@ -31,7 +31,23 @@ endif
 
 if TARGET_IS_K1_CLUSTER
 KELF_LOG_COMPILER =	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libuser_syscall.so --
-
+EXECUTABLES =  odp_buffer.kelf \
+	      odp_classification.kelf \
+	      odp_cpumask.kelf \
+	      odp_init.kelf \
+	      odp_init_abort.kelf \
+	      odp_init_log.kelf \
+	      odp_packet.kelf \
+	      odp_pool.kelf \
+	      odp_queue.kelf \
+	      odp_schedule.kelf \
+	      odp_shm.kelf \
+	      odp_system.kelf \
+	      odp_synchronizers.kelf \
+	      odp_time.kelf \
+	      odp_errno.kelf \
+	      odp_thread.kelf
+TESTSCRIPTS = odp_pktio_run
 endif
 
 
