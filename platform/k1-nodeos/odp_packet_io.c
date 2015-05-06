@@ -695,6 +695,9 @@ int odp_pktio_mtu(odp_pktio_t id)
 	}
 
 	switch (entry->s.type) {
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		unlock_entry(entry);
+		return PKTIO_LOOP_MTU;
 	default:
 		/* FIXME */
 		break;
