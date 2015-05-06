@@ -745,6 +745,9 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
 	case ODP_PKTIO_TYPE_MAGIC:
 		magic_get_mac(&entry->s.magic, mac_addr);
 		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		memcpy(mac_addr, pktio_loop_mac, ETH_ALEN);
+		break;
 	default:
 		ODP_ABORT("Wrong socket type %d\n", entry->s.type);
 	}
