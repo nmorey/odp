@@ -215,6 +215,25 @@ AC_ARG_ENABLE([debug],
     fi])
 ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
 AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
+
+##########################################################################
+# Enable/disable Crypto
+##########################################################################
+
+# This adds the option of compiling without using the ctemplate library,
+# which has proved troublesome for compilation on some platforms
+AC_ARG_ENABLE(crypto,
+			  [ --disable-crypto   Disable compilation with ctemplate and HTML output],
+			  [case "${enableval}" in
+			   yes | no ) NO_CRYPTO="${enableval}" ;;
+		   *) AC_MSG_ERROR(bad value ${enableval} for --disable-crypto) ;;
+	   esac],
+	   [NO_CRYPTO="no"]
+	   )
+
+dnl Make sure we register this option with Automake, so we know whether to
+dnl descend into ctemplate for more configuration or not
+AM_CONDITIONAL([NO_CRYPTO], [test "x$NO_CRYPTO" = "xno"])
 ##########################################################################
 # Check for pthreads availability
 ##########################################################################

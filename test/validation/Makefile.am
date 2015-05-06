@@ -11,7 +11,6 @@ LOG_COMPILER =	k1-jtag-runner --exec-file "Cluster0:$$tst" ; echo
 EXECUTABLES  =  odp_buffer \
 	      odp_classification \
 	      odp_cpumask  \
-	      odp_crypto \
 	      odp_init \
 	      odp_init_abort \
 	      odp_init_log \
@@ -22,6 +21,11 @@ EXECUTABLES  =  odp_buffer \
 	      odp_errno \
 	      odp_thread
 endif
+
+if !NO_CRYPTO
+	EXECUTABLES += odp_crypto
+endif
+
 if TARGET_IS_K1_CLUSTER
 LOG_COMPILER =	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libuser_syscall.so --
 endif
@@ -45,6 +49,11 @@ COMPILE_ONLY =  odp_buffer \
 	      odp_thread \
 		  odp_pktio
 
+if !NO_CRYPTO
+	COMPILE_ONLY += odp_crypto
+	COMPILE_ONLY += odp_random
+endif
+
 # TESTSCRIPTS = odp_pktio_run
 
 if test_vald
@@ -64,6 +73,8 @@ dist_odp_classification_SOURCES = classification/odp_classification_tests.c \
 				classification/odp_classification_basic.c \
 				odp_classification.c $(ODP_CU_COMMON)
 odp_crypto_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/crypto
+dist_odp_crypto_SOURCES = crypto/odp_crypto_test_inp.c \
+			  odp_crypto.c $(ODP_CU_COMMON)
 dist_odp_init_SOURCES	= odp_init.c
 dist_odp_init_abort_SOURCES = odp_init_abort.c
 dist_odp_init_log_SOURCES = odp_init_log.c
