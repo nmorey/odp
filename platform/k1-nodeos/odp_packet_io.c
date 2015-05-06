@@ -706,20 +706,79 @@ int odp_pktio_mtu(odp_pktio_t id)
 	return -1;
 }
 
-int odp_pktio_promisc_mode_set(odp_pktio_t id ODP_UNUSED, odp_bool_t enable ODP_UNUSED)
+int odp_pktio_promisc_mode_set(odp_pktio_t id, odp_bool_t enable)
 {
-	/* FIXME */
-	ODP_ABORT("Promisc mode unsupported");
-	return -1;
+	pktio_entry_t *entry;
+	int ret;
+
+	entry = get_pktio_entry(id);
+	if (entry == NULL) {
+		ODP_DBG("pktio entry %d does not exist\n", id);
+		return -1;
+	}
+
+	lock_entry(entry);
+
+	if (odp_unlikely(is_free(entry))) {
+		unlock_entry(entry);
+		ODP_DBG("already freed pktio\n");
+		return -1;
+	}
+
+	entry->s.promisc = enable;
+
+	switch (entry->s.type) {
+	case ODP_PKTIO_TYPE_MAGIC:
+		ret = magic_promisc_mode_set(&entry->s.magic, enable);
+		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		ret = 0;
+		break;
+	default:
+		unlock_entry(entry);
+		ODP_ABORT("Promisc mode unsupported");
+		return -1;
+	}
+	unlock_entry(entry);
+	return ret;
 }
 
-int odp_pktio_promisc_mode(odp_pktio_t id ODP_UNUSED)
+int odp_pktio_promisc_mode(odp_pktio_t id)
 {
-	/* FIXME */
-	ODP_ABORT("Promisc mode unsupported");
-	return -1;
-}
+	pktio_entry_t *entry;
+	int ret;
 
+	entry = get_pktio_entry(id);
+	if (entry == NULL) {
+		ODP_DBG("pktio entry %d does not exist\n", id);
+		return -1;
+	}
+
+	lock_entry(entry);
+
+	if (odp_unlikely(is_free(entry))) {
+		unlock_entry(entry);
+		ODP_DBG("already freed pktio\n");
+		return -1;
+	}
+
+	switch (entry->s.type) {
+	case ODP_PKTIO_TYPE_MAGIC:
+		ret = magic_promisc_mode(&entry->s.magic);
+		break;
+	case ODP_PKTIO_TYPE_LOOPBACK:
+		ret = entry->s.promisc ? 1 : 0;
+		break;
+	default:
+		unlock_entry(entry);
+		ODP_ABORT("Promisc mode unsupported");
+		return -1;
+	}
+
+
+	unlock_entry(entry);
+	return ret;
+}
 
 int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
 {

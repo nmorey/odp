@@ -24,6 +24,12 @@ static int _magic_scall_recv(int id, void* packet){
 static int _magic_scall_send(int id, void * buf, unsigned len){
 	return __k1_syscall3(MAGIC_SCALL_ETH_SEND, id, (uint32_t)buf, len);
 }
+static int _magic_scall_prom_set(int id, int enable){
+	return __k1_syscall2(MAGIC_SCALL_ETH_PROM_SET, id, enable);
+}
+static int _magic_scall_prom_get(int id){
+	return __k1_syscall1(MAGIC_SCALL_ETH_PROM_GET, id);
+}
 int magic_global_init(void)
 {
 	return _magic_scall_init();
@@ -117,4 +123,11 @@ int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned 
 		odp_packet_free(pkt_table[i]);
 
 	return nb_tx;
+}
+
+int magic_promisc_mode_set(pkt_magic_t *const pkt_magic, odp_bool_t enable){
+	return _magic_scall_prom_set(pkt_magic->fd, enable);
+}
+int magic_promisc_mode(pkt_magic_t *const pkt_magic){
+	return _magic_scall_prom_get(pkt_magic->fd);
 }

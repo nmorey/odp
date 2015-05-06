@@ -113,6 +113,8 @@ int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool);
 void magic_get_mac(const pkt_magic_t *const pkt_magic, void * mac_addr);
 int magic_recv(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], int len);
 int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned len);
+int magic_promisc_mode_set(pkt_magic_t *const pkt_magic, odp_bool_t enable);
+int magic_promisc_mode(pkt_magic_t *const pkt_magic);
 
 #ifdef __cplusplus
 }
