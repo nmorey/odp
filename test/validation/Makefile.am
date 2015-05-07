@@ -45,6 +45,7 @@ EXECUTABLES =  odp_buffer.kelf \
 	      odp_system.kelf \
 	      odp_synchronizers.kelf \
 	      odp_time.kelf \
+	      odp_timer.kelf \
 	      odp_errno.kelf \
 	      odp_thread.kelf
 TESTSCRIPTS = odp_pktio_run
