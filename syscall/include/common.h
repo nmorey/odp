@@ -9,4 +9,6 @@
 #define MAGIC_SCALL_ETH_PROM_SET 0x605
 #define MAGIC_SCALL_ETH_PROM_GET 0x606
 
+#define MAGIC_SCALL_SLEEP 0x700
+
 #endif /* COMMON_H */

@@ -241,6 +241,26 @@ errcode_t do_eth_promisc_get(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 }
 
+errcode_t do_nanosleep(debug_agent_interface_t *interface, int *sys_ret){
+	uint32_t end_cycle_l, end_cycle_h;
+	uint64_t end_cycle, cycles;
+
+	ARG(0, end_cycle_l);
+	ARG(1, end_cycle_h);
+	end_cycle = (((uint64_t)end_cycle_h) << 32) | end_cycle_l;
+	interface->read_cycle(interface->self, 0, &cycles);
+
+	if(cycles < end_cycle){
+		int timeout = end_cycle - cycles + 1;
+		if(end_cycle - cycles > 0x7ffffffeULL)
+			timeout = 0x7fffffff;
+		interface->execution_stall(interface->self,0, timeout);
+		return RET_STALL;
+	}
+
+	interface->set_return(interface->self, 0, 0);
+	return RET_OK;
+}
 /**
  * This table holds info about syscalls.
  * For each syscall : number, number of args, return arg ? and function to call.
@@ -253,6 +273,9 @@ syscall_info_ syscall_table[] = {
 	{MAGIC_SCALL_ETH_SEND, 3, 0, (syscall_helper_fct) do_eth_send_packet},
 	{MAGIC_SCALL_ETH_PROM_SET, 2, 0, (syscall_helper_fct) do_eth_promisc_set},
 	{MAGIC_SCALL_ETH_PROM_GET, 1, 0, (syscall_helper_fct) do_eth_promisc_get},
+
+
+	{MAGIC_SCALL_SLEEP, 1, 0, (syscall_helper_fct) do_nanosleep},
 	{0x000, 0, 0, (syscall_helper_fct) NULL} /* End of Table */
 };
 
