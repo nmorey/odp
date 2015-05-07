@@ -17,7 +17,11 @@
 #include "../../syscall/include/common.h"
 
 /** @private Timeout range in milliseconds (ms) */
+#ifdef MAGIC_SCALL
+#define RANGE_MS 300
+#else
 #define RANGE_MS 2000
+#endif
 
 /** @private Number of timers per thread */
 #define NTIMERS 200
