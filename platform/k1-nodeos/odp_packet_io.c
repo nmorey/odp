@@ -227,8 +227,13 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 
 	/* FIXME: Open device/Noc/If, etc... */
 	if(!strncmp("magic-", dev, strlen("magic-"))){
+#ifndef MAGIC_SCALL
+		ODP_ERR("Trying to invoke magic interface on H/W");
+		ret = 1;
+#else
 		pktio_entry->s.type = ODP_PKTIO_TYPE_MAGIC;
 		snprintf(pktio_entry->s.magic.name, MAX_PKTIO_NAMESIZE, "%s", dev + strlen("magic-"));
+#endif
 	} else	if(!strncmp("loop", dev, strlen("loop"))){
 		pktio_entry->s.type = ODP_PKTIO_TYPE_LOOPBACK;
 	} else {
