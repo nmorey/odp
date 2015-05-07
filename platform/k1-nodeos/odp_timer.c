@@ -11,16 +11,6 @@
  *
  */
 
-/* Check if compiler supports 16-byte atomics. GCC needs -mcx16 flag on x86 */
-/* Using spin lock actually seems faster on Core2 */
-#ifdef ODP_ATOMIC_U128
-/* TB_NEEDS_PAD defined if sizeof(odp_buffer_t) != 8 */
-#define TB_NEEDS_PAD
-#define TB_SET_PAD(x) ((x).pad = 0)
-#else
-#define TB_SET_PAD(x) (void)(x)
-#endif
-
 /* For snprint, POSIX timers and sigevent */
 #define _POSIX_C_SOURCE 200112L
 #include <errno.h>
@@ -66,11 +56,9 @@
  * Mutual exclusion in the absence of CAS16
  *****************************************************************************/
 
-#ifndef ODP_ATOMIC_U128
 #define NUM_LOCKS 64
 static _odp_atomic_flag_t locks[NUM_LOCKS]; /* Multiple locks per cache line! */
 #define IDX2LOCK(idx) (&locks[(idx) % NUM_LOCKS])
-#endif
 
 /******************************************************************************
  * Translation between timeout buffer and timeout header
@@ -91,11 +79,7 @@ typedef struct tick_buf_s {
 #ifdef TB_NEEDS_PAD
 	uint32_t pad;/* Need to be able to access padding for successful CAS */
 #endif
-} tick_buf_t
-#ifdef ODP_ATOMIC_U128
-ODP_ALIGNED(16) /* 16-byte atomic operations need properly aligned addresses */
-#endif
-;
+} tick_buf_t;
 
 typedef struct odp_timer_s {
 	void *user_ptr;
@@ -109,9 +93,8 @@ static void timer_init(odp_timer *tim,
 {
 	tim->queue = _q;
 	tim->user_ptr = _up;
-	tb->tmo_buf = ODP_BUFFER_INVALID;
+	STORE_PTR(tb->tmo_buf, ODP_BUFFER_INVALID);
 	/* All pad fields need a defined and constant value */
-	TB_SET_PAD(*tb);
 	/* Release the timer by setting timer state to inactive */
 	_odp_atomic_u64_store_mm(&tb->exp_tck, TMO_INACTIVE, _ODP_MEMMODEL_RLS);
 }
@@ -119,6 +102,7 @@ static void timer_init(odp_timer *tim,
 /* Teardown when timer is freed */
 static void timer_fini(odp_timer *tim, tick_buf_t *tb)
 {
+	INVALIDATE(tb);
 	ODP_ASSERT(tb->exp_tck.v == TMO_UNUSED);
 	ODP_ASSERT(tb->tmo_buf == ODP_BUFFER_INVALID);
 	tim->queue = ODP_QUEUE_INVALID;
@@ -239,7 +223,7 @@ static odp_timer_pool *odp_timer_pool_new(
 		set_next_free(&tp->timers[i], i + 1);
 		tp->timers[i].user_ptr = NULL;
 		odp_atomic_init_u64(&tp->tick_buf[i].exp_tck, TMO_UNUSED);
-		tp->tick_buf[i].tmo_buf = ODP_BUFFER_INVALID;
+		STORE_PTR(tp->tick_buf[i].tmo_buf, ODP_BUFFER_INVALID);
 	}
 	tp->tp_idx = tp_idx;
 	odp_spinlock_init(&tp->lock);
@@ -339,62 +323,6 @@ static bool timer_reset(uint32_t idx,
 	tick_buf_t *tb = &tp->tick_buf[idx];
 
 	if (tmo_buf == NULL || *tmo_buf == ODP_BUFFER_INVALID) {
-#ifdef ODP_ATOMIC_U128
-		tick_buf_t new, old;
-		do {
-			/* Relaxed and non-atomic read of current values */
-			old.exp_tck.v = tb->exp_tck.v;
-			old.tmo_buf = tb->tmo_buf;
-			TB_SET_PAD(old);
-			/* Check if there actually is a timeout buffer
-			 * present */
-			if (old.tmo_buf == ODP_BUFFER_INVALID) {
-				/* Cannot reset a timer with neither old nor
-				 * new timeout buffer */
-				success = false;
-				break;
-			}
-			/* Set up new values */
-			new.exp_tck.v = abs_tck;
-			new.tmo_buf = old.tmo_buf;
-			TB_SET_PAD(new);
-			/* Atomic CAS will fail if we experienced torn reads,
-			 * retry update sequence until CAS succeeds */
-		} while (!_odp_atomic_u128_cmp_xchg_mm(
-					(_odp_atomic_u128_t *)tb,
-					(_uint128_t *)&old,
-					(_uint128_t *)&new,
-					_ODP_MEMMODEL_RLS,
-					_ODP_MEMMODEL_RLX));
-#else
-#ifdef __ARM_ARCH
-		/* Since barriers are not good for C-A15, we take an
-		 * alternative approach using relaxed memory model */
-		uint64_t old;
-		/* Swap in new expiration tick, get back old tick which
-		 * will indicate active/inactive timer state */
-		old = _odp_atomic_u64_xchg_mm(&tb->exp_tck, abs_tck,
-			_ODP_MEMMODEL_RLX);
-		if ((old & TMO_INACTIVE) != 0) {
-			/* Timer was inactive (cancelled or expired),
-			 * we can't reset a timer without a timeout buffer.
-			 * Attempt to restore inactive state, we don't
-			 * want this timer to continue as active without
-			 * timeout as this will trigger unnecessary and
-			 * aborted expiration attempts.
-			 * We don't care if we fail, then some other thread
-			 * reset or cancelled the timer. Without any
-			 * synchronization between the threads, we have a
-			 * data race and the behavior is undefined */
-			(void)_odp_atomic_u64_cmp_xchg_strong_mm(
-					&tb->exp_tck,
-					&abs_tck,
-					old,
-					_ODP_MEMMODEL_RLX,
-					_ODP_MEMMODEL_RLX);
-			success = false;
-		}
-#else
 		/* Take a related lock */
 		while (_odp_atomic_flag_tas(IDX2LOCK(idx)))
 			/* While lock is taken, spin using relaxed loads */
@@ -402,9 +330,9 @@ static bool timer_reset(uint32_t idx,
 				odp_spin();
 
 		/* Only if there is a timeout buffer can be reset the timer */
-		if (odp_likely(tb->tmo_buf != ODP_BUFFER_INVALID)) {
+		if (odp_likely(LOAD_PTR(tb->tmo_buf) != ODP_BUFFER_INVALID)) {
 			/* Write the new expiration tick */
-			tb->exp_tck.v = abs_tck;
+			_odp_atomic_u64_store_mm(&tb->exp_tck, abs_tck, _ODP_MEMMODEL_RLS);
 		} else {
 			/* Cannot reset a timer with neither old nor new
 			 * timeout buffer */
@@ -413,8 +341,6 @@ static bool timer_reset(uint32_t idx,
 
 		/* Release the lock */
 		_odp_atomic_flag_clear(IDX2LOCK(idx));
-#endif
-#endif
 	} else {
 		/* We have a new timeout buffer which replaces any old one */
 		/* Fill in some (constant) header fields for timeout events */
@@ -428,19 +354,7 @@ static bool timer_reset(uint32_t idx,
 		}
 		/* Else ignore buffers of other types */
 		odp_buffer_t old_buf = ODP_BUFFER_INVALID;
-#ifdef ODP_ATOMIC_U128
-		tick_buf_t new, old;
-		new.exp_tck.v = abs_tck;
-		new.tmo_buf = *tmo_buf;
-		TB_SET_PAD(new);
-		/* We are releasing the new timeout buffer to some other
-		 * thread */
-		_odp_atomic_u128_xchg_mm((_odp_atomic_u128_t *)tb,
-					 (_uint128_t *)&new,
-					 (_uint128_t *)&old,
-					 _ODP_MEMMODEL_ACQ_RLS);
-		old_buf = old.tmo_buf;
-#else
+
 		/* Take a related lock */
 		while (_odp_atomic_flag_tas(IDX2LOCK(idx)))
 			/* While lock is taken, spin using relaxed loads */
@@ -448,15 +362,15 @@ static bool timer_reset(uint32_t idx,
 				odp_spin();
 
 		/* Swap in new buffer, save any old buffer */
-		old_buf = tb->tmo_buf;
-		tb->tmo_buf = *tmo_buf;
+		old_buf = LOAD_PTR(tb->tmo_buf);
+		STORE_PTR(tb->tmo_buf, *tmo_buf);
 
 		/* Write the new expiration tick */
-		tb->exp_tck.v = abs_tck;
+		_odp_atomic_u64_store_mm(&tb->exp_tck, abs_tck, _ODP_MEMMODEL_RLS);
 
 		/* Release the lock */
 		_odp_atomic_flag_clear(IDX2LOCK(idx));
-#endif
+
 		/* Return old timeout buffer */
 		*tmo_buf = old_buf;
 	}
@@ -470,18 +384,6 @@ static odp_buffer_t timer_cancel(odp_timer_pool *tp,
 	tick_buf_t *tb = &tp->tick_buf[idx];
 	odp_buffer_t old_buf;
 
-#ifdef ODP_ATOMIC_U128
-	tick_buf_t new, old;
-	/* Update the timer state (e.g. cancel the current timeout) */
-	new.exp_tck.v = new_state;
-	/* Swap out the old buffer */
-	new.tmo_buf = ODP_BUFFER_INVALID;
-	TB_SET_PAD(new);
-	_odp_atomic_u128_xchg_mm((_odp_atomic_u128_t *)tb,
-				 (_uint128_t *)&new, (_uint128_t *)&old,
-				 _ODP_MEMMODEL_RLX);
-	old_buf = old.tmo_buf;
-#else
 	/* Take a related lock */
 	while (_odp_atomic_flag_tas(IDX2LOCK(idx)))
 		/* While lock is taken, spin using relaxed loads */
@@ -489,15 +391,15 @@ static odp_buffer_t timer_cancel(odp_timer_pool *tp,
 			odp_spin();
 
 	/* Update the timer state (e.g. cancel the current timeout) */
-	tb->exp_tck.v = new_state;
+	_odp_atomic_u64_store_mm(&tb->exp_tck, new_state, _ODP_MEMMODEL_RLS);
 
 	/* Swap out the old buffer */
-	old_buf = tb->tmo_buf;
-	tb->tmo_buf = ODP_BUFFER_INVALID;
+	old_buf = LOAD_PTR(tb->tmo_buf);
+	STORE_PTR(tb->tmo_buf, ODP_BUFFER_INVALID);
 
 	/* Release the lock */
 	_odp_atomic_flag_clear(IDX2LOCK(idx));
-#endif
+
 	/* Return the old buffer */
 	return old_buf;
 }
@@ -508,59 +410,32 @@ static unsigned timer_expire(odp_timer_pool *tp, uint32_t idx, uint64_t tick)
 	tick_buf_t *tb = &tp->tick_buf[idx];
 	odp_buffer_t tmo_buf = ODP_BUFFER_INVALID;
 	uint64_t exp_tck;
-#ifdef ODP_ATOMIC_U128
-	/* Atomic re-read for correctness */
-	exp_tck = _odp_atomic_u64_load_mm(&tb->exp_tck, _ODP_MEMMODEL_RLX);
-	/* Re-check exp_tck */
-	if (odp_likely(exp_tck <= tick)) {
-		/* Attempt to grab timeout buffer, replace with inactive timer
-		 * and invalid buffer */
-		tick_buf_t new, old;
-		old.exp_tck.v = exp_tck;
-		old.tmo_buf = tb->tmo_buf;
-		TB_SET_PAD(old);
-		/* Set the inactive/expired bit keeping the expiration tick so
-		 * that we can check against the expiration tick of the timeout
-		 * when it is received */
-		new.exp_tck.v = exp_tck | TMO_INACTIVE;
-		new.tmo_buf = ODP_BUFFER_INVALID;
-		TB_SET_PAD(new);
-		int succ = _odp_atomic_u128_cmp_xchg_mm(
-				(_odp_atomic_u128_t *)tb,
-				(_uint128_t *)&old, (_uint128_t *)&new,
-				_ODP_MEMMODEL_RLS, _ODP_MEMMODEL_RLX);
-		if (succ)
-			tmo_buf = old.tmo_buf;
-		/* Else CAS failed, something changed => skip timer
-		 * this tick, it will be checked again next tick */
-	}
-	/* Else false positive, ignore */
-#else
+
 	/* Take a related lock */
 	while (_odp_atomic_flag_tas(IDX2LOCK(idx)))
 		/* While lock is taken, spin using relaxed loads */
 		while (_odp_atomic_flag_load(IDX2LOCK(idx)))
 			odp_spin();
 	/* Proper check for timer expired */
-	exp_tck = tb->exp_tck.v;
+	exp_tck = odp_atomic_load_u64(&tb->exp_tck);
 	if (odp_likely(exp_tck <= tick)) {
 		/* Verify that there is a timeout buffer */
-		if (odp_likely(tb->tmo_buf != ODP_BUFFER_INVALID)) {
+		tmo_buf = LOAD_PTR(tb->tmo_buf);
+		if (odp_likely(tmo_buf != ODP_BUFFER_INVALID)) {
 			/* Grab timeout buffer, replace with inactive timer
 			 * and invalid buffer */
-			tmo_buf = tb->tmo_buf;
-			tb->tmo_buf = ODP_BUFFER_INVALID;
+			STORE_PTR(tb->tmo_buf, ODP_BUFFER_INVALID);
 			/* Set the inactive/expired bit keeping the expiration
 			 * tick so that we can check against the expiration
 			 * tick of the timeout when it is received */
-			tb->exp_tck.v |= TMO_INACTIVE;
+			_odp_atomic_u64_store_mm(&tb->exp_tck, exp_tck | TMO_INACTIVE,  _ODP_MEMMODEL_RLS);
 		}
 		/* Else somehow active timer without user buffer */
 	}
 	/* Else false positive, ignore */
 	/* Release the lock */
 	_odp_atomic_flag_clear(IDX2LOCK(idx));
-#endif
+
 	if (odp_likely(tmo_buf != ODP_BUFFER_INVALID)) {
 		/* Fill in expiration tick for timeout events */
 		if (_odp_buffer_type(tmo_buf) == ODP_EVENT_TIMEOUT) {
