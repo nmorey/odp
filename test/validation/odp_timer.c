@@ -14,6 +14,7 @@
 #include <odp.h>
 #include "odp_cunit_common.h"
 #include "test_debug.h"
+#include "../../syscall/include/common.h"
 
 /** @private Timeout range in milliseconds (ms) */
 #define RANGE_MS 2000
@@ -48,6 +49,19 @@ struct test_timer {
 };
 
 #define TICK_INVALID (~(uint64_t)0)
+
+static int my_nanosleep(struct timespec *ts){
+#ifdef MAGIC_SCALL
+	uint64_t divisor = __k1_read_dsu_timestamp_divisor();
+	uint64_t dsu_ts = __k1_read_dsu_timestamp();
+	uint64_t cc = dsu_ts * divisor;
+	uint64_t tdiff = (ts->tv_sec * 400000000ULL) + ((ts->tv_nsec * 400000000ULL) / 1000000000ULL);
+	uint64_t target = cc + tdiff;;
+	return __k1_syscall2(MAGIC_SCALL_SLEEP, target & 0xffffffffULL, target >> 32);
+#else
+	return nanosleep(&ts, NULL);
+#endif
+}
 
 static void test_timeout_pool_alloc(void)
 {
@@ -372,7 +386,7 @@ static void *worker_entrypoint(void *arg TEST_UNUSED)
 		struct timespec ts;
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1000000; /* 1ms */
-		if (nanosleep(&ts, NULL) < 0)
+		if (my_nanosleep(&ts) < 0)
 			CU_FAIL_FATAL("nanosleep failed");
 	}
 
@@ -403,7 +417,7 @@ static void *worker_entrypoint(void *arg TEST_UNUSED)
 	struct timespec ts;
 	ts.tv_sec = 0;
 	ts.tv_nsec = 1000000; /* 1ms */
-	if (nanosleep(&ts, NULL) < 0)
+	if (my_nanosleep(&ts) < 0)
 		CU_FAIL_FATAL("nanosleep failed");
 	while (nstale != 0) {
 		odp_event_t ev = odp_queue_deq(queue);
