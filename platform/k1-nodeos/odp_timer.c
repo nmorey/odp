@@ -46,12 +46,6 @@
  * for checking the freshness of received timeouts */
 #define TMO_INACTIVE ((uint64_t)0x8000000000000000)
 
-#ifdef __ARM_ARCH
-#define PREFETCH(ptr) __builtin_prefetch((ptr), 0, 0)
-#else
-#define PREFETCH(ptr) (void)(ptr)
-#endif
-
 /******************************************************************************
  * Mutual exclusion in the absence of CAS16
  *****************************************************************************/
@@ -76,9 +70,6 @@ static odp_timeout_hdr_t *timeout_hdr_from_buf(odp_buffer_t buf)
 typedef struct tick_buf_s {
 	odp_atomic_u64_t exp_tck;/* Expiration tick or TMO_xxx */
 	odp_buffer_t tmo_buf;/* ODP_BUFFER_INVALID if timer not active */
-#ifdef TB_NEEDS_PAD
-	uint32_t pad;/* Need to be able to access padding for successful CAS */
-#endif
 } tick_buf_t;
 
 typedef struct odp_timer_s {
@@ -166,7 +157,6 @@ static inline uint32_t handle_to_idx(odp_timer_t hdl,
 		struct odp_timer_pool_s *tp)
 {
 	uint32_t idx = hdl & ((1U << INDEX_BITS) - 1U);
-	PREFETCH(&tp->tick_buf[idx]);
 	if (odp_likely(idx < odp_atomic_load_u32(&tp->high_wm)))
 		return idx;
 	ODP_ABORT("Invalid timer handle %#x\n", hdl);
@@ -470,15 +460,7 @@ static unsigned odp_timer_pool_expire(odp_timer_pool_t tpid, uint64_t tick)
 
 	ODP_ASSERT(high_wm <= tpid->param.num_timers);
 	for (i = 0; i < high_wm;) {
-#ifdef __ARM_ARCH
-		/* As a rare occurence, we can outsmart the HW prefetcher
-		 * and the compiler (GCC -fprefetch-loop-arrays) with some
-		 * tuned manual prefetching (32x16=512B ahead), seems to
-		 * give 30% better performance on ARM C-A15 */
-		PREFETCH(&array[i + 32]);
-#endif
-		/* Non-atomic read for speed */
-		uint64_t exp_tck = array[i++].exp_tck.v;
+		uint64_t exp_tck = odp_atomic_load_u64(&array[i++].exp_tck);
 		if (odp_unlikely(exp_tck <= tick)) {
 			/* Attempt to expire timer */
 			nexp += timer_expire(tpid, i - 1, tick);
@@ -740,13 +722,9 @@ void odp_timeout_free(odp_timeout_t tmo)
 
 int odp_timer_init_global(void)
 {
-#ifndef ODP_ATOMIC_U128
 	uint32_t i;
 	for (i = 0; i < NUM_LOCKS; i++)
 		_odp_atomic_flag_clear(&locks[i]);
-#else
-	ODP_DBG("Using lock-less timer implementation\n");
-#endif
 	odp_atomic_init_u32(&num_timer_pools, 0);
 	return 0;
 }
