@@ -498,6 +498,8 @@ static void test_odp_timer_all(void)
 	LOG_DBG("Tmo range: %u ms (%"PRIu64" ticks)\n", RANGE_MS,
 		odp_timer_ns_to_tick(tp, 1000000ULL * RANGE_MS));
 
+	/* Skip this on simu has it's very very long ! */
+#ifndef MAGIC_SCALL
 	uint64_t tick;
 	for (tick = 0; tick < 1000000000000ULL; tick += 1000000ULL) {
 		uint64_t ns = odp_timer_tick_to_ns(tp, tick);
@@ -505,6 +507,7 @@ static void test_odp_timer_all(void)
 		if (tick != t2)
 			CU_FAIL("Invalid conversion tick->ns->tick");
 	}
+#endif
 
 	/* Initialize barrier used by worker threads for synchronization */
 	odp_barrier_init(&test_barrier, num_workers);
