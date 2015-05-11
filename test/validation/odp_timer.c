@@ -63,7 +63,7 @@ static int my_nanosleep(struct timespec *ts){
 	uint64_t target = cc + tdiff;;
 	return __k1_syscall2(MAGIC_SCALL_SLEEP, target & 0xffffffffULL, target >> 32);
 #else
-	return nanosleep(&ts, NULL);
+	return nanosleep(ts, NULL);
 #endif
 }
 
