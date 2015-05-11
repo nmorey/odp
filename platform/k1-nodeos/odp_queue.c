@@ -26,7 +26,6 @@
 #include <odp/ticketlock.h>
 #define LOCK(a)      do {				\
 		__k1_wmb();				\
-		INVALIDATE(queue);			\
 		odp_ticketlock_lock(&(a)->s.lock);	\
 	} while(0)
 
@@ -155,7 +154,8 @@ int odp_queue_term_global(void)
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		queue = &queue_tbl->queue[i];
 		LOCK(queue);
-		if (queue->s.status != QUEUE_STATUS_FREE) {
+		if (LOAD_S32(queue->s.status) != QUEUE_STATUS_FREE) {
+
 			ODP_ERR("Not destroyed queue: %s\n", queue->s.name);
 			rc = -1;
 		}
@@ -221,6 +221,7 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 			continue;
 
 		LOCK(queue);
+		INVALIDATE(queue);
 		if (queue->s.status == QUEUE_STATUS_FREE) {
 			queue_init(queue, name, type, param);
 
@@ -252,7 +253,8 @@ void queue_destroy_finalize(queue_entry_t *queue)
 {
 	LOCK(queue);
 
-	if (queue->s.status == QUEUE_STATUS_DESTROYED) {
+	if (LOAD_S32(queue->s.status) == QUEUE_STATUS_DESTROYED) {
+		INVALIDATE(queue);
 		queue->s.status = QUEUE_STATUS_FREE;
 		schedule_queue_destroy(queue);
 	}
@@ -265,6 +267,7 @@ int odp_queue_destroy(odp_queue_t handle)
 	queue = queue_to_qentry(handle);
 
 	LOCK(queue);
+	INVALIDATE(queue);
 	if (queue->s.status == QUEUE_STATUS_FREE) {
 		UNLOCK(queue);
 		ODP_ERR("queue \"%s\" already free\n", queue->s.name);
@@ -346,25 +349,26 @@ int queue_enq(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr)
 	int sched = 0;
 
 	LOCK(queue);
-	if (odp_unlikely(queue->s.status < QUEUE_STATUS_READY)) {
+	int status = LOAD_S32(queue->s.status);
+	if (odp_unlikely(status < QUEUE_STATUS_READY)) {
 		UNLOCK(queue);
 		ODP_ERR("Bad queue status\n");
 		return -1;
 	}
 
-	if (queue->s.head == NULL) {
+	if (LOAD_PTR(queue->s.head) == NULL) {
 		/* Empty queue */
-		queue->s.head = buf_hdr;
-		queue->s.tail = buf_hdr;
+		STORE_PTR(queue->s.head, buf_hdr);
+		STORE_PTR(queue->s.tail, buf_hdr);
 		buf_hdr->next = NULL;
 	} else {
-		queue->s.tail->next = buf_hdr;
-		queue->s.tail = buf_hdr;
+		STORE_PTR(((typeof(queue->s.tail))LOAD_PTR(queue->s.tail))->next, buf_hdr);
+		STORE_PTR(queue->s.tail, buf_hdr);
 		buf_hdr->next = NULL;
 	}
 
-	if (queue->s.status == QUEUE_STATUS_NOTSCHED) {
-		queue->s.status = QUEUE_STATUS_SCHED;
+	if (status == QUEUE_STATUS_NOTSCHED) {
+		STORE_S32(queue->s.status, QUEUE_STATUS_SCHED);
 		sched = 1; /* retval: schedule queue */
 	}
 	UNLOCK(queue);
@@ -389,22 +393,23 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	buf_hdr[num-1]->next = NULL;
 
 	LOCK(queue);
-	if (odp_unlikely(queue->s.status < QUEUE_STATUS_READY)) {
+	int status = LOAD_S32(queue->s.status);
+	if (odp_unlikely(status < QUEUE_STATUS_READY)) {
 		UNLOCK(queue);
 		ODP_ERR("Bad queue status\n");
 		return -1;
 	}
 
 	/* Empty queue */
-	if (queue->s.head == NULL)
-		queue->s.head = buf_hdr[0];
+	if (LOAD_PTR(queue->s.head) == NULL)
+		STORE_PTR(queue->s.head, buf_hdr[0]);
 	else
-		queue->s.tail->next = buf_hdr[0];
+		STORE_PTR(((typeof(queue->s.tail))LOAD_PTR(queue->s.tail))->next, buf_hdr[0]);
 
-	queue->s.tail = tail;
+	STORE_PTR(queue->s.tail, tail);
 
-	if (queue->s.status == QUEUE_STATUS_NOTSCHED) {
-		queue->s.status = QUEUE_STATUS_SCHED;
+	if (status == QUEUE_STATUS_NOTSCHED) {
+		STORE_PTR(queue->s.status, QUEUE_STATUS_SCHED);
 		sched = 1; /* retval: schedule queue */
 	}
 	UNLOCK(queue);
@@ -452,24 +457,25 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 
 	LOCK(queue);
 
-	if (queue->s.head == NULL) {
+	if (LOAD_PTR(queue->s.head) == NULL) {
 		/* Already empty queue */
-		if (queue->s.status == QUEUE_STATUS_SCHED)
-			queue->s.status = QUEUE_STATUS_NOTSCHED;
+		if (LOAD_S32(queue->s.status) == QUEUE_STATUS_SCHED)
+			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 
 		UNLOCK(queue);
 		return NULL;
 	}
 
-	buf_hdr       = queue->s.head;
+	buf_hdr       = LOAD_PTR(queue->s.head);
 	INVALIDATE(buf_hdr);
-	queue->s.head = buf_hdr->next;
+	STORE_PTR(queue->s.head, buf_hdr->next);
+	if (buf_hdr->next == NULL) {
+		/* Queue is now empty */
+		STORE_PTR(queue->s.tail, NULL);
+	}
+
 	buf_hdr->next = NULL;
 
-	if (queue->s.head == NULL) {
-		/* Queue is now empty */
-		queue->s.tail = NULL;
-	}
 
 	UNLOCK(queue);
 
@@ -483,19 +489,20 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	int i;
 
 	LOCK(queue);
-	if (odp_unlikely(queue->s.status < QUEUE_STATUS_READY)) {
+	int status = LOAD_S32(queue->s.status);
+	if (odp_unlikely(status < QUEUE_STATUS_READY)) {
 		/* Bad queue, or queue has been destroyed.
 		 * Scheduler finalizes queue destroy after this. */
 		UNLOCK(queue);
 		return -1;
 	}
 
-	hdr = queue->s.head;
+	hdr = LOAD_PTR(queue->s.head);
 
 	if (hdr == NULL) {
 		/* Already empty queue */
-		if (queue->s.status == QUEUE_STATUS_SCHED)
-			queue->s.status = QUEUE_STATUS_NOTSCHED;
+		if (status == QUEUE_STATUS_SCHED)
+			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 
 		UNLOCK(queue);
 		return 0;
@@ -508,11 +515,11 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 		buf_hdr[i]->next = NULL;
 	}
 
-	queue->s.head = hdr;
+	STORE_PTR(queue->s.head, hdr);
 
 	if (hdr == NULL) {
 		/* Queue is now empty */
-		queue->s.tail = NULL;
+		STORE_PTR(queue->s.tail, NULL);
 	}
 
 	UNLOCK(queue);
