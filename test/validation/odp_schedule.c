@@ -184,6 +184,7 @@ static void *schedule_common_(void *arg)
 		int locked;
 
 		odp_ticketlock_lock(&globals->lock);
+		INVALIDATE(globals);
 		if (globals->buf_count == 0) {
 			odp_ticketlock_unlock(&globals->lock);
 			break;
@@ -231,8 +232,8 @@ static void *schedule_common_(void *arg)
 			odp_schedule_release_atomic();
 
 		odp_ticketlock_lock(&globals->lock);
+		INVALIDATE(globals);
 		globals->buf_count -= num;
-
 		if (globals->buf_count < 0) {
 			odp_ticketlock_unlock(&globals->lock);
 			CU_FAIL_FATAL("Buffer counting failed");
