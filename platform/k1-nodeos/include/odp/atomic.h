@@ -46,25 +46,25 @@ static inline void odp_atomic_init_u32(odp_atomic_u32_t *atom, uint32_t val)
 static inline uint32_t odp_atomic_fetch_add_u32(odp_atomic_u32_t *atom,
 						uint32_t val)
 {
-	return ATOMIC_OP(atom, atom->v += val);
+	return ATOMIC_OP32(atom, a.v += val);
 }
 
 static inline void odp_atomic_add_u32(odp_atomic_u32_t *atom,
 				      uint32_t val)
 {
-	(void) ATOMIC_OP(atom, atom->v += val);
+	(void) ATOMIC_OP32(atom, a.v += val);
 }
 
 static inline uint32_t odp_atomic_fetch_sub_u32(odp_atomic_u32_t *atom,
 						uint32_t val)
 {
-	return ATOMIC_OP(atom, atom->v -= val);
+	return ATOMIC_OP32(atom, a.v -= val);
 }
 
 static inline void odp_atomic_sub_u32(odp_atomic_u32_t *atom,
 				      uint32_t val)
 {
-	(void) ATOMIC_OP(atom, atom->v -= val);
+	(void) ATOMIC_OP32(atom, a.v -= val);
 }
 
 static inline uint32_t odp_atomic_fetch_inc_u32(odp_atomic_u32_t *atom)
@@ -108,43 +108,43 @@ static inline void odp_atomic_init_u64(odp_atomic_u64_t *atom, uint64_t val)
 static inline uint64_t odp_atomic_fetch_add_u64(odp_atomic_u64_t *atom,
 						uint64_t val)
 {
-	return ATOMIC_OP(atom, atom->v += val);
+	return ATOMIC_OP64(atom, atom->v += val);
 }
 
 static inline void odp_atomic_add_u64(odp_atomic_u64_t *atom, uint64_t val)
 {
-	(void)ATOMIC_OP(atom, atom->v += val);
+	(void)ATOMIC_OP64(atom, atom->v += val);
 }
 
 static inline uint64_t odp_atomic_fetch_sub_u64(odp_atomic_u64_t *atom,
 						uint64_t val)
 {
-	return ATOMIC_OP(atom, atom->v -= val);
+	return ATOMIC_OP64(atom, atom->v -= val);
 }
 
 static inline void odp_atomic_sub_u64(odp_atomic_u64_t *atom, uint64_t val)
 {
-	(void)ATOMIC_OP(atom, atom->v -= val);
+	(void)ATOMIC_OP64(atom, atom->v -= val);
 }
 
 static inline uint64_t odp_atomic_fetch_inc_u64(odp_atomic_u64_t *atom)
 {
-	return ATOMIC_OP(atom, atom->v++);
+	return ATOMIC_OP64(atom, atom->v++);
 }
 
 static inline void odp_atomic_inc_u64(odp_atomic_u64_t *atom)
 {
-	(void)ATOMIC_OP(atom, atom->v++);
+	(void)ATOMIC_OP64(atom, atom->v++);
 }
 
 static inline uint64_t odp_atomic_fetch_dec_u64(odp_atomic_u64_t *atom)
 {
-	return ATOMIC_OP(atom, atom->v--);
+	return ATOMIC_OP64(atom, atom->v--);
 }
 
 static inline void odp_atomic_dec_u64(odp_atomic_u64_t *atom)
 {
-	(void)ATOMIC_OP(atom, atom->v--);
+	(void)ATOMIC_OP64(atom, atom->v--);
 }
 
 /**
