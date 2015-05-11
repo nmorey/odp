@@ -150,5 +150,5 @@ int odp_sys_cache_line_size(void)
 
 int odp_cpu_count(void)
 {
-	return odp_global_data.system_info.cpu_count;
+	return odp_global_data.system_info.cpu_count - 1;
 }

@@ -66,7 +66,7 @@ static void test_odp_shm_sunnyday(void)
 	test_shared_data->foo = TEST_SHARE_FOO;
 	test_shared_data->bar = TEST_SHARE_BAR;
 
-	thrdarg.numthrds = odp_cpu_count() - 1;
+	thrdarg.numthrds = odp_cpu_count();
 
 	if (thrdarg.numthrds > MAX_WORKERS)
 		thrdarg.numthrds = MAX_WORKERS;
