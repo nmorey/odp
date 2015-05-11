@@ -162,35 +162,14 @@ static inline void _odp_atomic_flag_clear(_odp_atomic_flag_t *flag)
  * @param mm Memory order to use.
  * @return The old value of the variable.
  */
-#define ATOMIC_OP_MM64(atom, expr, mm)											\
-	({														\
-		uint64_t old_val;											\
-		/* Loop while lock is already taken, stop when lock becomes clear */					\
-		while (_odp_atomic_flag_tas(&(atom)->lock))								\
-			(void)mm;											\
-		__k1_dcache_invalidate_line((__k1_uintptr_t)&atom->v);							\
-		old_val = (atom)->v;											\
-		(expr); /* Perform whatever update is desired */							\
-		__k1_wmb();												\
-		_odp_atomic_flag_clear(&(atom)->lock);									\
-		old_val; /* Return old value */										\
-	})
-
-/**
- * @internal
- * Helper macro for lock-based atomic operations on 64-bit integers
- * @param[in,out] atom Pointer to the 64-bit atomic variable
- * @param expr Expression used update the variable.
- * @return The old value of the variable.
- */
-#define ATOMIC_OP_MM32(atom, expr, mm)											\
+#define ATOMIC_OP_MM(atom, expr, mm)											\
 	({														\
 		(void)mm;												\
-		struct odp_atomic_u32_s a;										\
-		while ((a._u64 = __k1_atomic_test_and_clear(&atom->_u64)) == 0){					\
+		typeof(*(atom)) a;											\
+		while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL){					\
 			__k1_cpu_backoff(10);										\
 		}													\
-		uint32_t old_val = a.v;											\
+		typeof((atom)->_type) old_val = a.v;									\
 		(expr); /* Perform whatever update is desired */							\
 		STORE_U64(atom->_u64, a._u64);										\
 		old_val; /* Return old value */										\
@@ -305,7 +284,7 @@ static inline uint32_t _odp_atomic_u32_fetch_add_mm(odp_atomic_u32_t *atom,
 		uint32_t val,
 		_odp_memmodel_t mmodel)
 {
-	return ATOMIC_OP_MM32(atom, a.v += val, mmodel);
+	return ATOMIC_OP_MM(atom, a.v += val, mmodel);
 }
 
 /**
@@ -320,7 +299,7 @@ static inline void _odp_atomic_u32_add_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)ATOMIC_OP_MM32(atom, a.v += val, mmodel);
+	(void)ATOMIC_OP_MM(atom, a.v += val, mmodel);
 }
 
 /**
@@ -336,7 +315,7 @@ static inline uint32_t _odp_atomic_u32_fetch_sub_mm(odp_atomic_u32_t *atom,
 		uint32_t val,
 		_odp_memmodel_t mmodel)
 {
-	return ATOMIC_OP_MM32(atom, a.v -= val, mmodel);
+	return ATOMIC_OP_MM(atom, a.v -= val, mmodel);
 }
 
 /**
@@ -351,7 +330,7 @@ static inline void _odp_atomic_u32_sub_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)ATOMIC_OP_MM32(atom, a.v -= val, mmodel);
+	(void)ATOMIC_OP_MM(atom, a.v -= val, mmodel);
 }
 
 /**
@@ -365,7 +344,7 @@ static inline void _odp_atomic_u32_sub_mm(odp_atomic_u32_t *atom,
 static inline uint64_t _odp_atomic_u64_load_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 {
-	return ATOMIC_OP_MM64(atom, (void)0, mmodel);
+	return ATOMIC_OP_MM(atom, (void)0, mmodel);
 }
 
 /**
@@ -379,7 +358,7 @@ static inline void _odp_atomic_u64_store_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-	(void)ATOMIC_OP_MM64(atom, atom->v = val, mmodel);
+	(void)ATOMIC_OP_MM(atom, a.v = val, mmodel);
 }
 
 /**
@@ -396,7 +375,7 @@ static inline uint64_t _odp_atomic_u64_xchg_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	return ATOMIC_OP_MM64(atom, atom->v = val, mmodel);
+	return ATOMIC_OP_MM(atom, a.v = val, mmodel);
 }
 
 /**
@@ -423,8 +402,10 @@ static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
 	/* Possibly we are a bit pessimistic with the memory models */
 	odp_bool_t ret_succ;
 	/* Loop while lock is already taken, stop when lock becomes clear */
-	while (_odp_atomic_flag_tas(&(atom)->lock))
-		(void)0;
+	odp_atomic_u64_t a;
+	while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL)
+		__k1_cpu_backoff(10);
+
 	if (atom->v == *exp) {
 		atom->v = val;
 		ret_succ = 1;
@@ -432,7 +413,7 @@ static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
 		*exp = atom->v;
 		ret_succ = 0;
 	}
-	_odp_atomic_flag_clear(&(atom)->lock);
+	STORE_U64(atom->_u64, a._u64);
 	return ret_succ;
 
 }
@@ -450,7 +431,7 @@ static inline uint64_t _odp_atomic_u64_fetch_add_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-	return ATOMIC_OP_MM64(atom, atom->v += val, mmodel);
+	return ATOMIC_OP_MM(atom, a.v += val, mmodel);
 }
 
 /**
@@ -465,7 +446,7 @@ static inline void _odp_atomic_u64_add_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)ATOMIC_OP_MM64(atom, atom->v += val, mmodel);
+	(void)ATOMIC_OP_MM(atom, a.v += val, mmodel);
 }
 
 /**
@@ -481,7 +462,7 @@ static inline uint64_t _odp_atomic_u64_fetch_sub_mm(odp_atomic_u64_t *atom,
 		uint64_t val,
 		_odp_memmodel_t mmodel)
 {
-	return ATOMIC_OP_MM64(atom, atom->v -= val, mmodel);
+	return ATOMIC_OP_MM(atom, a.v -= val, mmodel);
 }
 
 /**
@@ -496,7 +477,7 @@ static inline void _odp_atomic_u64_sub_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel)
 
 {
-	(void)ATOMIC_OP_MM64(atom, atom->v -= val, mmodel);
+	(void)ATOMIC_OP_MM(atom, a.v -= val, mmodel);
 }
 
 /*****************************************************************************

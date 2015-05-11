@@ -26,10 +26,16 @@ extern "C" {
  * Atomic 64-bit unsigned integer
  */
 struct odp_atomic_u64_s {
-	uint64_t v; /**< Actual storage for the atomic variable */
-	/* Some architectures do not support lock-free operations on 64-bit
-	 * data types. We use a spin lock to ensure atomicity. */
-	uint64_t lock; /**< Spin lock (if needed) used to ensure atomic access */
+	union {
+		struct {
+			int lock : 1;
+			uint64_t v : 63; /**< Actual storage for the atomic variable */
+			/* Some architectures do not support lock-free operations on 64-bit
+			 * data types. We use a spin lock to ensure atomicity. */
+		};
+		uint64_t _type;
+		uint64_t _u64;
+	};
 } ODP_ALIGNED(sizeof(uint64_t)); /* Enforce alignement! */;
 
 /**
@@ -42,6 +48,7 @@ struct odp_atomic_u32_s {
 			uint32_t v; /**< Actual storage for the atomic variable */
 			uint32_t lock; /**< Spin lock (if needed) used to ensure atomic access */
 		};
+		uint32_t _type;
 		uint64_t _u64;
 	};
 } ODP_ALIGNED(sizeof(uint32_t)); /* Enforce alignement! */;
@@ -53,39 +60,17 @@ struct odp_atomic_u32_s {
  * @param expr Expression used update the variable.
  * @return The old value of the variable.
  */
-#define ATOMIC_OP64(atom, expr)												\
+#define ATOMIC_OP(atom, expr)												\
 	({														\
-		uint64_t old_val;											\
-		/* Loop while lock is already taken, stop when lock becomes clear */					\
-		while (!__k1_atomic_test_and_clear(&atom->lock))							\
-			__k1_cpu_backoff(10);										\
-		INVALIDATE(&atom->v);											\
-		old_val = (atom)->v;											\
-		(expr); /* Perform whatever update is desired */							\
-		__k1_wmb();												\
-		__builtin_k1_swu(&(atom)->lock, 0x1ULL);								\
-		old_val; /* Return old value */										\
-	})
-
-/**
- * @internal
- * Helper macro for lock-based atomic operations on 64-bit integers
- * @param[in,out] atom Pointer to the 64-bit atomic variable
- * @param expr Expression used update the variable.
- * @return The old value of the variable.
- */
-#define ATOMIC_OP32(atom, expr)												\
-	({														\
-		struct odp_atomic_u32_s a;										\
-		while ((a._u64 = __k1_atomic_test_and_clear(&atom->_u64)) == 0ULL){					\
+		typeof(*(atom)) a;											\
+		while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL){					\
 			__k1_cpu_backoff(10);										\
 		}													\
-		uint32_t old_val = a.v;											\
+		typeof((atom)->_type) old_val = a.v;									\
 		(expr); /* Perform whatever update is desired */							\
 		STORE_U64(atom->_u64, a._u64);										\
 		old_val; /* Return old value */										\
 	})
-
 
 #define INVALIDATE_AREA(p, s) do {									\
 		const char *__ptr;									\

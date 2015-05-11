@@ -40,11 +40,11 @@
 #include <odp/timer.h>
 #include <odp_timer_internal.h>
 
-#define TMO_UNUSED   ((uint64_t)0xFFFFFFFFFFFFFFFF)
+#define TMO_UNUSED   ((uint64_t)0x7FFFFFFFFFFFFFFF)
 /* TMO_INACTIVE is or-ed with the expiration tick to indicate an expired timer.
  * The original expiration tick (63 bits) is still available so it can be used
  * for checking the freshness of received timeouts */
-#define TMO_INACTIVE ((uint64_t)0x8000000000000000)
+#define TMO_INACTIVE ((uint64_t)0x4000000000000000)
 
 /******************************************************************************
  * Mutual exclusion in the absence of CAS16
