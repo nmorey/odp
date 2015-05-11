@@ -516,15 +516,16 @@ static int setup_txrx_masks(odp_cpumask_t *thd_mask_tx,
 		num_tx_workers = (num_workers + 1) / 2;
 	}
 
+	num_rx_workers = odp_cpumask_count(&cpumask) - num_tx_workers;
 	odp_cpumask_zero(thd_mask_tx);
 	odp_cpumask_zero(thd_mask_rx);
 
 	cpu = odp_cpumask_first(&cpumask);
 	for (i = 0; i < num_workers; ++i) {
-		if (i < num_tx_workers)
-			odp_cpumask_set(thd_mask_tx, cpu);
-		else
+		if (i < num_rx_workers)
 			odp_cpumask_set(thd_mask_rx, cpu);
+		else
+			odp_cpumask_set(thd_mask_tx, cpu);
 		cpu = odp_cpumask_next(&cpumask, cpu);
 	}
 
