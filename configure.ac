@@ -288,7 +288,7 @@ ODP_CFLAGS="$ODP_CFLAGS -W -Wall -Wstrict-prototypes -Wmissing-prototypes"
 ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-arith"
 ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
-ODP_CFLAGS="$ODP_CFLAGS -std=c99"
+ODP_CFLAGS="$ODP_CFLAGS -std=gnu99"
 
 ##########################################################################
 # Default include setup
