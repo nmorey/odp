@@ -418,7 +418,7 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 		return 0;
 
 	thr = odp_thread_id();
-
+	INVALIDATE(sched);
 	for (i = 0; i < ODP_CONFIG_SCHED_PRIOS; i++) {
 		int id;
 
@@ -447,8 +447,8 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 
 			if (buf == ODP_BUFFER_INVALID)
 				continue;
-
 			sched_cmd = odp_buffer_addr(buf);
+			INVALIDATE(sched_cmd);
 
 			if (sched_cmd->cmd == SCHED_CMD_POLL_PKTIN) {
 				/* Poll packet input */
