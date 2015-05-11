@@ -27,7 +27,13 @@ extern "C" {
 
 static inline uint32_t odp_atomic_load_u32(odp_atomic_u32_t *atom)
 {
-	return __builtin_k1_lwu((void*)&atom->v);
+	odp_atomic_u32_t a;
+	while(1){
+		a._u64 = LOAD_U64(atom->_u64);
+		if(a.lock)
+			return a.v;
+		__k1_cpu_backoff(10);
+	}
 }
 
 static inline void odp_atomic_store_u32(odp_atomic_u32_t *atom,
