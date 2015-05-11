@@ -462,6 +462,7 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	}
 
 	buf_hdr       = queue->s.head;
+	INVALIDATE(buf_hdr);
 	queue->s.head = buf_hdr->next;
 	buf_hdr->next = NULL;
 
@@ -471,7 +472,6 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	}
 
 	UNLOCK(queue);
-	INVALIDATE(buf_hdr);
 
 	return buf_hdr;
 }
