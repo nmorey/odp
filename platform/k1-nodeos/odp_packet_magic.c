@@ -100,7 +100,6 @@ int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned 
 	uint8_t *frame;
 	uint32_t frame_len;
 	unsigned i;
-	unsigned flags;
 	int nb_tx;
 	int ret;
 

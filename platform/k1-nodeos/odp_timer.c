@@ -476,7 +476,7 @@ static unsigned odp_timer_pool_expire(odp_timer_pool_t tpid, uint64_t tick)
 
 static odp_timer_pool * _odp_timer_pool_global = NULL;
 
-static void timer_notify(union sigval sigval)
+static void timer_notify(union sigval sigval ODP_UNUSED)
 {
 	odp_timer_pool *tp = _odp_timer_pool_global;
 	uint64_t prev_tick = odp_atomic_fetch_inc_u64(&tp->cur_tick);
