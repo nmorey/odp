@@ -66,10 +66,10 @@ struct odp_atomic_u32_s {
 		while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL){					\
 			__k1_cpu_backoff(10);										\
 		}													\
-		typeof((atom)->_type) old_val = a.v;									\
-		(expr); /* Perform whatever update is desired */							\
+		typeof((atom)->_type) ___old_val = a.v;									\
+		expr; /* Perform whatever update is desired */								\
 		STORE_U64(atom->_u64, a._u64);										\
-		old_val; /* Return old value */										\
+		___old_val; /* Return old value */									\
 	})
 
 #define INVALIDATE_AREA(p, s) do {									\
