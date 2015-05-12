@@ -68,7 +68,7 @@ struct odp_atomic_u32_s {
 		}													\
 		typeof((atom)->_type) ___old_val = a.v;									\
 		expr; /* Perform whatever update is desired */								\
-		STORE_U64(atom->_u64, a._u64);										\
+		STORE_U64((atom)->_u64, a._u64);									\
 		___old_val; /* Return old value */									\
 	})
 
