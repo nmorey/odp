@@ -455,13 +455,12 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 {
 	odp_buffer_hdr_t *buf_hdr;
 
+	if (LOAD_PTR(queue->s.head) == NULL)
+		return NULL;
+
 	LOCK(queue);
 
 	if (LOAD_PTR(queue->s.head) == NULL) {
-		/* Already empty queue */
-		if (LOAD_S32(queue->s.status) == QUEUE_STATUS_SCHED)
-			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
-
 		UNLOCK(queue);
 		return NULL;
 	}
@@ -472,6 +471,8 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	if (buf_hdr->next == NULL) {
 		/* Queue is now empty */
 		STORE_PTR(queue->s.tail, NULL);
+		if (LOAD_S32(queue->s.status) == QUEUE_STATUS_SCHED)
+			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 	}
 
 	buf_hdr->next = NULL;
