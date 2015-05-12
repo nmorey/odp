@@ -11,6 +11,7 @@
 #include <odp_packet_internal.h>
 #include <odp_internal.h>
 #include <odp/spinlock.h>
+#include <odp/rwlock.h>
 #include <odp/shared_memory.h>
 #include <odp/config.h>
 #include <odp_queue_internal.h>
@@ -57,7 +58,7 @@ int odp_pktio_init_global(void)
 	for (id = 1; id <= ODP_CONFIG_PKTIO_ENTRIES; ++id) {
 		pktio_entry = &pktio_tbl->entries[id - 1];
 
-		odp_spinlock_init(&pktio_entry->s.lock);
+		odp_rwlock_init(&pktio_entry->s.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l2_cos_table.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l3_cos_table.lock);
@@ -122,24 +123,34 @@ static void set_taken(pktio_entry_t *entry)
 
 static void lock_entry(pktio_entry_t *entry)
 {
-	odp_spinlock_lock(&entry->s.lock);
+	odp_rwlock_write_lock(&entry->s.lock);
 }
 
 static void unlock_entry(pktio_entry_t *entry)
 {
-	odp_spinlock_unlock(&entry->s.lock);
+	odp_rwlock_write_unlock(&entry->s.lock);
+}
+
+static void enter_entry(pktio_entry_t *entry)
+{
+	odp_rwlock_read_lock(&entry->s.lock);
+}
+
+static void exit_entry(pktio_entry_t *entry)
+{
+	odp_rwlock_read_unlock(&entry->s.lock);
 }
 
 static void lock_entry_classifier(pktio_entry_t *entry)
 {
-	odp_spinlock_lock(&entry->s.lock);
+	lock_entry(entry);
 	odp_spinlock_lock(&entry->s.cls.lock);
 }
 
 static void unlock_entry_classifier(pktio_entry_t *entry)
 {
 	odp_spinlock_unlock(&entry->s.cls.lock);
-	odp_spinlock_unlock(&entry->s.lock);
+	unlock_entry(entry);
 }
 
 static void init_pktio_entry(pktio_entry_t *entry)
@@ -329,13 +340,13 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 		if (!entry || is_free(entry))
 			continue;
 
-		lock_entry(entry);
+		enter_entry(entry);
 
 		if (!is_free(entry) &&
 		    strncmp(entry->s.name, dev, MAX_PKTIO_NAMESIZE) == 0)
 			id = _odp_cast_scalar(odp_pktio_t, i);
 
-		unlock_entry(entry);
+		exit_entry(entry);
 
 		if (id != ODP_PKTIO_INVALID)
 			break;
@@ -372,7 +383,7 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	lock_entry(pktio_entry);
+	enter_entry(pktio_entry);
 	switch (pktio_entry->s.type) {
 	case ODP_PKTIO_TYPE_MAGIC:
 		pkts = magic_recv(&pktio_entry->s.magic, pkt_table, len);
@@ -385,7 +396,7 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 		break;
 	}
 
-	unlock_entry(pktio_entry);
+	exit_entry(pktio_entry);
 	if (pkts < 0)
 		return pkts;
 
@@ -416,7 +427,7 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	lock_entry(pktio_entry);
+	enter_entry(pktio_entry);
 	switch (pktio_entry->s.type) {
 	case ODP_PKTIO_TYPE_MAGIC:
 		pkts = magic_send(&pktio_entry->s.magic, pkt_table, len);
@@ -427,7 +438,7 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	default:
 		pkts = -1;
 	}
-	unlock_entry(pktio_entry);
+	exit_entry(pktio_entry);
 
 	return pkts;
 }
@@ -691,23 +702,23 @@ int odp_pktio_mtu(odp_pktio_t id)
 		return -1;
 	}
 
-	lock_entry(entry);
+	enter_entry(entry);
 
 	if (odp_unlikely(is_free(entry))) {
-		unlock_entry(entry);
+		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
 		return -1;
 	}
 
 	switch (entry->s.type) {
 	case ODP_PKTIO_TYPE_LOOPBACK:
-		unlock_entry(entry);
+		exit_entry(entry);
 		return PKTIO_LOOP_MTU;
 	default:
 		/* FIXME */
 		break;
 	}
-	unlock_entry(entry);
+	exit_entry(entry);
 	return -1;
 }
 
@@ -759,10 +770,10 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 		return -1;
 	}
 
-	lock_entry(entry);
+	enter_entry(entry);
 
 	if (odp_unlikely(is_free(entry))) {
-		unlock_entry(entry);
+		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
 		return -1;
 	}
@@ -775,17 +786,17 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 		ret = entry->s.promisc ? 1 : 0;
 		break;
 	default:
-		unlock_entry(entry);
+		exit_entry(entry);
 		ODP_ABORT("Promisc mode unsupported");
 		return -1;
 	}
 
 
-	unlock_entry(entry);
+	exit_entry(entry);
 	return ret;
 }
 
-int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
+int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 {
 	pktio_entry_t *entry;
 
@@ -800,10 +811,10 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
 		return -1;
 	}
 
-	lock_entry(entry);
+	enter_entry(entry);
 
 	if (odp_unlikely(is_free(entry))) {
-		unlock_entry(entry);
+		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
 		return -1;
 	}
@@ -819,7 +830,7 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr ODP_UNUSED, int addr_size)
 		ODP_ABORT("Wrong socket type %d\n", entry->s.type);
 	}
 
-	unlock_entry(entry);
+	exit_entry(entry);
 
 	return ETH_ALEN;
 }

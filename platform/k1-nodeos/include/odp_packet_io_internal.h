@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 #include <odp/spinlock.h>
+#include <odp/rwlock.h>
 #include <odp_classification_datamodel.h>
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
@@ -57,7 +58,7 @@ typedef struct {
 } pkt_loopback_t;
 
 struct pktio_entry {
-	odp_spinlock_t lock;		/**< entry spinlock */
+	odp_rwlock_t lock;		/**< entry RW lock */
 	int taken;			/**< is entry taken(1) or free(0) */
 	int cls_enabled;		/**< is classifier enabled */
 	odp_pktio_t handle;		/**< pktio handle */
