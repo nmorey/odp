@@ -40,13 +40,17 @@ static inline void odp_atomic_store_u32(odp_atomic_u32_t *atom,
 					uint32_t val)
 {
 	__k1_wmb();
-	__builtin_k1_swu(&atom->v, val);
+	ATOMIC_OP(atom, a.v = val);
 }
 
 static inline void odp_atomic_init_u32(odp_atomic_u32_t *atom, uint32_t val)
 {
-	odp_atomic_store_u32(atom, val);
-	__builtin_k1_swu(&atom->lock, 0x1);
+	odp_atomic_u32_t a;
+	__k1_wmb();
+
+	a.v = val;
+	a.lock = 0x1;
+	STORE_U64(atom->_u64, a._u64);
 }
 
 static inline uint32_t odp_atomic_fetch_add_u32(odp_atomic_u32_t *atom,
