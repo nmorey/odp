@@ -38,6 +38,7 @@ void odp_rwlock_read_lock(odp_rwlock_t *rwlock)
 
 void odp_rwlock_read_unlock(odp_rwlock_t *rwlock)
 {
+	__k1_wmb();
 	_odp_atomic_u32_sub_mm(&rwlock->cnt, 1, _ODP_MEMMODEL_RLS);
 }
 
@@ -64,5 +65,6 @@ void odp_rwlock_write_lock(odp_rwlock_t *rwlock)
 
 void odp_rwlock_write_unlock(odp_rwlock_t *rwlock)
 {
+	__k1_wmb();
 	_odp_atomic_u32_store_mm(&rwlock->cnt, 0, _ODP_MEMMODEL_RLS);
 }
