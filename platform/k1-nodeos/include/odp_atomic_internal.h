@@ -406,11 +406,11 @@ static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
 	while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL)
 		__k1_cpu_backoff(10);
 
-	if (atom->v == *exp) {
-		atom->v = val;
+	if (a.v == *exp) {
+		a.v = val;
 		ret_succ = 1;
 	} else {
-		*exp = atom->v;
+		*exp = a.v;
 		ret_succ = 0;
 	}
 	STORE_U64(atom->_u64, a._u64);
