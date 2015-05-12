@@ -74,10 +74,7 @@ void odp_ticketlock_unlock(odp_ticketlock_t *ticketlock)
 	 * atomic RMW operation. Instead load-relaxed the current value
 	 * and a store-release of the incremented value */
 	__k1_wmb();
-	uint32_t cur = _odp_atomic_u32_load_mm(&ticketlock->cur_ticket,
-					       _ODP_MEMMODEL_RLX);
-	_odp_atomic_u32_store_mm(&ticketlock->cur_ticket, cur + 1,
-				 _ODP_MEMMODEL_RLS);
+	odp_atomic_inc_u32(&ticketlock->cur_ticket);
 
 }
 
