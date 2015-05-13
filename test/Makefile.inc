@@ -15,3 +15,14 @@ AM_LDFLAGS += -L$(LIB)
 
 @VALGRIND_CHECK_RULES@
 valgrind_tools = memcheck drd sgcheck
+
+TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR="${builddir}" TARGET_RUNNER="$(KELF_LOG_COMPILER)"
+TEST_EXTENSIONS = .kelf
+
+if TARGET_IS_K1_JTAG
+KELF_LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
+endif
+
+if TARGET_IS_K1_CLUSTER
+KELF_LOG_COMPILER =	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libuser_syscall.so --
+endif
