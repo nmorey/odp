@@ -83,6 +83,7 @@ $b.target("build") do
         $b.run(:cmd => "make -Cbuild-#{conf}/platform V=1", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test/validation", :env => $env)
+        $b.run(:cmd => "make -Cbuild-#{conf}/test/performance", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/example/generator", :env => $env)
     }
 end
@@ -93,6 +94,7 @@ $b.target("valid") do
 
      $valid_configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild-#{conf}/test/validation -j1 check", :env => $env)
+        $b.run(:cmd => "make -Cbuild-#{conf}/test/performance -j1 check", :env => $env)
      }
 end
 
