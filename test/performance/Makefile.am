@@ -1,12 +1,13 @@
 include $(top_srcdir)/test/Makefile.inc
 
+if TARGET_IS_K1_JTAG
 EXECUTABLES = odp_atomic.kelf odp_pktio_perf.kelf
+TESTSCRIPTS = odp_scheduling_run # \
+ odp_l2fwd_run
+endif
 
 COMPILE_ONLY = odp_l2fwd.kelf \
 	       odp_scheduling.kelf
-
-TESTSCRIPTS = odp_l2fwd_run \
-	      odp_scheduling_run
 
 if test_perf
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
