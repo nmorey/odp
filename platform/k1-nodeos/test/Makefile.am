@@ -1,1 +1,1 @@
-dist_bin_SCRIPTS = $(srcdir)/pktio_env
+../../linux-generic/test/Makefile.am
