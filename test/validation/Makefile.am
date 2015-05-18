@@ -24,7 +24,6 @@ TESTSCRIPTS = odp_pktio_run
 
 COMPILE_ONLY = odp_pktio.kelf
 
-
 if test_vald
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
 endif

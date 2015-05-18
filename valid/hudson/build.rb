@@ -4,13 +4,17 @@
 $LOAD_PATH.push('metabuild/lib')
 require 'metabuild'
 include Metabuild
-CONFIGS=["k1a-kalray-nodeos", "k1a-kalray-nodeosmagic"]
-
+CONFIGS={
+	"k1a-kalray-nodeos" => [ "configure_options" => "", "make_platform_options" =>"", "make_test_options" =>"" ],
+	"k1a-kalray-nodeosmagic" => [ "configure_options" => "", "make_platform_options" =>"", "make_test_options" =>"" ],
+	"k1b-kalray-nodeos" => [ "configure_options" => "", "make_platform_options" =>"", "make_test_options" =>"" ],
+	"k1b-kalray-nodeosmagic" => [ "configure_options" => " --disable-crypto", "make_platform_options" =>"", "make_test_options" =>"" ],
+}
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
-                        "configs"       => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
-                        "valid-configs" => {"type" => "string", "default" => CONFIGS.join(" "), "help" => "Build configs. Default = #{CONFIGS.join(" ")}" },
+                        "configs"       => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
+                        "valid-configs" => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
                       })
 
 workspace  = options["workspace"]
@@ -44,7 +48,7 @@ $valid_configs = options["valid-configs"].split()
 
 $configs = (options["configs"].split(" ") + $valid_configs).uniq
 $configs.each(){|conf|
-    raise ("Invalid config '#{conf}'") if CONFIGS.index(conf) == nil
+    raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
 
 $b.target("configure") do
@@ -55,7 +59,7 @@ $b.target("configure") do
         $b.run(:cmd => "mkdir -p build-#{conf}", :env => $env)
         $b.run(:cmd => "cd build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++  ../configure  --host=#{conf}" +
                        " -with-platform=k1-nodeos  --with-cunit-path=$(pwd)/../cunit/install-#{conf}/ --enable-test-vald "+
-                       " --enable-test-perf #{$debug_flags} ",
+                       " --enable-test-perf #{$debug_flags} #{conf["configure_options"]}",
            :env => $env)
     }
 end
@@ -66,7 +70,7 @@ $b.target("prepare") do
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
-         $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
+        $b.run(:cmd => "mkdir -p cunit/build-#{conf} cunit/install-#{conf}", :env => $env)
         $b.run(:cmd => "cd cunit/build-#{conf}; CC=k1-nodeos-gcc  CXX=k1-nodeos-g++   ../configure --srcdir=`pwd`/.."+
                        " --prefix=$(pwd)/../install-#{conf}/ --enable-debug --enable-automated --enable-basic "+
                        " --enable-console --enable-examples --enable-test --host=#{conf}",
@@ -80,8 +84,8 @@ $b.target("build") do
     cd odp_path
 
      $configs.each(){|conf|
-        $b.run(:cmd => "make -Cbuild-#{conf}/platform V=1", :env => $env)
-        $b.run(:cmd => "make -Cbuild-#{conf}/test", :env => $env)
+        $b.run(:cmd => "make -Cbuild-#{conf}/platform #{conf["make_platform_options"]} V=1", :env => $env)
+        $b.run(:cmd => "make -Cbuild-#{conf}/test #{conf["make_test_options"]} V=1" , :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test/validation", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/test/performance", :env => $env)
         $b.run(:cmd => "make -Cbuild-#{conf}/example/generator", :env => $env)

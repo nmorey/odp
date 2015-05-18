@@ -61,19 +61,22 @@ AS_CASE([$host],
   [k1a-kalray-nodeos], [ARCH=k1a-nodeos
   					    k1_jtag=yes
 						k1_core=k1a
-  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual"], #  -mcore=k1a
+  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1a"
+						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1b-kalray-nodeos], [ARCH=k1b-nodeos
   					    k1_jtag=yes
 						k1_core=k1b
- 					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -mcore=k1b"],
+ 					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1b -mboard=explorer"
+						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
     					     k1_cluster=yes
 							 k1_core=k1a
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual"], #  -mcore=k1a
+  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  -march=k1a"],
   [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
     					     k1_cluster=yes
 							 k1_core=k1b
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -mcore=k1b"],
+  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -march=k1b"],
+
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
@@ -211,6 +214,25 @@ AC_ARG_ENABLE([debug],
     fi])
 ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
 AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
+
+##########################################################################
+# Enable/disable Crypto
+##########################################################################
+
+# This adds the option of compiling without using the ctemplate library,
+# which has proved troublesome for compilation on some platforms
+AC_ARG_ENABLE(crypto,
+			  [ --disable-crypto   Disable compilation with ctemplate and HTML output],
+			  [case "${enableval}" in
+			   yes | no ) NO_CRYPTO="${enableval}" ;;
+		   *) AC_MSG_ERROR(bad value ${enableval} for --disable-crypto) ;;
+	   esac],
+	   [NO_CRYPTO="no"]
+	   )
+
+dnl Make sure we register this option with Automake, so we know whether to
+dnl descend into ctemplate for more configuration or not
+AM_CONDITIONAL([NO_CRYPTO], [test "x$NO_CRYPTO" = "xno"])
 ##########################################################################
 # Check for pthreads availability
 ##########################################################################
@@ -236,14 +258,14 @@ AM_CONDITIONAL([HAVE_DOXYGEN], [test "x${DOXYGEN}" = "xdoxygen"])
 ##########################################################################
 # Set optional OpenSSL path
 ##########################################################################
-AC_ARG_WITH([openssl-path],
-AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
-               [(or in the default path if not specified).]),
-    [OPENSSL_PATH=$withval
-    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
-    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
-    ],[AC_MSG_RESULT([no])])
-
+#AC_ARG_WITH([openssl-path],
+#AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
+#               [(or in the default path if not specified).]),
+#    [OPENSSL_PATH=$withval
+#    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
+#    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
+#    ],[AC_MSG_RESULT([no])])
+#
 ##########################################################################
 # Save and set temporary compilation flags
 ##########################################################################

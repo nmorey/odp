@@ -24,7 +24,7 @@
 #include <odp/helper/icmp.h>
 
 #define MAX_WORKERS            32		/**< max number of works */
-#define SHM_PKT_POOL_SIZE      (512*2048)	/**< pkt pool size */
+#define SHM_PKT_POOL_SIZE      (64*2048)	/**< pkt pool size */
 #define SHM_PKT_POOL_BUF_SIZE  1856		/**< pkt pool buf size */
 
 #define APPL_MODE_UDP    0			/**< UDP mode */

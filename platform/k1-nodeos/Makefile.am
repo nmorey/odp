@@ -166,3 +166,8 @@ __LIB__libodp_la_SOURCES = \
 			   odp_timer.c \
 			   odp_version.c \
 			   odp_weak.c
+
+if !NO_CRYPTO
+__LIB__libodp_la_SOURCES += odp_crypto.c 
+endif
+
