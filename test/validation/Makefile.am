@@ -24,6 +24,12 @@ TESTSCRIPTS = odp_pktio_run
 
 COMPILE_ONLY = odp_pktio.kelf
 
+if !NO_CRYPTO
+  EXECUTABLES  += odp_crypto.kelf
+  COMPILE_ONLY += odp_random.kelf
+endif
+
+
 if test_vald
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
 endif
