@@ -154,7 +154,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_packet_magic.c \
 			   odp_pool.c \
 			   odp_queue.c \
-			   odp_ring.c \
+			   ../../helper/ring.c \
 			   odp_rwlock.c \
 			   odp_schedule.c \
 			   odp_shared_memory.c \

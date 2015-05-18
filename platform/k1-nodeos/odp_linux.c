@@ -80,7 +80,7 @@ static void *odp_run_start_routine(void *arg)
 }
 
 
-void odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
+int odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
 			       const odp_cpumask_t *mask_in,
 			       void *(*start_routine) (void *), void *arg)
 {
@@ -99,7 +99,7 @@ void odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
 
 	if (num < 1 || num > cpu_count) {
 		ODP_ERR("Bad num\n");
-		return;
+		return 0;
 	}
 
 	cpu = odp_cpumask_first(&mask);
@@ -130,6 +130,7 @@ void odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
 
 		cpu = odp_cpumask_next(&mask, cpu);
 	}
+	return i;
 }
 
 

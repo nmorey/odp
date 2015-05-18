@@ -434,9 +434,10 @@ void *odp_packet_user_ptr(odp_packet_t pkt);
 /**
  * Set user context pointer
  *
- * Each packet has room for a user defined context. The context can be stored
- * either as a pointer OR as a uint64_t value, but not both at the same time.
- * The latest context set operation determines which one has been stored.
+ * Each packet has room for a user defined context pointer. The pointer value
+ * does not necessarily represent a valid address - e.g. user may store any
+ * value of type intptr_t. ODP may use the pointer for data prefetching, but
+ * must ignore any invalid addresses.
  *
  * @param pkt  Packet handle
  * @param ctx  User context pointer
@@ -444,27 +445,28 @@ void *odp_packet_user_ptr(odp_packet_t pkt);
 void odp_packet_user_ptr_set(odp_packet_t pkt, const void *ctx);
 
 /**
- * User context data (uint64_t)
+ * User area address
  *
- * Return previously stored user context uint64_t value.
+ * Each packet has an area for user data. Size of the area is fixed and defined
+ * in packet pool parameters.
  *
  * @param pkt  Packet handle
  *
- * @return User context data
+ * @return       User area address associated with the packet
+ * @retval NULL  The packet does not have user area
  */
-uint64_t odp_packet_user_u64(odp_packet_t pkt);
+void *odp_packet_user_area(odp_packet_t pkt);
 
 /**
- * Set user context data (uint64_t)
+ * User area size
  *
- * Each packet has room for a user defined context. The context can be stored
- * either as a pointer OR as a uint64_t value, but not both at the same time.
- * The latest context set operation determines which one has been stored.
+ * The size is fixed and defined in packet pool parameters.
  *
  * @param pkt  Packet handle
- * @param ctx  User context data
+ *
+ * @return  User area size in bytes
  */
-void odp_packet_user_u64_set(odp_packet_t pkt, uint64_t ctx);
+uint32_t odp_packet_user_area_size(odp_packet_t pkt);
 
 /**
  * Layer 2 start pointer

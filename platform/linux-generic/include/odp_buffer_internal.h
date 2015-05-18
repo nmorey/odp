@@ -124,9 +124,9 @@ typedef struct odp_buffer_hdr_t {
 		uint64_t         buf_u64;    /* user u64 */
 		void            *buf_ctx;    /* user context */
 		const void      *buf_cctx;   /* const alias for ctx */
-		void            *udata_addr; /* user metadata addr */
 	};
-	size_t                   udata_size; /* size of user metadata */
+	void                    *uarea_addr; /* user area address */
+	uint32_t                 uarea_size; /* size of user area */
 	uint32_t                 segcount;   /* segment count */
 	uint32_t                 segsize;    /* segment size */
 	void                    *addr[ODP_BUFFER_MAX_SEG]; /* block addrs */

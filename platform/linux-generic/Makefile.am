@@ -151,7 +151,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_event.c \
 			   odp_init.c \
 			   odp_impl.c \
-			   ../../helper/linux.c \
+			   ../../linux.c \
 			   odp_packet.c \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \

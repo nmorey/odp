@@ -229,25 +229,30 @@ void odp_packet_user_ptr_set(odp_packet_t pkt, const void *ctx)
 	odp_packet_hdr(pkt)->buf_hdr.buf_cctx = ctx;
 }
 
-uint64_t odp_packet_user_u64(odp_packet_t pkt)
+void *odp_packet_user_area(odp_packet_t pkt)
 {
-	return odp_packet_hdr(pkt)->buf_hdr.buf_u64;
+	return odp_packet_hdr(pkt)->buf_hdr.uarea_addr;
 }
 
-void odp_packet_user_u64_set(odp_packet_t pkt, uint64_t ctx)
+uint32_t odp_packet_user_area_size(odp_packet_t pkt)
 {
-	odp_packet_hdr(pkt)->buf_hdr.buf_u64 = ctx;
+	return odp_packet_hdr(pkt)->buf_hdr.uarea_size;
 }
 
 void *odp_packet_l2_ptr(odp_packet_t pkt, uint32_t *len)
 {
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	return packet_map(pkt_hdr, pkt_hdr->l2_offset, len);
 }
 
 uint32_t odp_packet_l2_offset(odp_packet_t pkt)
 {
-	return odp_packet_hdr(pkt)->l2_offset;
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
+	return pkt_hdr->l2_offset;
 }
 
 int odp_packet_l2_offset_set(odp_packet_t pkt, uint32_t offset)
@@ -257,6 +262,8 @@ int odp_packet_l2_offset_set(odp_packet_t pkt, uint32_t offset)
 	if (offset >= pkt_hdr->frame_len)
 		return -1;
 
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	pkt_hdr->l2_offset = offset;
 	return 0;
 }
@@ -264,12 +271,17 @@ int odp_packet_l2_offset_set(odp_packet_t pkt, uint32_t offset)
 void *odp_packet_l3_ptr(odp_packet_t pkt, uint32_t *len)
 {
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	return packet_map(pkt_hdr, pkt_hdr->l3_offset, len);
 }
 
 uint32_t odp_packet_l3_offset(odp_packet_t pkt)
 {
-	return odp_packet_hdr(pkt)->l3_offset;
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
+	return pkt_hdr->l3_offset;
 }
 
 int odp_packet_l3_offset_set(odp_packet_t pkt, uint32_t offset)
@@ -279,6 +291,8 @@ int odp_packet_l3_offset_set(odp_packet_t pkt, uint32_t offset)
 	if (offset >= pkt_hdr->frame_len)
 		return -1;
 
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	pkt_hdr->l3_offset = offset;
 	return 0;
 }
@@ -286,12 +300,17 @@ int odp_packet_l3_offset_set(odp_packet_t pkt, uint32_t offset)
 void *odp_packet_l4_ptr(odp_packet_t pkt, uint32_t *len)
 {
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	return packet_map(pkt_hdr, pkt_hdr->l4_offset, len);
 }
 
 uint32_t odp_packet_l4_offset(odp_packet_t pkt)
 {
-	return odp_packet_hdr(pkt)->l4_offset;
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
+	return pkt_hdr->l4_offset;
 }
 
 int odp_packet_l4_offset_set(odp_packet_t pkt, uint32_t offset)
@@ -301,6 +320,8 @@ int odp_packet_l4_offset_set(odp_packet_t pkt, uint32_t offset)
 	if (offset >= pkt_hdr->frame_len)
 		return -1;
 
+	if (pkt_hdr->input_flags.unparsed)
+		_odp_packet_parse(pkt_hdr);
 	pkt_hdr->l4_offset = offset;
 	return 0;
 }
@@ -409,6 +430,14 @@ odp_packet_t odp_packet_add_data(odp_packet_t pkt, uint32_t offset,
 			odp_packet_hdr_t *new_hdr = odp_packet_hdr(newpkt);
 			new_hdr->input = pkt_hdr->input;
 			new_hdr->buf_hdr.buf_u64 = pkt_hdr->buf_hdr.buf_u64;
+			if (new_hdr->buf_hdr.uarea_addr != NULL &&
+			    pkt_hdr->buf_hdr.uarea_addr != NULL)
+				memcpy(new_hdr->buf_hdr.uarea_addr,
+				       pkt_hdr->buf_hdr.uarea_addr,
+				       new_hdr->buf_hdr.uarea_size <=
+				       pkt_hdr->buf_hdr.uarea_size ?
+				       new_hdr->buf_hdr.uarea_size :
+				       pkt_hdr->buf_hdr.uarea_size);
 			odp_atomic_store_u32(
 				&new_hdr->buf_hdr.ref_count,
 				odp_atomic_load_u32(
@@ -445,6 +474,14 @@ odp_packet_t odp_packet_rem_data(odp_packet_t pkt, uint32_t offset,
 			odp_packet_hdr_t *new_hdr = odp_packet_hdr(newpkt);
 			new_hdr->input = pkt_hdr->input;
 			new_hdr->buf_hdr.buf_u64 = pkt_hdr->buf_hdr.buf_u64;
+			if (new_hdr->buf_hdr.uarea_addr != NULL &&
+			    pkt_hdr->buf_hdr.uarea_addr != NULL)
+				memcpy(new_hdr->buf_hdr.uarea_addr,
+				       pkt_hdr->buf_hdr.uarea_addr,
+				       new_hdr->buf_hdr.uarea_size <=
+				       pkt_hdr->buf_hdr.uarea_size ?
+				       new_hdr->buf_hdr.uarea_size :
+				       pkt_hdr->buf_hdr.uarea_size);
 			odp_atomic_store_u32(
 				&new_hdr->buf_hdr.ref_count,
 				odp_atomic_load_u32(
@@ -558,19 +595,19 @@ void odp_packet_print(odp_packet_t pkt)
 	len += snprintf(&str[len], n-len, "Packet ");
 	len += odp_buffer_snprint(&str[len], n-len, (odp_buffer_t) pkt);
 	len += snprintf(&str[len], n-len,
-			"  input_flags  0x%x\n", hdr->input_flags.all);
+			"  input_flags  0x%" PRIx32 "\n", hdr->input_flags.all);
 	len += snprintf(&str[len], n-len,
-			"  error_flags  0x%x\n", hdr->error_flags.all);
+			"  error_flags  0x%" PRIx32 "\n", hdr->error_flags.all);
 	len += snprintf(&str[len], n-len,
-			"  output_flags 0x%x\n", hdr->output_flags.all);
+			"  output_flags 0x%" PRIx32 "\n", hdr->output_flags.all);
 	len += snprintf(&str[len], n-len,
-			"  l2_offset    %u\n", hdr->l2_offset);
+			"  l2_offset    %" PRIu32 "\n", hdr->l2_offset);
 	len += snprintf(&str[len], n-len,
-			"  l3_offset    %u\n", hdr->l3_offset);
+			"  l3_offset    %" PRIu32 "\n", hdr->l3_offset);
 	len += snprintf(&str[len], n-len,
-			"  l4_offset    %u\n", hdr->l4_offset);
+			"  l4_offset    %" PRIu32 "\n", hdr->l4_offset);
 	len += snprintf(&str[len], n-len,
-			"  frame_len    %u\n", hdr->frame_len);
+			"  frame_len    %" PRIu32 "\n", hdr->frame_len);
 	len += snprintf(&str[len], n-len,
 			"  input        %" PRIu64 "\n",
 			odp_pktio_to_u64(hdr->input));
@@ -600,6 +637,14 @@ void _odp_packet_copy_md_to_packet(odp_packet_t srcpkt, odp_packet_t dstpkt)
 
 	dsthdr->input = srchdr->input;
 	dsthdr->buf_hdr.buf_u64 = srchdr->buf_hdr.buf_u64;
+	if (dsthdr->buf_hdr.uarea_addr != NULL &&
+	    srchdr->buf_hdr.uarea_addr != NULL)
+		memcpy(dsthdr->buf_hdr.uarea_addr,
+		       srchdr->buf_hdr.uarea_addr,
+		       dsthdr->buf_hdr.uarea_size <=
+		       srchdr->buf_hdr.uarea_size ?
+		       dsthdr->buf_hdr.uarea_size :
+		       srchdr->buf_hdr.uarea_size);
 	odp_atomic_store_u32(
 		&dsthdr->buf_hdr.ref_count,
 		odp_atomic_load_u32(
@@ -790,9 +835,8 @@ static inline void parse_udp(odp_packet_hdr_t *pkt_hdr,
  * Simple packet parser
  */
 
-int _odp_packet_parse(odp_packet_t pkt)
+int _odp_packet_parse(odp_packet_hdr_t *pkt_hdr)
 {
-	odp_packet_hdr_t *const pkt_hdr = odp_packet_hdr(pkt);
 	odph_ethhdr_t *eth;
 	odph_vlanhdr_t *vlan;
 	uint16_t ethtype;

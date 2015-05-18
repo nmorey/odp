@@ -34,7 +34,8 @@ typedef union {
 	uint32_t all;
 
 	struct {
-		/* Bitfield flags for each protocol */
+		uint32_t unparsed:1;  /**< Set to inticate parse needed */
+
 		uint32_t l2:1;        /**< known L2 protocol present */
 		uint32_t l3:1;        /**< known L3 protocol present */
 		uint32_t l4:1;        /**< known L4 protocol present */
@@ -138,9 +139,6 @@ typedef struct {
 typedef struct odp_packet_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_packet_hdr_t))];
 } odp_packet_hdr_stride;
-
-_ODP_STATIC_ASSERT(sizeof(odp_packet_hdr_t) % sizeof(uint64_t) == 0,
-		   "ODP_PACKET_HDR_T__SIZE_ERR2");
 
 /**
  * Return the packet header
@@ -248,6 +246,14 @@ static inline void packet_set_len(odp_packet_t pkt, uint32_t len)
 	odp_packet_hdr(pkt)->frame_len = len;
 }
 
+#define ODP_PACKET_UNPARSED ~0
+
+static inline void _odp_packet_reset_parse(odp_packet_t pkt)
+{
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	pkt_hdr->input_flags.all = ODP_PACKET_UNPARSED;
+}
+
 /* Forward declarations */
 int _odp_packet_copy_to_packet(odp_packet_t srcpkt, uint32_t srcoffset,
 			       odp_packet_t dstpkt, uint32_t dstoffset,
@@ -257,7 +263,7 @@ void _odp_packet_copy_md_to_packet(odp_packet_t srcpkt, odp_packet_t dstpkt);
 
 odp_packet_t _odp_packet_alloc(odp_pool_t pool_hdl);
 
-int _odp_packet_parse(odp_packet_t pkt);
+int _odp_packet_parse(odp_packet_hdr_t *pkt_hdr);
 
 /* Convert a packet handle to a buffer handle */
 odp_buffer_t _odp_packet_to_buffer(odp_packet_t pkt);
