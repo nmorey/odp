@@ -43,10 +43,28 @@ AC_TYPE_INT32_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
+
 ##########################################################################
 # Allow valgrind suite to run against the defined tests
 ##########################################################################
 AX_VALGRIND_CHECK
+
+##########################################################################
+# Save and set temporary compilation flags
+##########################################################################
+OLD_LDFLAGS=$LDFLAGS
+OLD_CPPFLAGS=$CPPFLAGS
+LDFLAGS="$AM_LDFLAGS $LDFLAGS -march=k1a"
+CPPFLAGS="$AM_CPPFLAGS $CPPFLAGS -march=k1a"
+
+AC_CHECK_FUNCS([exit], [K1A_ARCH_FLAG="-march=k1a"], [K1A_ARCH_FLAG=""])
+
+
+##########################################################################
+# Restore old saved variables
+##########################################################################
+LDFLAGS=$OLD_LDFLAGS
+CPPFLAGS=$OLD_CPPFLAGS
 
 ##########################################################################
 # Which archetecture optimizations will we use
@@ -61,7 +79,7 @@ AS_CASE([$host],
   [k1a-kalray-nodeos], [ARCH=k1a-nodeos
   					    k1_jtag=yes
 						k1_core=k1a
-  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1a"
+  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual $K1A_ARCH_FLAG"
 						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1b-kalray-nodeos], [ARCH=k1b-nodeos
   					    k1_jtag=yes
@@ -71,7 +89,7 @@ AS_CASE([$host],
   [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
     					     k1_cluster=yes
 							 k1_core=k1a
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  -march=k1a"
+  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  $K1A_ARCH_FLAG"
 							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
     					     k1_cluster=yes
