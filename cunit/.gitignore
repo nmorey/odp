@@ -8,3 +8,4 @@ cunit.pc
 *.a
 build-*
 install-*
+configure.in

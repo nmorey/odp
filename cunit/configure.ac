@@ -3,6 +3,11 @@ dnl Applied patch to handle AC_ARG_ENABLE targets (Patch 1250604) - Provided by 
 AC_INIT(CUnit, 2.1-3)
 AM_INIT_AUTOMAKE(CUnit, 2.1-3)
 
+AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
+AC_CONFIG_MACRO_DIR([m4])
+AM_SILENT_RULES([yes])
+
 dnl Package version information
 PACKAGE=CUnit
 VERSION_MAJOR=2
@@ -34,6 +39,12 @@ AC_PROG_CXX
 
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+
+#Use libtool
+LT_INIT([])
+AC_SUBST([LIBTOOL_DEPS])
+AM_PROG_LIBTOOL
+
 ##########################################################################
 # Save and set temporary compilation flags
 ##########################################################################
@@ -188,11 +199,6 @@ else
 fi
 
 
-dnl Check for programs.
-AC_PROG_CC
-AC_PROG_INSTALL
-AC_PROG_MAKE_SET
-AC_PROG_LIBTOOL
 
 dnl Check for libraries
 AC_CHECK_LIB(c, main)
