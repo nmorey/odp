@@ -1,7 +1,7 @@
 dnl Applied patch to handle AC_ARG_ENABLE targets (Patch 1250604) - Provided by Andrew Kephart <andrew.kephart@alereon.com
 
 AC_INIT(CUnit, 2.1-3)
-AM_INIT_AUTOMAKE(CUnit, 2.1-3)
+AM_INIT_AUTOMAKE([])
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
