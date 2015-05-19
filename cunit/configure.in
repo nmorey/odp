@@ -26,10 +26,37 @@ LIBTOOL_SUFFIX=${LIBTOOL_SUFFIX1}.${LIBTOOL_AGE}.${LIBTOOL_REVISION}
 
 TOPDIR=`pwd`
 
+# Checks for programs.
+AC_PROG_CC
+AM_PROG_CC_C_O
+
+AC_PROG_CXX
+
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+##########################################################################
+# Save and set temporary compilation flags
+##########################################################################
+OLD_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$AM_CFLAGS $CFLAGS -march=k1a"
+
+AC_MSG_CHECKING([whether CC supports -march=k1a])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+	[ AC_MSG_RESULT([yes])
+	  K1A_ARCH_FLAG="-march=k1a"],
+	[ AC_MSG_RESULT([no])
+	  K1A_ARCH_FLAG=""])
+
+
+##########################################################################
+# Restore old saved variables
+##########################################################################
+CPPFLAGS=$OLD_CPPFLAGS
+
 AS_CASE([$host],
-  [k1a-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual -march=k1a"],
+  [k1a-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual $K1A_ARCH_FLAG"],
   [k1b-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual -march=k1b"],
-  [k1a-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1a"],
+  [k1a-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual $K1A_ARCH_FLAG"],
   [k1b-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1b"]
 )
 

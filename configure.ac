@@ -55,9 +55,14 @@ AX_VALGRIND_CHECK
 OLD_LDFLAGS=$LDFLAGS
 OLD_CPPFLAGS=$CPPFLAGS
 LDFLAGS="$AM_LDFLAGS $LDFLAGS -march=k1a"
-CPPFLAGS="$AM_CPPFLAGS $CPPFLAGS -march=k1a"
+CPPFLAGS="$AM_CFLAGS $CFLAGS -march=k1a"
 
-AC_CHECK_FUNCS([exit], [K1A_ARCH_FLAG="-march=k1a"], [K1A_ARCH_FLAG=""])
+AC_MSG_CHECKING([whether CC supports -march=k1a])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+	[ AC_MSG_RESULT([yes])
+	  K1A_ARCH_FLAG="-march=k1a"],
+	[ AC_MSG_RESULT([no])
+	  K1A_ARCH_FLAG=""])
 
 
 ##########################################################################
