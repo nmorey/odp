@@ -73,8 +73,7 @@ $configs.each(){|conf|
 
 def conf_env(conf)
     arch = conf.split("-")[0]
-    return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ CFLAGS='-march=#{arch}' CPPFLAGS='-march=#{arch}' " +
-           CONFIGS[conf][:configure_env].to_s + " "
+    return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
 end
 $b.target("configure") do
     cd odp_path
@@ -100,7 +99,7 @@ $b.target("prepare") do
                        " --prefix=$(pwd)/../install-#{conf}/ --enable-debug --enable-automated --enable-basic "+
                        " --enable-console --enable-examples --enable-test --host=#{conf}",
            :env => $env)
-        $b.run(:cmd => "cd cunit/build-#{conf}; make -j4 install", :env => $env)
+        $b.run(:cmd => "cd cunit/build-#{conf}; make -j4 install V=1", :env => $env)
     }
 end
 

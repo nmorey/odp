@@ -71,11 +71,13 @@ AS_CASE([$host],
   [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
     					     k1_cluster=yes
 							 k1_core=k1a
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  -march=k1a"],
+  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  -march=k1a"
+							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
   [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
     					     k1_cluster=yes
 							 k1_core=k1b
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -march=k1b"],
+  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -march=k1b"
+							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
 
   [ARCH=linux]
 )
