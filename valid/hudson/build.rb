@@ -7,25 +7,25 @@ include Metabuild
 CONFIGS={
 	"k1a-kalray-nodeos" =>
     {
-        :configure_options => " --disable-crypto",
+        :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>""
     },
 	"k1a-kalray-nodeosmagic" =>
     {
-        :configure_options => " --disable-crypto",
+        :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>""
     },
 	"k1b-kalray-nodeos"      =>
     {
-        :configure_options => " --disable-crypto",
+        :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>""
     },
 	"k1b-kalray-nodeosmagic" =>
     {
-        :configure_options => " --disable-crypto",
+        :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>""
     },

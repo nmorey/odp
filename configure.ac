@@ -218,24 +218,6 @@ ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
 AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
 
 ##########################################################################
-# Enable/disable Crypto
-##########################################################################
-
-# This adds the option of compiling without using the ctemplate library,
-# which has proved troublesome for compilation on some platforms
-AC_ARG_ENABLE(crypto,
-			  [ --disable-crypto   Disable compilation with ctemplate and HTML output],
-			  [case "${enableval}" in
-			   yes | no ) NO_CRYPTO="${enableval}" ;;
-		   *) AC_MSG_ERROR(bad value ${enableval} for --disable-crypto) ;;
-	   esac],
-	   [NO_CRYPTO="no"]
-	   )
-
-dnl Make sure we register this option with Automake, so we know whether to
-dnl descend into ctemplate for more configuration or not
-AM_CONDITIONAL([NO_CRYPTO], [test "x$NO_CRYPTO" = "xno"])
-##########################################################################
 # Check for pthreads availability
 ##########################################################################
 
@@ -260,14 +242,14 @@ AM_CONDITIONAL([HAVE_DOXYGEN], [test "x${DOXYGEN}" = "xdoxygen"])
 ##########################################################################
 # Set optional OpenSSL path
 ##########################################################################
-#AC_ARG_WITH([openssl-path],
-#AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
-#               [(or in the default path if not specified).]),
-#    [OPENSSL_PATH=$withval
-#    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
-#    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
-#    ],[AC_MSG_RESULT([no])])
-#
+AC_ARG_WITH([openssl-path],
+AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
+               [(or in the default path if not specified).]),
+    [OPENSSL_PATH=$withval
+    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
+    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
+    ],[AC_MSG_RESULT([no])])
+
 ##########################################################################
 # Save and set temporary compilation flags
 ##########################################################################
@@ -294,10 +276,17 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 ##########################################################################
 # Check for OpenSSL availability
 ##########################################################################
-#AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-#             [AC_MSG_FAILURE([OpenSSL libraries required])])
-#AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
-#             [AC_MSG_ERROR([OpenSSL headers required])])
+NO_CRYPTO="no"
+AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
+             [NO_CRYPTO="yes"])
+AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
+             [NO_CRYPTO="yes"])
+AM_CONDITIONAL([NO_CRYPTO], [test "x$NO_CRYPTO" = "xyes"])
+if test x$NO_CRYPTO = xyes
+then
+    AM_CPPFLAGS="$AM_CPPFLAGS -DNO_CRYPTO"
+    AM_CFLAGS="$AM_CFLAGS -DNO_CRYPTO"
+fi
 
 ##########################################################################
 # Restore old saved variables
