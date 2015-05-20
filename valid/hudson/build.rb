@@ -147,7 +147,10 @@ $b.target("package") do
     pinfo = $b.package_info("k1-odp", release_info,
                            package_description, "/usr/local/k1tools/k1-nodeos",
                            workspace, depends)
-    pinfo.output_dir = $options["output-dir"] if $options["output-dir"] != nil
+    if $options["output-dir"] != nil then
+            $b.run(:cmd => "mkdir -p #{$options["output-dir"]}", :env => $env)
+            pinfo.output_dir = $options["output-dir"]
+    end
     $b.create_package(tar_package, pinfo)
 end
 
