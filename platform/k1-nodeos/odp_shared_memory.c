@@ -207,12 +207,12 @@ odp_shm_t odp_shm_reserve(const char *name, uint64_t size, uint64_t align,
 	/* Use normal pages for small or failed huge page allocations */
 	if (addr == NULL) {
 		addr = malloc(alloc_size);
-
 		if (addr == NULL) {
 			odp_spinlock_unlock(&odp_shm_tbl->lock);
 			ODP_DBG("%s malloc failed.\n", name);
 			return ODP_SHM_INVALID;
 		} else {
+			memset(addr, 0, alloc_size);
 			block->alloc_size = alloc_size;
 			block->huge = 0;
 		}
