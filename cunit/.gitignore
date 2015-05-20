@@ -6,6 +6,7 @@ cunit.pc
 .libs
 *.la
 *.a
-build-*
-install-*
+build/
+install/
+m4/
 configure.in

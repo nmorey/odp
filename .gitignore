@@ -37,4 +37,7 @@ core
 CUnit-Memory-Dump.xml
 syscall/build_x86_64
 .metabuild
-build-k1*
+build/
+install/
+odp.tar
+*.rpm
