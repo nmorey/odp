@@ -71,7 +71,7 @@ AS_CASE([$host],
   [k1b-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1b"]
 )
 
-CFLAGS+="$CFLAGS -DRELEASE=@RELEASE@ -Wall -W -pedantic -Wshadow -ansi -I${srcdir}/CUnit/Headers -I${PWD}/CUnit/Headers -std=c99"
+CFLAGS+=" $CFLAGS -DRELEASE=@RELEASE@ -Wall -W -pedantic -Wshadow -ansi -I${srcdir}/CUnit/Headers -I${PWD}/CUnit/Headers -std=c99"
 LDFLAGS="$LDFLAGS -L${PWD}/CUnit/Sources"
 
 AC_ARG_ENABLE(debug,
@@ -81,7 +81,7 @@ AC_ARG_ENABLE(debug,
 if test x"$cu_do_debug" = xyes ; then
 	echo "++++++++++ Enabling debug mode compilation."
 	CFLAGS="$CFLAGS -D_DEBUG -g3 -Wall"
-	LDFLAGS="$LDFLAGS -g"
+	LDFLAGS="$LDFLAGS -g "
 	ENABLE_DEBUG="TRUE"
 else
 	echo "---------- Disabling debug mode compilation."
