@@ -81,7 +81,7 @@ $debug_flags = $options["debug"] == true ? "--enable-debug" : ""
 
 $valid_configs = $options["valid-configs"].split()
 
-$configs = ($options["configs"].split(" ") + $valid_configs).uniq
+$configs = ($options["configs"].split(" ")).uniq
 $configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
