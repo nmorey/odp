@@ -48,7 +48,7 @@ static inline void odp_sync_stores(void)
 #elif defined __OCTEON__
 
    __asm__  __volatile__ ("syncws\n" : : : "memory");
-#elif __K1__
+#elif defined (__K1__)
 	__k1_wmb(); 
 #else
    __sync_synchronize();
