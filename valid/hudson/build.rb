@@ -134,7 +134,7 @@ $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd $odp_path
 
-     $configs.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 install", :env => $env)
         if CONFIGS[conf][:build_tests] then
             $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
@@ -147,10 +147,12 @@ $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-     $valid_configs.each(){|conf|
-        $b.valid(:cmd => "make -Cbuild/#{conf}/test/validation -j1 check", :env => $env)
-        $b.valid(:cmd => "make -Cbuild/#{conf}/test/performance -j1 check", :env => $env)
-     }
+    $valid_configs.each(){|conf|
+        if CONFIGS[conf][:build_tests] then
+            $b.valid(:cmd => "make -Cbuild/#{conf}/test/validation -j1 check", :env => $env)
+            $b.valid(:cmd => "make -Cbuild/#{conf}/test/performance -j1 check", :env => $env)
+        end
+    }
 end
 
 $b.target("package") do
