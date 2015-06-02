@@ -30,7 +30,29 @@ extern "C" {
  */
 static inline void odp_sync_stores(void)
 {
+#if defined __x86_64__ || defined __i386__
+
+   __asm__  __volatile__ ("sfence\n" : : : "memory");
+
+#elif defined(__arm__)
+#if __ARM_ARCH == 6
+   __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5" \
+           : : "r" (0) : "memory");
+#elif __ARM_ARCH >= 7 || defined __aarch64__
+
+   __asm__ __volatile__ ("dmb st" : : : "memory");
+#else
+   __asm__ __volatile__ ("" : : : "memory");
+#endif
+
+#elif defined __OCTEON__
+
+   __asm__  __volatile__ ("syncws\n" : : : "memory");
+#elif __K1__
 	__k1_wmb(); 
+#else
+   __sync_synchronize();
+#endif
 }
 
 
