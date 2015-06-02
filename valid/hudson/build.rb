@@ -9,25 +9,36 @@ CONFIGS={
     {
         :configure_options => "",
         :make_platform_options =>"",
-        :make_test_options =>""
+        :make_test_options =>"",
+        :platform => "k1-nodeos"
     },
 	"k1a-kalray-nodeosmagic" =>
     {
         :configure_options => "",
         :make_platform_options =>"",
-        :make_test_options =>""
+        :make_test_options =>"",
+        :platform => "k1-nodeos"
     },
+    "x86_64-unknown-linux-gnu" =>
+    {
+        :configure_options => "",
+        :make_platform_options =>"",
+        :make_test_options =>"",
+        :platform => "linux-generic"
+    }
 	# "k1b-kalray-nodeos"      =>
     # {
     #     :configure_options => "",
     #     :make_platform_options =>"",
-    #     :make_test_options =>""
+    #     :make_test_options =>"",
+    #     :platform => "k1-nodeos"
     # },
 	# "k1b-kalray-nodeosmagic" =>
     # {
     #     :configure_options => "",
     #     :make_platform_options =>"",
-    #     :make_test_options =>""
+    #     :make_test_options =>"",
+    #     :platform => "k1-nodeos"
     # },
 }
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
@@ -77,7 +88,14 @@ $configs.each(){|conf|
 
 def conf_env(conf)
     arch = conf.split("-")[0]
-    return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
+    case arch
+    when "x86_64"
+        return ""
+    when "k1a"
+        return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
+    else
+        raise "Unsupported arch"
+    end
 end
 $b.target("configure") do
     cd $odp_path
@@ -86,7 +104,8 @@ $b.target("configure") do
         $b.run(:cmd => "rm -Rf build/#{conf}", :env => $env)
         $b.run(:cmd => "mkdir -p build/#{conf}", :env => $env)
         $b.run(:cmd => "cd build/#{conf}; #{conf_env(conf)}  #{$odp_path}/configure  --host=#{conf}" +
-                       " --with-platform=k1-nodeos  --with-cunit-path=#{$odp_path}/cunit/install/#{conf}/ --enable-test-vald "+
+                       " --with-platform=#{CONFIGS[conf][:platform]}  " +
+                       " --with-cunit-path=#{$odp_path}/cunit/install/#{conf}/ --enable-test-vald "+
                        " --prefix=#{$odp_path}/install/ --libdir=#{$odp_path}/install/lib/#{conf}" +
                        " --enable-test-perf #{$debug_flags} #{CONFIGS[conf][:configure_options]}",
            :env => $env)

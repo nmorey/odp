@@ -84,16 +84,24 @@ struct odp_atomic_u32_s {
 
 #define LOAD_U32(p) ((uint32_t)__builtin_k1_lwu((void*)(&p)))
 #define STORE_U32(p, val) __builtin_k1_swu((void*)&(p), (uint32_t)(val))
+#define STORE_U32_IMM(p, val) __builtin_k1_swu((void*)(p), (uint32_t)(val))
+
 #define LOAD_S32(p) ((int32_t)__builtin_k1_lwu((void*)(&p)))
 #define STORE_S32(p, val) __builtin_k1_swu((void*)&(p), (int32_t)(val))
+#define STORE_S32_IMM(p, val) __builtin_k1_swu((void*)(p), (int32_t)(val))
 
 #define LOAD_U64(p) ((uint64_t)__builtin_k1_ldu((void*)(&p)))
 #define STORE_U64(p, val) __builtin_k1_sdu((void*)&(p), (uint64_t)(val))
+#define STORE_U64_IMM(p, val) __builtin_k1_sdu((void*)(p), (uint64_t)(val))
+
 #define LOAD_S64(p) ((int64_t)__builtin_k1_ldu((void*)(&p)))
 #define STORE_S64(p, val) __builtin_k1_sdu((void*)&(p), (int64_t)(val))
+#define STORE_S64_IMM(p, val) __builtin_k1_sdu((void*)(p), (int64_t)(val))
 
 #define LOAD_PTR(p) ((void*)(unsigned long)(LOAD_U32(p)))
 #define STORE_PTR(p, val) STORE_U32((p), (unsigned long)(val))
+#define STORE_PTR_IMM(p, val) STORE_U32_IMM((p), (unsigned long)(val))
+
 /** @addtogroup odp_synchronizers
  *  @{
  */

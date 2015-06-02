@@ -460,12 +460,12 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 
 	LOCK(queue);
 
-	if (LOAD_PTR(queue->s.head) == NULL) {
+	buf_hdr       = LOAD_PTR(queue->s.head);
+	if (buf_hdr == NULL) {
 		UNLOCK(queue);
 		return NULL;
 	}
 
-	buf_hdr       = LOAD_PTR(queue->s.head);
 	INVALIDATE(buf_hdr);
 	STORE_PTR(queue->s.head, buf_hdr->next);
 	if (buf_hdr->next == NULL) {
@@ -502,8 +502,6 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 
 	if (hdr == NULL) {
 		/* Already empty queue */
-		if (status == QUEUE_STATUS_SCHED)
-			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 
 		UNLOCK(queue);
 		return 0;
@@ -521,6 +519,8 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	if (hdr == NULL) {
 		/* Queue is now empty */
 		STORE_PTR(queue->s.tail, NULL);
+		if (status == QUEUE_STATUS_SCHED)
+			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 	}
 
 	UNLOCK(queue);
