@@ -27,12 +27,16 @@ extern "C" {
  */
 struct odp_atomic_u64_s {
 	union {
+#if defined(__K1A__)
 		struct {
 			int lock : 1;
 			uint64_t v : 63; /**< Actual storage for the atomic variable */
 			/* Some architectures do not support lock-free operations on 64-bit
 			 * data types. We use a spin lock to ensure atomicity. */
 		};
+#elif defined(__K1B__)
+		uint64_t v;
+#endif
 		uint64_t _type;
 		uint64_t _u64;
 	};
@@ -53,6 +57,7 @@ struct odp_atomic_u32_s {
 	};
 } ODP_ALIGNED(sizeof(uint32_t)); /* Enforce alignement! */;
 
+#ifndef __K1B__
 /**
  * @internal
  * Helper macro for lock-based atomic operations on 64-bit integers
@@ -71,6 +76,7 @@ struct odp_atomic_u32_s {
 		STORE_U64((atom)->_u64, a._u64);									\
 		___old_val; /* Return old value */									\
 	})
+#endif
 
 #define INVALIDATE_AREA(p, s) do {									\
 		const char *__ptr;									\
