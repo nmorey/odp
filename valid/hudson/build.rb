@@ -17,18 +17,18 @@ CONFIGS={
         :make_platform_options =>"",
         :make_test_options =>""
     },
-	# "k1b-kalray-nodeos"      =>
-    # {
-    #     :configure_options => "",
-    #     :make_platform_options =>"",
-    #     :make_test_options =>""
-    # },
-	# "k1b-kalray-nodeosmagic" =>
-    # {
-    #     :configure_options => "",
-    #     :make_platform_options =>"",
-    #     :make_test_options =>""
-    # },
+	"k1b-kalray-nodeos"      =>
+    {
+        :configure_options => "",
+        :make_platform_options =>"",
+        :make_test_options =>""
+    },
+	"k1b-kalray-nodeosmagic" =>
+    {
+        :configure_options => "",
+        :make_platform_options =>"",
+        :make_test_options =>""
+    },
 }
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
