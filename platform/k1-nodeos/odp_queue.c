@@ -460,12 +460,12 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 
 	LOCK(queue);
 
-	if (LOAD_PTR(queue->s.head) == NULL) {
+	buf_hdr       = LOAD_PTR(queue->s.head);
+	if (buf_hdr == NULL) {
 		UNLOCK(queue);
 		return NULL;
 	}
 
-	buf_hdr       = LOAD_PTR(queue->s.head);
 	INVALIDATE(buf_hdr);
 	STORE_PTR(queue->s.head, buf_hdr->next);
 	if (buf_hdr->next == NULL) {
