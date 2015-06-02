@@ -30,7 +30,6 @@ extern "C" {
  */
 static inline void odp_sync_stores(void)
 {
-	__k1_wmb(); 
 }
 
 
