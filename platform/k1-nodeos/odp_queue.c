@@ -502,6 +502,8 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 
 	if (hdr == NULL) {
 		/* Already empty queue */
+		if (status == QUEUE_STATUS_SCHED)
+			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 
 		UNLOCK(queue);
 		return 0;
@@ -519,8 +521,6 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	if (hdr == NULL) {
 		/* Queue is now empty */
 		STORE_PTR(queue->s.tail, NULL);
-		if (status == QUEUE_STATUS_SCHED)
-			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
 	}
 
 	UNLOCK(queue);
