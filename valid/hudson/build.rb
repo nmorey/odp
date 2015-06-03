@@ -11,7 +11,8 @@ CONFIGS={
         :make_platform_options =>"",
         :make_test_options =>"",
         :platform => "k1-nodeos",
-        :build_tests => true
+        :build_tests => true,
+        :install => true,
     },
 	"k1a-kalray-nodeosmagic" =>
     {
@@ -19,7 +20,8 @@ CONFIGS={
         :make_platform_options =>"",
         :make_test_options =>"",
         :platform => "k1-nodeos",
-        :build_tests => true
+        :build_tests => true,
+        :install => true,
     },
     "x86_64-unknown-linux-gnu" =>
     {
@@ -27,21 +29,24 @@ CONFIGS={
         :make_platform_options =>"",
         :make_test_options =>"",
         :platform => "linux-generic",
-        :build_dirs => false
+        :build_dirs => false,
+        :install => false,
     }
 	# "k1b-kalray-nodeos"      =>
     # {
     #     :configure_options => "",
     #     :make_platform_options =>"",
     #     :make_test_options =>"",
-    #     :platform => "k1-nodeos"
+    #     :platform => "k1-nodeos",
+    #    :install => true,
     # },
 	# "k1b-kalray-nodeosmagic" =>
     # {
     #     :configure_options => "",
     #     :make_platform_options =>"",
     #     :make_test_options =>"",
-    #     :platform => "k1-nodeos"
+    #     :platform => "k1-nodeos",
+    #    :install => true,
     # },
 }
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
@@ -135,7 +140,8 @@ $b.target("build") do
     cd $odp_path
 
     $configs.each(){|conf|
-        $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 install", :env => $env)
+        $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 " +
+                       " #{CONFIGS[conf][:install] == true ? "install" : "all"} ", :env => $env)
         if CONFIGS[conf][:build_tests] then
             $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
         end
