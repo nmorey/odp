@@ -114,7 +114,7 @@ $b.target("configure") do
         $b.run(:cmd => "cd build/#{conf}; #{conf_env(conf)}  #{$odp_path}/configure  --host=#{conf}" +
                        " --with-platform=#{CONFIGS[conf][:platform]}  " +
                        " --with-cunit-path=#{$odp_path}/cunit/install/#{conf}/ --enable-test-vald "+
-                       " --prefix=#{$odp_path}/install/ --libdir=#{$odp_path}/install/lib/#{conf}" +
+                       " --prefix=#{$odp_path}/install/local/k1tools/ --libdir=#{$odp_path}/install/local/k1tools/lib/#{conf}" +
                        " --enable-test-perf #{$debug_flags} #{CONFIGS[conf][:configure_options]}",
            :env => $env)
     }
@@ -122,7 +122,7 @@ end
 
 $b.target("prepare") do
     cd $odp_path
-    $b.run(:cmd => "./syscall/run.sh", :env => $env)
+    $b.run(:cmd => "./syscall/run.sh ./install/", :env => $env)
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
@@ -165,7 +165,7 @@ $b.target("package") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-    $b.run(:cmd => "cd install/; tar cf ../odp.tar lib/ include", :env => $env)
+    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/include lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
     depends = []
@@ -177,7 +177,7 @@ $b.target("package") do
     sha1 = $repo.sha1()
     package_description = "K1 ODP package (k1-odp-#{version}-#{releaseID} sha1 #{sha1})."
     pinfo = $b.package_info("k1-odp", release_info,
-                           package_description, "/usr/local/k1tools/k1-nodeos",
+                           package_description, "/usr",
                            workspace, depends)
     if $options["output-dir"] != nil then
             $b.run(:cmd => "mkdir -p #{$options["output-dir"]}", :env => $env)
@@ -190,6 +190,7 @@ $b.target("clean") do
     $b.logtitle = "Report for odp clean."
 
     cd $odp_path
+    $b.run(:cmd => "rm -Rf install", :env => $env)
     $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf build/#{conf}", :env => $env)
         $b.run(:cmd => "rm -Rf cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
