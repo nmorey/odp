@@ -10,21 +10,24 @@ CONFIGS={
         :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>"",
-        :platform => "k1-nodeos"
+        :platform => "k1-nodeos",
+        :build_tests => true
     },
 	"k1a-kalray-nodeosmagic" =>
     {
         :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>"",
-        :platform => "k1-nodeos"
+        :platform => "k1-nodeos",
+        :build_tests => true
     },
     "x86_64-unknown-linux-gnu" =>
     {
         :configure_options => "",
         :make_platform_options =>"",
         :make_test_options =>"",
-        :platform => "linux-generic"
+        :platform => "linux-generic",
+        :build_dirs => false
     }
 	# "k1b-kalray-nodeos"      =>
     # {
@@ -131,9 +134,11 @@ $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd $odp_path
 
-     $configs.each(){|conf|
+    $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 install", :env => $env)
-        $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
+        if CONFIGS[conf][:build_tests] then
+            $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
+        end
         $b.run(:cmd => "make -Cbuild/#{conf}/example/generator", :env => $env)
     }
 end
@@ -142,10 +147,12 @@ $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-     $valid_configs.each(){|conf|
-        $b.valid(:cmd => "make -Cbuild/#{conf}/test/validation -j1 check", :env => $env)
-        $b.valid(:cmd => "make -Cbuild/#{conf}/test/performance -j1 check", :env => $env)
-     }
+    $valid_configs.each(){|conf|
+        if CONFIGS[conf][:build_tests] then
+            $b.valid(:cmd => "make -Cbuild/#{conf}/test/validation -j1 check", :env => $env)
+            $b.valid(:cmd => "make -Cbuild/#{conf}/test/performance -j1 check", :env => $env)
+        end
+    }
 end
 
 $b.target("package") do
