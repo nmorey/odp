@@ -360,6 +360,7 @@ AC_CONFIG_FILES([Makefile
 		 platform/Makefile
 		 platform/linux-generic/Makefile
 		 platform/k1-nodeos/Makefile
+		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
