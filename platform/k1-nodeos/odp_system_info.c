@@ -11,7 +11,7 @@
 #include <odp/cpu.h>
 #include <string.h>
 #include <stdio.h>
-
+#include <mppa_bsp.h>
 /* sysconf */
 #include <unistd.h>
 
@@ -48,7 +48,13 @@ static int huge_page_size(void)
 
 static int cpuinfo_mppa(FILE *file ODP_UNUSED, odp_system_info_t *sysinfo)
 {
-	sysinfo->cpu_hz = 400000000ULL;
+	if (__bsp_flavour == BSP_EXPLORER) {
+
+		sysinfo->cpu_hz = 20000000ULL;
+	}
+	else {
+		sysinfo->cpu_hz = 400000000ULL;
+	}
 	return 0;
 }
 
@@ -80,7 +86,14 @@ static int systemcpu(odp_system_info_t *sysinfo)
 	sysinfo->huge_page_size = huge_page_size();
 
 	/* Dummy values */
-	sysinfo->cpu_hz          = 400000000;
+	if (__bsp_flavour == BSP_EXPLORER) {
+
+		sysinfo->cpu_hz = 20000000ULL;
+	}
+	else {
+		sysinfo->cpu_hz = 400000000ULL;
+	}
+
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
 	strncpy(sysinfo->model_str, "K1B - Bostan", sizeof(sysinfo->model_str));
