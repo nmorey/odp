@@ -41,15 +41,15 @@ CONFIGS={
         :build_dirs => false,
         :install => true,
     },
-	"k1b-kalray-nodeosmagic" =>
-    {
-        :configure_options => "",
-        :make_platform_options =>"",
-        :make_test_options =>"",
-        :platform => "k1-nodeos",
-        :build_dirs => false,
-        :install => true,
-    },
+	# "k1b-kalray-nodeosmagic" =>
+    # {
+    #     :configure_options => "",
+    #     :make_platform_options =>"",
+    #     :make_test_options =>"",
+    #     :platform => "k1-nodeos",
+    #     :build_dirs => false,
+    #     :install => true,
+    # },
 }
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
