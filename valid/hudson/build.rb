@@ -101,7 +101,7 @@ def conf_env(conf)
     case arch
     when "x86_64"
         return ""
-    when "k1a"
+    when "k1a","k1b"
         return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
     else
         raise "Unsupported arch"
