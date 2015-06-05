@@ -46,15 +46,15 @@ odp_classification_kelf_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/classification
 dist_odp_classification_kelf_SOURCES = classification/odp_classification_tests.c \
 				classification/odp_classification_basic.c \
 				odp_classification.c $(ODP_CU_COMMON)
-#odp_crypto_kelf_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/crypto
-#dist_odp_crypto_kelf_SOURCES = crypto/odp_crypto_test_inp.c \
+odp_crypto_kelf_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/crypto
+dist_odp_crypto_kelf_SOURCES = crypto/odp_crypto_test_inp.c \
 			  odp_crypto.c $(ODP_CU_COMMON)
 
 dist_odp_init_kelf_SOURCES	= init/odp_init.c $(ODP_CU_COMMON)
 dist_odp_init_abort_kelf_SOURCES = init/odp_init_abort.c $(ODP_CU_COMMON)
 dist_odp_init_log_kelf_SOURCES = init/odp_init_log.c $(ODP_CU_COMMON)
 dist_odp_queue_kelf_SOURCES	= odp_queue.c $(ODP_CU_COMMON)
-#dist_odp_random_kelf_SOURCES = odp_random.c $(ODP_CU_COMMON)
+dist_odp_random_kelf_SOURCES = odp_random.c $(ODP_CU_COMMON)
 dist_odp_scheduler_kelf_SOURCES = odp_scheduler.c $(ODP_CU_COMMON)
 dist_odp_shared_memory_kelf_SOURCES	= odp_shared_memory.c $(ODP_CU_COMMON)
 dist_odp_synchronizers_kelf_SOURCES = odp_synchronizers.c $(ODP_CU_COMMON)
