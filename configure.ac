@@ -157,6 +157,15 @@ AC_ARG_ENABLE([cunit_support],
         cunit_support=yes
     fi])
 
+##########################################################################
+# Enable/disable crypto support
+##########################################################################
+crypto=yes
+AC_ARG_ENABLE([crypto],
+    [  --disable-crypto        disable crypto support],
+    [if test x$enableval = xno; then
+        crypto=no
+    fi])
 
 ##########################################################################
 # Setup doxygen documentation
@@ -313,13 +322,19 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 ##########################################################################
 # Check for OpenSSL availability
 ##########################################################################
-NO_CRYPTO="no"
-AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-             [NO_CRYPTO="yes"])
-AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
-             [NO_CRYPTO="yes"])
-AM_CONDITIONAL([NO_CRYPTO], [test "x$NO_CRYPTO" = "xyes"])
-if test x$NO_CRYPTO = xyes
+if test x$crypto = xyes
+then
+    AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
+        [crypto=no])
+    AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
+        [crypto=no])
+else
+    crypto=no
+fi
+
+AM_CONDITIONAL([crypto], [test x$crypto = xyes])
+
+if test x$crypto = xno
 then
     AM_CPPFLAGS="$AM_CPPFLAGS -DNO_CRYPTO"
     AM_CFLAGS="$AM_CFLAGS -DNO_CRYPTO"
@@ -407,6 +422,7 @@ AC_MSG_RESULT([
 	am_ldflags:		${AM_LDFLAGS}
 	libs:			${LIBS}
 	cunit:			${cunit_support}
+	crypto:			${crypto}
 	test_vald:		${test_vald}
 	test_perf:		${test_perf}
 	test_cpp:		${test_cpp}
