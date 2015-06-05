@@ -325,9 +325,9 @@ AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 if test x$crypto = xyes
 then
     AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-        [AC_MSG_ERROR([OpenSSL libraries required])])
+        [crypto=no])
     AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
-        [AC_MSG_FAILURE(["can't find OpenSSL headers"])])
+        [crypto=no])
 else
     crypto=no
 fi
