@@ -22,13 +22,6 @@
 #include <string.h>
 #include <errno.h>
 
-#define ETH_ALEN 6
-
-/* MTU to be reported for the "loop" interface */
-#define PKTIO_LOOP_MTU 1500
-/* MAC address for the "loop" interface */
-static const char pktio_loop_mac[] = {0x02, 0xe9, 0x34, 0x80, 0x73, 0x01};
-
 static pktio_table_t *pktio_tbl;
 
 /* pktio pointer entries ( for inlines) */
@@ -40,7 +33,7 @@ int odp_pktio_init_global(void)
 	pktio_entry_t *pktio_entry;
 	queue_entry_t *queue_entry;
 	odp_queue_t qid;
-	int id;
+	int id, pktio_if;
 	odp_shm_t shm;
 
 	shm = odp_shm_reserve("odp_pktio_entries",
@@ -76,9 +69,14 @@ int odp_pktio_init_global(void)
 		queue_entry = queue_to_qentry(qid);
 		queue_entry->s.pktout = _odp_cast_scalar(odp_pktio_t, id);
 	}
-	int ret = magic_global_init();
-	if(ret)
-		return -1;
+
+	for (pktio_if = ODP_PKTIO_TYPE_START; pktio_if < ODP_PKTIO_TYPE_COUNT; pktio_if++) {
+		if (pktio_if_ops[pktio_if]->global_init != NULL) {
+			if (pktio_if_ops[pktio_if]->global_init()) {
+				return -1;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -198,25 +196,11 @@ static int free_pktio_entry(odp_pktio_t id)
 	return 0;
 }
 
-static int init_loop(pktio_entry_t *entry, odp_pktio_t id)
-{
-	char loopq_name[ODP_QUEUE_NAME_LEN];
-
-	snprintf(loopq_name, sizeof(loopq_name), "%" PRIu64 "-pktio_loopq",
-		 odp_pktio_to_u64(id));
-	entry->s.loop.loopq = odp_queue_create(loopq_name,
-					  ODP_QUEUE_TYPE_POLL, NULL);
-
-	if (entry->s.loop.loopq == ODP_QUEUE_INVALID)
-		return -1;
-
-	return 0;
-}
 static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 {
 	odp_pktio_t id;
 	pktio_entry_t *pktio_entry;
-	int ret = 0;
+	int ret = 0, pktio_if;
 
 	if (strlen(dev) >= MAX_PKTIO_NAMESIZE) {
 		/* ioctl names limitation */
@@ -236,34 +220,23 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 	if (!pktio_entry)
 		return ODP_PKTIO_INVALID;
 
-	/* FIXME: Open device/Noc/If, etc... */
-	if(!strncmp("magic-", dev, strlen("magic-"))){
-#ifndef MAGIC_SCALL
-		ODP_ERR("Trying to invoke magic interface on H/W");
-		ret = 1;
-#else
-		pktio_entry->s.type = ODP_PKTIO_TYPE_MAGIC;
-		snprintf(pktio_entry->s.magic.name, MAX_PKTIO_NAMESIZE, "%s", dev + strlen("magic-"));
-#endif
-	} else	if(!strncmp("loop", dev, strlen("loop"))){
-		pktio_entry->s.type = ODP_PKTIO_TYPE_LOOPBACK;
-	} else {
+	/* Set handle to allow open to use it */
+	pktio_entry->s.handle = id;
+	for (pktio_if = ODP_PKTIO_TYPE_START; pktio_if < ODP_PKTIO_TYPE_COUNT; pktio_if++) {
+		ret = pktio_if_ops[pktio_if]->open(pktio_entry, dev);
+		/* If ret is != -1 , then the open tried to handled the open */
+		if (ret != -1)
+			break;
+	}
+
+	/* No handler was found for this io type */
+	if (ret == -1) {
 		ODP_ERR("Invalid dev name '%s'", dev);
 		ret = 1;
 	}
 
 	if(ret == 0){
-		switch(pktio_entry->s.type){
-		case ODP_PKTIO_TYPE_MAGIC:
-			pktio_entry->s.magic.pool = pool;
-			ret = magic_init(pktio_entry, pool);
-			break;
-		case ODP_PKTIO_TYPE_LOOPBACK:
-			ret = init_loop(pktio_entry, id);
-			break;
-		default:
-			break;
-		}
+		ret = pktio_if_ops[pktio_entry->s.type]->setup_pktio_entry(pktio_entry, pool);
 	}
 	if (ret != 0) {
 		unlock_entry_classifier(pktio_entry);
@@ -357,23 +330,6 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 	return id;
 }
 
-static int deq_loopback(pktio_entry_t *pktio_entry, odp_packet_t pkts[],
-			unsigned len)
-{
-	int nbr, i;
-	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
-	queue_entry_t *qentry;
-
-	qentry = queue_to_qentry(pktio_entry->s.loop.loopq);
-	nbr = queue_deq_multi(qentry, hdr_tbl, len);
-
-	for (i = 0; i < nbr; ++i) {
-		pkts[i] = _odp_packet_from_buffer(odp_hdr_to_buf(hdr_tbl[i]));
-		_odp_packet_reset_parse(pkts[i]);
-	}
-
-	return nbr;
-}
 int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
@@ -383,20 +339,11 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	enter_entry(pktio_entry);
-	switch (pktio_entry->s.type) {
-	case ODP_PKTIO_TYPE_MAGIC:
-		pkts = magic_recv(&pktio_entry->s.magic, pkt_table, len);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		pkts = deq_loopback(pktio_entry, pkt_table, len);
-		break;
-	default:
-		pkts = -1;
-		break;
-	}
 
+	enter_entry(pktio_entry);
+	pkts = pktio_if_ops[pktio_entry->s.type]->recv(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
+
 	if (pkts < 0)
 		return pkts;
 
@@ -406,19 +353,6 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	return pkts;
 }
 
-static int enq_loopback(pktio_entry_t *pktio_entry, odp_packet_t pkt_tbl[],
-			unsigned len)
-{
-	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
-	queue_entry_t *qentry;
-	unsigned i;
-
-	for (i = 0; i < len; ++i)
-		hdr_tbl[i] = odp_buf_to_hdr(_odp_packet_to_buffer(pkt_tbl[i]));
-
-	qentry = queue_to_qentry(pktio_entry->s.loop.loopq);
-	return queue_enq_multi(qentry, hdr_tbl, len);
-}
 int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 {
 	pktio_entry_t *pktio_entry = get_pktio_entry(id);
@@ -427,17 +361,8 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	enter_entry(pktio_entry);
-	switch (pktio_entry->s.type) {
-	case ODP_PKTIO_TYPE_MAGIC:
-		pkts = magic_send(&pktio_entry->s.magic, pkt_table, len);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		pkts = enq_loopback(pktio_entry, pkt_table, len);
-		break;
-	default:
-		pkts = -1;
-	}
+	enter_entry(pktio_entry);	
+	pkts = pktio_if_ops[pktio_entry->s.type]->send(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
 
 	return pkts;
@@ -695,6 +620,7 @@ int pktin_poll(pktio_entry_t *entry)
 int odp_pktio_mtu(odp_pktio_t id)
 {
 	pktio_entry_t *entry;
+	int ret;
 
 	entry = get_pktio_entry(id);
 	if (entry == NULL) {
@@ -710,16 +636,10 @@ int odp_pktio_mtu(odp_pktio_t id)
 		return -1;
 	}
 
-	switch (entry->s.type) {
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		exit_entry(entry);
-		return PKTIO_LOOP_MTU;
-	default:
-		/* FIXME */
-		break;
-	}
+	ret = pktio_if_ops[entry->s.type]->mtu_get(entry);
 	exit_entry(entry);
-	return -1;
+
+	return ret;
 }
 
 int odp_pktio_promisc_mode_set(odp_pktio_t id, odp_bool_t enable)
@@ -743,19 +663,9 @@ int odp_pktio_promisc_mode_set(odp_pktio_t id, odp_bool_t enable)
 
 	entry->s.promisc = enable;
 
-	switch (entry->s.type) {
-	case ODP_PKTIO_TYPE_MAGIC:
-		ret = magic_promisc_mode_set(&entry->s.magic, enable);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		ret = 0;
-		break;
-	default:
-		unlock_entry(entry);
-		ODP_ABORT("Promisc mode unsupported");
-		return -1;
-	}
+	ret = pktio_if_ops[entry->s.type]->promisc_mode_set(entry, enable);
 	unlock_entry(entry);
+
 	return ret;
 }
 
@@ -778,19 +688,7 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 		return -1;
 	}
 
-	switch (entry->s.type) {
-	case ODP_PKTIO_TYPE_MAGIC:
-		ret = magic_promisc_mode(&entry->s.magic);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		ret = entry->s.promisc ? 1 : 0;
-		break;
-	default:
-		exit_entry(entry);
-		ODP_ABORT("Promisc mode unsupported");
-		return -1;
-	}
-
+	ret = pktio_if_ops[entry->s.type]->promisc_mode_get(entry);
 
 	exit_entry(entry);
 	return ret;
@@ -819,16 +717,7 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 		return -1;
 	}
 
-	switch (entry->s.type) {
-	case ODP_PKTIO_TYPE_MAGIC:
-		magic_get_mac(&entry->s.magic, mac_addr);
-		break;
-	case ODP_PKTIO_TYPE_LOOPBACK:
-		memcpy(mac_addr, pktio_loop_mac, ETH_ALEN);
-		break;
-	default:
-		ODP_ABORT("Wrong socket type %d\n", entry->s.type);
-	}
+	pktio_if_ops[entry->s.type]->mac_get(entry, mac_addr);
 
 	exit_entry(entry);
 
