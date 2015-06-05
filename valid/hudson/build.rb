@@ -141,11 +141,19 @@ $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd $odp_path
     $b.run(:cmd => "make -Cdoc-kalray install DOCDIR=#{$odp_path}/install/local/k1tools/doc/ODP")
+    docs={}
     $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 " +
                        " #{CONFIGS[conf][:install] == true ? "install" : "all"} ", :env => $env)
         if CONFIGS[conf][:build_tests] then
             $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
+        end
+        if docs[CONFIGS[conf][:platform]] == nil then
+            docs[CONFIGS[conf][:platform]] = true
+            $b.run(:cmd => "make -Cbuild/#{conf}/ #{CONFIGS[conf][:make_platform_options]} V=1 " +
+                           " doxygen-pdf && install build/#{conf}/doc/output/opendataplane.pdf "+
+                           " #{$odp_path}/install/local/k1tools/doc/ODP/opendataplane-#{CONFIGS[conf][:platform]}.pdf",
+                   :env => $env)
         end
         $b.run(:cmd => "make -Cbuild/#{conf}/example/generator", :env => $env)
     }
