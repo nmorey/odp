@@ -167,7 +167,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_version.c \
 			   odp_weak.c
 
-if !NO_CRYPTO
+if crypto
 __LIB__libodp_la_SOURCES += odp_crypto.c 
 endif
 

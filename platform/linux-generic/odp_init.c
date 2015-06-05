@@ -62,10 +62,13 @@ int odp_init_global(odp_init_t *params,
 		return -1;
 	}
 
+#ifndef NO_CRYPTO
 	if (odp_crypto_init_global()) {
 		ODP_ERR("ODP crypto init failed.\n");
 		return -1;
 	}
+#endif	/* NO_CRYPTO */
+
 	if (odp_classification_init_global()) {
 		ODP_ERR("ODP classification init failed.\n");
 		return -1;
@@ -83,10 +86,12 @@ int odp_term_global(void)
 		rc = -1;
 	}
 
+#ifndef NO_CRYPTO
 	if (odp_crypto_term_global()) {
 		ODP_ERR("ODP crypto term failed.\n");
 		rc = -1;
 	}
+#endif
 
 	if (odp_pktio_term_global()) {
 		ODP_ERR("ODP pktio term failed.\n");

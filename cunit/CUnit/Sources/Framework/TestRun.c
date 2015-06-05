@@ -129,8 +129,12 @@ static CU_SuiteInitFailureMessageHandler    f_pSuiteInitFailureMessageHandler = 
 
 /** Pointer to the function to be called if a suite cleanup function returns an error. */
 static CU_SuiteCleanupFailureMessageHandler f_pSuiteCleanupFailureMessageHandler = NULL;
-static  __k1_spinlock_t f_lock = _K1_SPIN_INITUNLOCKED;
 
+#ifdef __K1__
+static  __k1_spinlock_t f_lock = _K1_SPIN_INITUNLOCKED;
+#else
+static pthread_mutex_t f_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
 /*=================================================================
  * Private function forward declarations
  *=================================================================*/
@@ -157,8 +161,12 @@ CU_BOOL CU_assertImplementation(CU_BOOL bValue,
                                 const char *strFunction,
                                 CU_BOOL bFatal)
 {
+#ifdef __k1__
   __k1_spin_lock(&f_lock);
   __k1_rmb();
+#else
+  pthread_mutex_lock(&f_lock);
+#endif
   /* not used in current implementation - stop compiler warning */
   CU_UNREFERENCED_PARAMETER(strFunction);
 
@@ -173,13 +181,21 @@ CU_BOOL CU_assertImplementation(CU_BOOL bValue,
                 uiLine, strCondition, strFile, f_pCurSuite, f_pCurTest);
 
     if ((CU_TRUE == bFatal) && (NULL != f_pCurTest->pJumpBuf)) {
-	    __k1_wmb();
+#ifdef __k1__
+      __k1_wmb();
       __k1_spin_unlock(&f_lock);
+#else
+      pthread_mutex_unlock(&f_lock);
+#endif
       longjmp(*(f_pCurTest->pJumpBuf), 1);
     }
   }
+#ifdef __k1__
   __k1_wmb();
   __k1_spin_unlock(&f_lock);
+#else
+  pthread_mutex_unlock(&f_lock);
+#endif
   return bValue;
 }
 

@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.6)
 
-PROJECT(USER_SYSCALLS C)
+PROJECT(ODP_SYSCALLS C)
 
 
 IF(k1_tools)
@@ -18,6 +18,6 @@ else()
 
 	FILE(GLOB c_files sources/*.c )
 
-	ADD_LIBRARY(user_syscall SHARED ${c_files})
-	SET_TARGET_PROPERTIES(user_syscall PROPERTIES COMPILE_FLAGS "-Wall -fexceptions")
+	ADD_LIBRARY(odp_syscall SHARED ${c_files})
+	SET_TARGET_PROPERTIES(odp_syscall PROPERTIES COMPILE_FLAGS "-Wall -fexceptions")
 endif()
