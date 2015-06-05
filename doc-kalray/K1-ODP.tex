@@ -1,0 +1,136 @@
+\documentclass{trkalray}
+\usepackage{listings}
+\usepackage[toc,page]{appendix}
+\usepackage{makeidx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{listings}
+\lstset{ %
+frame=single
+}
+
+\newcommand{\MPPA}{MPPA\texttrademark\space}
+
+\version{KETD-327}{W23}{2015}
+
+
+\author{%
+Kalray S.A.\autref{1}
+}
+\docowner{Nicolas Morey-Chaisemartin}{nmorey@kalray.eu}
+\vers{1.1}
+\institute{%
+\autlabel{1} \email{support@kalray.eu},
+Kalray S.A.
+}
+
+\abstract{%
+This document describes how to use K1-ODP
+}
+
+\keywords{%
+Dataflow, MPPAIPC, Examples
+}
+
+\renewcommand{\lstlistingname}{Code}% Listing -> Code
+
+
+\makeindex
+
+\title{K1-ODP Manual}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\newpage
+\section{Requirements}
+
+Working with K1-ODP requires two sets of packages:
+\begin{itemize}
+\item[-]{A complete K1 Toolchain using the k1-tools package}
+\item[-]{K1-ODP Library using the k1-odp package}
+\end{itemize}
+
+The K1-ODP files will be installed under the
+\texttt{/usr/local/k1tools} directory.
+
+\section{Choosing a version}
+K1-ODP is available in multiple ports in the k1-odp package, one for
+each of the platforms available for executing ODP applications.
+
+In this version, two ports are available:
+\begin{itemize}
+\item[-]{\texttt{k1a-kalray-nodeos}}
+\item[-]{\texttt{k1a-kalray-nodeosmagic}}
+\end{itemize}
+
+\subsection{k1a-kalray-nodeos}
+
+This port targets one Andey MPPA cluster on hardware.
+
+In the current version, this port supports these interfaces:
+\begin{itemize}
+\item[-]{\texttt{loop}: Software loopback.}
+\end{itemize}
+
+\subsection{k1a-kalray-nodeosmagic}
+
+This ports targets one Andey MPPA cluster in simulation. It is
+compiled for the large\_memory board to remove the 2MB memory limit
+during the development phase.
+
+Using the simulator, this ports allows simulated ODP applications to
+have transparent access to the x86 network interfaces.
+
+In the current version, this port supports these interfaces:
+\begin{itemize}
+\item[-]{\texttt{loop}: Software loopback.}
+\item[-]{\texttt{magic-<ifname>}: Transparent access to the host
+  \texttt{<ifname>} interface.}
+\end{itemize}
+
+\section{Compiling}
+
+Some compiler flags must be passed to the compiler when trying to
+build an ODP application.
+
+\begin{lstlisting}
+CFLAGS += -I/usr/local/k1tools/k1-nodeos/include
+LDFLAGS += -L/usr/local/k1tools/k1-nodeos/lib/<port>/ -lodp
+\end{lstlisting}
+where port is replaced with one of the available K1-ODP port.
+
+Note that when building with \texttt{k1a-kalray-nodeosmagic}, it is
+required to use the
+
+ \texttt{-mboard=large\_memory} flag.
+
+\section{Running}
+
+Running K1-ODP applications is done the same way a standard K1 single
+cluster application would be run.
+
+\subsection{k1a-kalray-nodeos}
+Running a \texttt{k1a-kalray-nodeos} application, can be done either
+on hardware using:
+\begin{lstlisting}
+k1-jtag-runner --exec-file "Cluster0:<executable name>" -- <args>
+\end{lstlisting}
+or in simulation using:
+\begin{lstlisting}
+ k1-cluster -- <executable name> <args>
+\end{lstlisting}
+
+\subsection{k1a-kalray-nodeosmagic}
+Running a \texttt{k1a-kalray-nodeosmagic} application, must be done in
+simulation using this command:
+\begin{lstlisting}
+k1-cluster   --functional  --mboard=large_memory --user-syscall=/usr/lib64/libodp_syscall.so -- <executable name> <args>
+\end{lstlisting}
+
+\end{document}

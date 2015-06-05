@@ -114,7 +114,9 @@ $b.target("configure") do
         $b.run(:cmd => "cd build/#{conf}; #{conf_env(conf)}  #{$odp_path}/configure  --host=#{conf}" +
                        " --with-platform=#{CONFIGS[conf][:platform]}  " +
                        " --with-cunit-path=#{$odp_path}/cunit/install/#{conf}/ --enable-test-vald "+
-                       " --prefix=#{$odp_path}/install/local/k1tools/ --libdir=#{$odp_path}/install/local/k1tools/lib/#{conf}" +
+                       " --prefix=#{$odp_path}/install/local/k1tools/ "+
+                       " --libdir=#{$odp_path}/install/local/k1tools/lib/#{conf}" +
+                       " --include=#{$odp_path}/install/local/k1tools/#{CONFIGS[conf][:platform]}/include" +
                        " --enable-test-perf #{$debug_flags} #{CONFIGS[conf][:configure_options]}",
            :env => $env)
     }
@@ -138,7 +140,7 @@ end
 $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd $odp_path
-
+    $b.run(:cmd => "make -Cdoc-kalray install DOCDIR=#{$odp_path}/install/local/k1tools/doc/ODP")
     $configs.each(){|conf|
         $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 " +
                        " #{CONFIGS[conf][:install] == true ? "install" : "all"} ", :env => $env)
@@ -165,7 +167,7 @@ $b.target("package") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/include lib64", :env => $env)
+    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
     depends = []
