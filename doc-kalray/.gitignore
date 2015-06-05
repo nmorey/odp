@@ -1,0 +1,11 @@
+*.aux
+*.dvi
+*.log
+*.pdf
+*.out
+*.bbl
+*.blg
+*.toc
+graphicspath.list
+includespath.list
+example.list
