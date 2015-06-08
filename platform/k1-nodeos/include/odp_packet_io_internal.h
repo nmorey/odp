@@ -28,34 +28,47 @@ extern "C" {
 #include <odp/hints.h>
 
 #define MAX_PKTIO_NAMESIZE 256
+
+#define ETH_ALEN 6
+
+
 /**
  * Packet IO types
  */
 typedef enum {
+	ODP_PKTIO_TYPE_START = 0x1,
 	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
 	ODP_PKTIO_TYPE_MAGIC,
-	ODP_PKTIO_TYPE_ETH,
-	ODP_PKTIO_TYPE_ETH40G,
-	ODP_PKTIO_TYPE_CLUSTER,
-	ODP_PKTIO_TYPE_IOCLUS
+	ODP_PKTIO_TYPE_COUNT,
+	//~ ODP_PKTIO_TYPE_CLUSTER,
+	//~ ODP_PKTIO_TYPE_IOCLUS,
+	//~ ODP_PKTIO_TYPE_ETH,
+	//~ ODP_PKTIO_TYPE_ETH40G,
 } odp_pktio_type_t;
 
 typedef struct {
-	char name[MAX_PKTIO_NAMESIZE];		/**< True name of pktio */
-	int fd;
-	odp_pool_t pool; /**< pool to alloc packets from */
-	size_t max_frame_len; /**< max frame len = buf_size - sizeof(pkt_hdr) */
-	size_t buf_size; /**< size of buffer payload in 'pool' */
-} pkt_magic_t;
+	int clus_id;			/**< Cluster ID */
+	odp_pool_t pool; 		/**< pool to alloc packets from */
+	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
+	size_t buf_size; 		/**< size of buffer payload in 'pool' */
+} pktio_cluster_t;
 
 typedef struct {
-	char name[MAX_PKTIO_NAMESIZE];		/**< True name of pktio */
+	char name[MAX_PKTIO_NAMESIZE];	/**< True name of pktio */
+	int fd;				/**< magic syscall eth interface file descriptor */
+	odp_pool_t pool; 		/**< pool to alloc packets from */
+	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
+	size_t buf_size; 		/**< size of buffer payload in 'pool' */
+} pktio_magic_t;
+
+typedef struct {
+	char name[MAX_PKTIO_NAMESIZE];	/**< True name of pktio */
 	int fd;
-	odp_pool_t pool; /**< pool to alloc packets from */
-	size_t max_frame_len; /**< max frame len = buf_size - sizeof(pkt_hdr) */
-	size_t buf_size; /**< size of buffer payload in 'pool' */
+	odp_pool_t pool; 		/**< pool to alloc packets from */
+	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
+	size_t buf_size; 		/**< size of buffer payload in 'pool' */
 	odp_queue_t loopq;		/**< loopback queue for "loop" device */
-} pkt_loopback_t;
+} pktio_loopback_t;
 
 struct pktio_entry {
 	odp_rwlock_t lock;		/**< entry RW lock */
@@ -71,8 +84,9 @@ struct pktio_entry {
 	odp_bool_t promisc;		/**< promiscuous mode state */
 
 	union {
-		pkt_magic_t magic;
-		pkt_loopback_t loop;
+		pktio_magic_t magic;
+		pktio_loopback_t loop;
+		pktio_cluster_t cluster;
 	};
 };
 
@@ -109,13 +123,30 @@ static inline pktio_entry_t *get_pktio_entry(odp_pktio_t pktio)
 
 int pktin_poll(pktio_entry_t *entry);
 
-int magic_global_init(void);
-int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool);
-void magic_get_mac(const pkt_magic_t *const pkt_magic, void * mac_addr);
-int magic_recv(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], int len);
-int magic_send(pkt_magic_t *const pkt_magic, odp_packet_t pkt_table[], unsigned len);
-int magic_promisc_mode_set(pkt_magic_t *const pkt_magic, odp_bool_t enable);
-int magic_promisc_mode(pkt_magic_t *const pkt_magic);
+struct pktio_if_operation {
+	const char *name;
+	int (* global_init)(void);
+	int (* setup_pktio_entry)(pktio_entry_t * /* pktio_entry */, odp_pool_t /* pool */);
+	void (* mac_get)(const pktio_entry_t * const /* pktio_entry */, void * /* mac_addr */);
+	int (* recv)(pktio_entry_t * const /* pktio_entry */, odp_packet_t [] /* pkt_table */, int /* len */);
+	int (* send)(pktio_entry_t * const /* pktio_entry */, odp_packet_t [] /* pkt_table */, unsigned /* len */);
+	int (* promisc_mode_set)(pktio_entry_t * const /* pktio_entry */,  int /* enable */);
+	int (* promisc_mode_get)(pktio_entry_t * const/* pktio_entry */);
+	/**
+	 * Open return -1 if the devname was not handled, 0 if handled with success and 1 if handled with error
+	 */
+	int (* open)(pktio_entry_t * const /* pktio_entry */, const char * /* devname */);
+	int (* mtu_get)(pktio_entry_t * const /* pktio_entry */);
+};
+
+struct pktio_if_operation magic_pktio_operation;
+struct pktio_if_operation loop_pktio_operation;
+
+__attribute__ ((unused))
+static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
+	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
+	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
+};
 
 #ifdef __cplusplus
 }
