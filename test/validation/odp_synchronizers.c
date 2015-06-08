@@ -10,7 +10,11 @@
 #include <odp_cunit_common.h>
 #include <unistd.h>
 #define VERBOSE			0
+#ifdef MAGIC_SCALL
+#define MAX_ITERATIONS		100
+#else
 #define MAX_ITERATIONS		1000
+#endif
 #define BARRIER_ITERATIONS	64
 
 #define SLOW_BARRIER_DELAY	400
