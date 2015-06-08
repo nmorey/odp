@@ -179,7 +179,7 @@ $b.target("package") do
     tar_package = File.expand_path("odp.tar")
 
     depends = []
-    depends.push $b.depends_info_struct.new("k1-dev","=", $options["k1version"], "")
+    depends.push $b.depends_info_struct.new("k1-tools","=", $options["k1version"], "")
 
     (version,releaseID,sha1) = $repo.describe()
     release_info = $b.release_info(version,releaseID,sha1)
