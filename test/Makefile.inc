@@ -24,5 +24,5 @@ KELF_LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
 endif
 
 if TARGET_IS_K1_CLUSTER
-KELF_LOG_COMPILER =	k1-cluster   --functional  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libodp_syscall.so --
+KELF_LOG_COMPILER =	time k1-cluster   --functional --dcache-no-check  --mboard=large_memory  --user-syscall=$(top_srcdir)/syscall/build_x86_64/libodp_syscall.so --
 endif
