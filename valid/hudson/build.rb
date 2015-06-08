@@ -4,62 +4,21 @@
 $LOAD_PATH.push('metabuild/lib')
 require 'metabuild'
 include Metabuild
-CONFIGS={
-	"k1a-kalray-nodeos" =>
-    {
-        :configure_options => "",
-        :make_platform_options =>"",
-        :make_test_options =>"",
-        :platform => "k1-nodeos",
-        :build_tests => true,
-        :install => true,
-    },
-	"k1a-kalray-nodeosmagic" =>
-    {
-        :configure_options => "",
-        :make_platform_options =>"",
-        :make_test_options =>"",
-        :platform => "k1-nodeos",
-        :build_tests => true,
-        :install => true,
-    },
-    "x86_64-unknown-linux-gnu" =>
-    {
-        :configure_options => "",
-        :make_platform_options =>"",
-        :make_test_options =>"",
-        :platform => "linux-generic",
-        :build_dirs => false,
-        :install => false,
-    },
-	"k1b-kalray-nodeos"      =>
-    {
-        :configure_options => "",
-        :make_platform_options =>"",
-        :make_test_options =>"",
-        :platform => "k1-nodeos",
-        :build_dirs => false,
-        :install => true,
-    },
-	# "k1b-kalray-nodeosmagic" =>
-    # {
-    #     :configure_options => "",
-    #     :make_platform_options =>"",
-    #     :make_test_options =>"",
-    #     :platform => "k1-nodeos",
-    #     :build_dirs => false,
-    #     :install => true,
-    # },
-}
+CONFIGS = `make list-configs`.split(" ").inject({}){|x, c| x.merge({ c => {} })}
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
+                        "list-configs"  => {"type" => "boolean", "default" => false, "help" => "List all targets" },
                         "configs"       => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
                         "valid-configs" => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
                         "output-dir"    => [nil, "Output directory for RPMs."],
                         "k1version"     => ["unknown", "K1 Tools version required for building ODP applications"],
                      })
 
+if $options["list-configs"] == true then
+    puts CONFIGS.map(){|n, i| n}.join("\n")
+    exit 0
+end
 workspace  = $options["workspace"]
 odp_clone  = $options['clone']
 $odp_path   = File.join(workspace,odp_clone)
@@ -75,13 +34,11 @@ $repo = Git.new(odp_clone,workspace)
 
 
 clean = Target.new("clean", $repo, [])
-prep = ParallelTarget.new("prepare", $repo, [])
-conf = ParallelTarget.new("configure", $repo, [prep])
-build = ParallelTarget.new("build", $repo, [conf])
+build = ParallelTarget.new("build", $repo, [])
 valid = ParallelTarget.new("valid", $repo, [build])
 package = ParallelTarget.new("package", $repo, [build])
 
-$b = Builder.new("odp", $options, [clean, prep, conf, build, valid, package])
+$b = Builder.new("odp", $options, [clean, build, valid, package])
 
 $b.logsession = "odp"
 
@@ -107,76 +64,25 @@ def conf_env(conf)
         raise "Unsupported arch"
     end
 end
-$b.target("configure") do
-    cd $odp_path
-    $b.run(:cmd => "./bootstrap", :env => $env)
-    $configs.each(){|conf|
-        $b.run(:cmd => "rm -Rf build/#{conf}", :env => $env)
-        $b.run(:cmd => "mkdir -p build/#{conf}", :env => $env)
-        $b.run(:cmd => "cd build/#{conf}; #{conf_env(conf)}  #{$odp_path}/configure  --host=#{conf}" +
-                       " --with-platform=#{CONFIGS[conf][:platform]}  " +
-                       " --with-cunit-path=#{$odp_path}/cunit/install/#{conf}/ --enable-test-vald "+
-                       " --prefix=#{$odp_path}/install/local/k1tools/ "+
-                       " --libdir=#{$odp_path}/install/local/k1tools/lib/#{conf}" +
-                       " --include=#{$odp_path}/install/local/k1tools/#{CONFIGS[conf][:platform]}/include" +
-                       " --enable-test-perf #{$debug_flags} #{CONFIGS[conf][:configure_options]}",
-           :env => $env)
-    }
-end
-
-$b.target("prepare") do
-    cd $odp_path
-    $b.run(:cmd => "./syscall/run.sh ./install/", :env => $env)
-    $b.run(:cmd => "./cunit/bootstrap", :env => $env)
-    $configs.each(){|conf|
-        $b.run(:cmd => "rm -Rf cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
-        $b.run(:cmd => "mkdir -p cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
-        $b.run(:cmd => "cd cunit/build/#{conf};  #{conf_env(conf)}  #{$odp_path}/cunit/configure --srcdir=#{$odp_path}/cunit "+
-                       " --prefix=#{$odp_path}/cunit/install/#{conf}/ --enable-debug --enable-automated --enable-basic "+
-                       " --enable-console --enable-examples --enable-test --host=#{conf}",
-           :env => $env)
-        $b.run(:cmd => "cd cunit/build/#{conf}; make -j4 install V=1", :env => $env)
-    }
-end
 
 $b.target("build") do
     $b.logtitle = "Report for odp build."
     cd $odp_path
-    $b.run(:cmd => "make -Cdoc-kalray install DOCDIR=#{$odp_path}/install/local/k1tools/doc/ODP")
-    docs={}
-    $configs.each(){|conf|
-        $b.run(:cmd => "make -Cbuild/#{conf}/platform #{CONFIGS[conf][:make_platform_options]} V=1 " +
-                       " #{CONFIGS[conf][:install] == true ? "install" : "all"} ", :env => $env)
-        if CONFIGS[conf][:build_tests] then
-            $b.run(:cmd => "make -Cbuild/#{conf}/test #{CONFIGS[conf][:make_test_options]} V=1" , :env => $env)
-        end
-        if docs[CONFIGS[conf][:platform]] == nil then
-            docs[CONFIGS[conf][:platform]] = true
-            $b.run(:cmd => "make -Cbuild/#{conf}/ #{CONFIGS[conf][:make_platform_options]} V=1 " +
-                           " doxygen-pdf && install build/#{conf}/doc/output/opendataplane.pdf "+
-                           " #{$odp_path}/install/local/k1tools/doc/ODP/opendataplane-#{CONFIGS[conf][:platform]}.pdf",
-                   :env => $env)
-        end
-        $b.run(:cmd => "make -Cbuild/#{conf}/example/generator", :env => $env)
-    }
+    $b.run(:cmd => "make -j4 build CONFIGS='#{$configs.join(" ")}'")
 end
 
 $b.target("valid") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-    $valid_configs.each(){|conf|
-        if CONFIGS[conf][:build_tests] then
-            $b.valid(:cmd => "make -Cbuild/#{conf}/test/validation -j1 check", :env => $env)
-            $b.valid(:cmd => "make -Cbuild/#{conf}/test/performance -j1 check", :env => $env)
-        end
-    }
+    $b.run(:cmd => "make -j4 valid CONFIGS='#{$valid_configs.join(" ")}'")
 end
 
 $b.target("package") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
-
+    $b.run(:cmd => "rm -Rf install/")
+    $b.run(:cmd => "make -j1 install CONFIGS='#{$configs.join(" ")}'")
     $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
@@ -202,11 +108,7 @@ $b.target("clean") do
     $b.logtitle = "Report for odp clean."
 
     cd $odp_path
-    $b.run(:cmd => "rm -Rf install", :env => $env)
-    $configs.each(){|conf|
-        $b.run(:cmd => "rm -Rf build/#{conf}", :env => $env)
-        $b.run(:cmd => "rm -Rf cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
-    }
+    $b.run(:cmd => "make clean", :env => $env)
 end
 
 
