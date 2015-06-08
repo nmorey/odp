@@ -124,7 +124,7 @@ end
 
 $b.target("prepare") do
     cd $odp_path
-    $b.run(:cmd => "./syscall/run.sh ./install/", :env => $env)
+    $b.run(:cmd => "./syscall/run.sh ./install/local/k1tools/", :env => $env)
     $b.run(:cmd => "./cunit/bootstrap", :env => $env)
     $configs.each(){|conf|
         $b.run(:cmd => "rm -Rf cunit/build/#{conf} cunit/install/#{conf}", :env => $env)
@@ -175,7 +175,7 @@ $b.target("package") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
 
-    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ lib64", :env => $env)
+    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
     depends = []
