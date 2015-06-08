@@ -31,22 +31,24 @@ CONFIGS={
         :platform => "linux-generic",
         :build_dirs => false,
         :install => false,
-    }
-	# "k1b-kalray-nodeos"      =>
-    # {
-    #     :configure_options => "",
-    #     :make_platform_options =>"",
-    #     :make_test_options =>"",
-    #     :platform => "k1-nodeos",
-    #    :install => true,
-    # },
+    },
+	"k1b-kalray-nodeos"      =>
+    {
+        :configure_options => "",
+        :make_platform_options =>"",
+        :make_test_options =>"",
+        :platform => "k1-nodeos",
+        :build_dirs => false,
+        :install => true,
+    },
 	# "k1b-kalray-nodeosmagic" =>
     # {
     #     :configure_options => "",
     #     :make_platform_options =>"",
     #     :make_test_options =>"",
     #     :platform => "k1-nodeos",
-    #    :install => true,
+    #     :build_dirs => false,
+    #     :install => true,
     # },
 }
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
@@ -99,7 +101,7 @@ def conf_env(conf)
     case arch
     when "x86_64"
         return ""
-    when "k1a"
+    when "k1a","k1b"
         return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
     else
         raise "Unsupported arch"
