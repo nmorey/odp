@@ -22,6 +22,7 @@ void odp_ticketlock_lock(odp_ticketlock_t *ticketlock)
 {
 	uint32_t ticket;
 
+	__builtin_k1_wpurge();
 	/* Take a ticket using an atomic increment of 'next_ticket'.
 	 * This can be a relaxed operation but it cannot have the
 	 * acquire semantics since we haven't acquired the lock yet */
@@ -60,6 +61,7 @@ int odp_ticketlock_trylock(odp_ticketlock_t *tklock)
 						       next + 1,
 						       _ODP_MEMMODEL_ACQ,
 						       _ODP_MEMMODEL_RLX)){
+			__builtin_k1_wpurge();
 			return 1;
 		}
 	}
@@ -73,7 +75,7 @@ void odp_ticketlock_unlock(odp_ticketlock_t *ticketlock)
 	 * 'cur_ticket', we don't need to do this with an (expensive)
 	 * atomic RMW operation. Instead load-relaxed the current value
 	 * and a store-release of the incremented value */
-	__k1_wmb();
+	__builtin_k1_wpurge();
 	odp_atomic_inc_u32(&ticketlock->cur_ticket);
 
 }

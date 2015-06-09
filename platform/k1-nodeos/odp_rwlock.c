@@ -21,6 +21,7 @@ void odp_rwlock_read_lock(odp_rwlock_t *rwlock)
 	uint32_t cnt = -1;
 	int  is_locked = 0;
 
+	__builtin_k1_wpurge();
 	while (is_locked == 0) {
 		/* waiting for read lock */
 		if ((int32_t)cnt < 0) {
@@ -47,6 +48,7 @@ void odp_rwlock_write_lock(odp_rwlock_t *rwlock)
 	uint32_t cnt = 1;
 	int is_locked = 0;
 
+	__builtin_k1_wpurge();
 	while (is_locked == 0) {
 		/* lock aquired, wait */
 		if (cnt != 0) {

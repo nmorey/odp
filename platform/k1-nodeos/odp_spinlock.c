@@ -31,7 +31,11 @@ void odp_spinlock_lock(odp_spinlock_t *spinlock)
 
 int odp_spinlock_trylock(odp_spinlock_t *spinlock)
 {
-	return (_odp_atomic_flag_tas(&spinlock->lock) == 0);
+	if(_odp_atomic_flag_tas(&spinlock->lock) == 0){
+		__builtin_k1_wpurge();
+		return 1;
+	}
+	return 0;
 }
 
 
