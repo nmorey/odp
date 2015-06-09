@@ -10,7 +10,7 @@ case "$RUN_TARGET" in
 		exec k1-jtag-runner --exec-file "Cluster0:$ELF" -- $*
 		;;
 	"k1-cluster")
-		exec k1-cluster   --functional --dcache-no-check  --mboard=large_memory  --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $*
+		exec k1-cluster   --functional --dcache-no-check  --mboard=large_memory  --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $ELF $*
 		;;
 	*)
 		exec ${ELF} $*
