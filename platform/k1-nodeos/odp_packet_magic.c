@@ -67,6 +67,7 @@ int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if(!strncmp("magic-", devname, strlen("magic-"))){
 #ifndef MAGIC_SCALL
+		(void)pktio_entry;
 		ODP_ERR("Trying to invoke magic interface on H/W");
 		return 1;
 #else
