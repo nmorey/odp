@@ -171,7 +171,7 @@ static inline
 int parse_ipv4_mask(const char *str, uint32_t *mask)
 {
 	uint32_t b;
-	sscanf(str, "%x", &b);
+	sscanf(str, "%"PRIx32, &b);
 	*mask = b;
 	return 0;
 }
