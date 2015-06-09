@@ -83,11 +83,11 @@ $b.target("package") do
     cd $odp_path
     $b.run(:cmd => "rm -Rf install/")
     $b.run(:cmd => "make -j1 install CONFIGS='#{$configs.join(" ")}'")
-    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ lib64", :env => $env)
+    $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
     depends = []
-    depends.push $b.depends_info_struct.new("k1-dev","=", $options["k1version"], "")
+    depends.push $b.depends_info_struct.new("k1-tools","=", $options["k1version"], "")
 
     (version,releaseID,sha1) = $repo.describe()
     release_info = $b.release_info(version,releaseID,sha1)

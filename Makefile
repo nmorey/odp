@@ -130,7 +130,7 @@ extra-valid:
 extra-install: $(TOP_DIR)/install/lib64/libodp_syscall.so
 
 $(TOP_DIR)/install/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
-	$< $(TOP_DIR)/install/
+	$< $(TOP_DIR)/install/local/k1tools/
 
 RULE_LIST := clean configure build install valid
 ARCH_COMPONENTS := odp cunit
