@@ -9,7 +9,7 @@ CONFIGS :=
 k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1a-kalray-nodeos_CONF_OPTS   :=
 k1a-kalray-nodeos_PLATFORM    := k1-nodeos
-k1a-kalray-nodeos_MAKE_PLAT   :=
+k1a-kalray-nodeos_MAKE_VALID  := -j1
 k1a-kalray-nodeos_BUILD_TESTS := true
 k1a-kalray-nodeos_INSTALL     := true
 CONFIGS += k1a-kalray-nodeos
@@ -17,7 +17,7 @@ CONFIGS += k1a-kalray-nodeos
 k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1a-kalray-nodeosmagic_CONF_OPTS   :=
 k1a-kalray-nodeosmagic_PLATFORM    := k1-nodeos
-k1a-kalray-nodeosmagic_MAKE_PLAT   :=
+k1a-kalray-nodeosmagic_MAKE_VALID  :=
 k1a-kalray-nodeosmagic_BUILD_TESTS := true
 k1a-kalray-nodeosmagic_INSTALL     := true
 CONFIGS += k1a-kalray-nodeosmagic
@@ -25,7 +25,7 @@ CONFIGS += k1a-kalray-nodeosmagic
 k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1b-kalray-nodeos_CONF_OPTS   :=
 k1b-kalray-nodeos_PLATFORM    := k1-nodeos
-k1b-kalray-nodeos_MAKE_PLAT   :=
+k1b-kalray-nodeos_MAKE_VALID  := -j1
 k1b-kalray-nodeos_BUILD_TESTS := true
 k1b-kalray-nodeos_INSTALL     := true
 CONFIGS += k1b-kalray-nodeos
@@ -33,7 +33,7 @@ CONFIGS += k1b-kalray-nodeos
 # k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 # k1b-kalray-nodeosmagic_CONF_OPTS   :=
 # k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
-# k1b-kalray-nodeosmagic_MAKE_PLAT   :=
+# k1b-kalray-nodeosmagic_MAKE_VALID  :=
 # k1b-kalray-nodeosmagic_BUILD_TESTS := true
 # k1b-kalray-nodeosmagic_INSTALL     := true
 # CONFIGS += k1b-kalray-nodeosmagic
@@ -41,7 +41,7 @@ CONFIGS += k1b-kalray-nodeos
 x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
 x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
-x86_64-unknown-linux-gnu_MAKE_PLAT   :=
+x86_64-unknown-linux-gnu_MAKE_VALID  :=
 x86_64-unknown-linux-gnu_BUILD_TESTS := false
 x86_64-unknown-linux-gnu_INSTALL     := false
 CONFIGS += x86_64-unknown-linux-gnu
@@ -100,8 +100,8 @@ $(1)-odp-install: $(1)-odp-build
 
 $(1)-odp-valid: $(1)-odp-build $(TOP_DIR)/install/lib64/libodp_syscall.so
 	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation -j1 check && \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance -j1 check; \
+		$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check && \
+		$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check; \
 	else true; fi
 
 $(1)-odp-clean:
