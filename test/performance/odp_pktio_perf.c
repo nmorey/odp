@@ -45,7 +45,7 @@
 /* When using the binary search method to determine the maximum
  * achievable packet rate, this value specifies how close the pass
  * and fail measurements must be before the test is terminated. */
-#define RATE_SEARCH_ACCURACY_PPS 100000
+#define RATE_SEARCH_ACCURACY_PPS 1000
 
 /* Amount of time to wait, in nanoseconds, between the transmitter(s)
  * completing and the receiver(s) being shutdown. Any packets not
