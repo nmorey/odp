@@ -96,7 +96,11 @@ static int systemcpu(odp_system_info_t *sysinfo)
 
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
+#if defined(__K1A__)
 	strncpy(sysinfo->model_str, "K1B - Bostan", sizeof(sysinfo->model_str));
+#elif defined(__K1B__)
+	strncpy(sysinfo->model_str, "K1A - Andey", sizeof(sysinfo->model_str));
+#endif
 
 	return 0;
 }
