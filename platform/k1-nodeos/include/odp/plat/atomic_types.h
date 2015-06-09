@@ -53,7 +53,6 @@ struct odp_atomic_u32_s {
 	};
 } ODP_ALIGNED(sizeof(uint32_t)); /* Enforce alignement! */;
 
-#ifndef __K1B__
 /**
  * @internal
  * Helper macro for lock-based atomic operations on 64-bit integers
@@ -72,7 +71,6 @@ struct odp_atomic_u32_s {
 		STORE_U64((atom)->_u64, a._u64);									\
 		___old_val; /* Return old value */									\
 	})
-#endif
 
 #define INVALIDATE_AREA(p, s) do {									\
 		const char *__ptr;									\
