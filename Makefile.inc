@@ -1,1 +1,2 @@
 DEFAULT_INCLUDES=-I.
+AUTOMAKE_OPTIONS = parallel-tests
