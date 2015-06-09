@@ -36,7 +36,7 @@ static inline uint32_t odp_atomic_load_u32(odp_atomic_u32_t *atom)
 		__k1_cpu_backoff(10);
 	}
 #elif defined(__K1B__)
-	return LOAD_U32(atom->v);
+	return LOAD_U32(atom->_type);
 #endif
 
 }
@@ -48,7 +48,7 @@ static inline void odp_atomic_store_u32(odp_atomic_u32_t *atom,
 	__k1_wmb();
 	ATOMIC_OP(atom, a.v = val);
 #elif defined(__K1B__)
-	return STORE_U32(atom->v, val);
+	return STORE_U32(atom->_type, val);
 #endif
 }
 
@@ -63,7 +63,7 @@ static inline void odp_atomic_init_u32(odp_atomic_u32_t *atom, uint32_t val)
 	STORE_U64(atom->_u64, a._u64);
 #elif defined(__K1B__)
 	STORE_U64(atom->_u64, 0ULL);
-	STORE_U32(atom->v, val);
+	STORE_U32(atom->_type, val);
 #endif
 }
 
@@ -147,7 +147,7 @@ static inline uint64_t odp_atomic_load_u64(odp_atomic_u64_t *atom)
 	}
 
 #elif defined(__K1B__)
-	return LOAD_U64(atom->v);
+	return LOAD_U64(atom->_type);
 #endif
 }
 
@@ -158,7 +158,7 @@ static inline void odp_atomic_store_u64(odp_atomic_u64_t *atom,
 	(void) ATOMIC_OP(atom, a.v = val);
 
 #elif defined(__K1B__)
-	return STORE_U64(atom->v, val);
+	return STORE_U64(atom->_type, val);
 #endif
 }
 
@@ -170,7 +170,7 @@ static inline void odp_atomic_init_u64(odp_atomic_u64_t *atom, uint64_t val)
 	a.v = val;
 	STORE_U64(atom->_u64, a._u64);
 #elif defined(__K1B__)
-	STORE_U64(atom->v, val);
+	STORE_U64(atom->_type, val);
 #endif
 }
 
