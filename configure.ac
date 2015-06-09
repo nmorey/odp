@@ -72,7 +72,7 @@ LDFLAGS=$OLD_LDFLAGS
 CPPFLAGS=$OLD_CPPFLAGS
 
 ##########################################################################
-# Which archetecture optimizations will we use
+# Which architecture optimizations will we use
 ##########################################################################
 k1_core=k1a
 k1_cluster=no
