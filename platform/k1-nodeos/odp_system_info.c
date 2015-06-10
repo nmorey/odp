@@ -86,11 +86,6 @@ static int systemcpu(odp_system_info_t *sysinfo)
 	sysinfo->cpu_hz          = _K1_CPU_FREQ;
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
-	/* Dummy values */
-	if (__bsp_flavour == BSP_EXPLORER) {
-		sysinfo->cpu_hz = 20000000ULL;
-	}
-
 #if defined(__K1A__)
 #define K1_MODEL_STR	"K1A - Andey"
 #elif defined(__K1B__)
