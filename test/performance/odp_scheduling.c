@@ -35,7 +35,7 @@
 #define MSG_POOL_SIZE         (64*1024)     /**< Message pool size */
 #define MAX_ALLOCS            35            /**< Alloc burst size */
 #define QUEUES_PER_PRIO       2             /**< Queue per priority */
-#define QUEUE_ROUNDS          (512*1024)    /**< Queue test rounds */
+#define QUEUE_ROUNDS          (64*1024)    /**< Queue test rounds */
 #define ALLOC_ROUNDS          (32*1024)      /**< Alloc test rounds */
 #define MULTI_BUFS_MAX        4             /**< Buffer burst size */
 #define TEST_SEC              2             /**< Time test duration in sec */
