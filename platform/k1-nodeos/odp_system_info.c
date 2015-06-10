@@ -79,11 +79,17 @@ static int systemcpu(odp_system_info_t *sysinfo)
 
 	sysinfo->huge_page_size = huge_page_size();
 
-	/* Dummy values */
-	sysinfo->cpu_hz          = 400000000;
+	sysinfo->cpu_hz          = _K1_CPU_FREQ;
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
-	strncpy(sysinfo->model_str, "K1B - Bostan", sizeof(sysinfo->model_str));
+#ifdef __k1a__
+#define K1_MODEL_STR	"K1A - Andey"
+#elif __k1b__
+#define K1_MODEL_STR	"K1B - Bostan"
+#else
+#define K1_MODEL_STR	"K1 - Unknown"
+#endif
+	snprintf(sysinfo->model_str, sizeof(sysinfo->model_str), "%s", K1_MODEL_STR);
 
 	return 0;
 }
