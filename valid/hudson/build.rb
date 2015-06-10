@@ -22,6 +22,7 @@ CONFIGS={
         :platform => "k1-nodeos",
         :build_tests => true,
         :install => true,
+		:package_examples => true,
     },
     "x86_64-unknown-linux-gnu" =>
     {
@@ -174,6 +175,24 @@ end
 $b.target("package") do
     $b.logtitle = "Report for odp tests."
     cd $odp_path
+
+    $configs.each(){|conf|
+		if CONFIGS[conf][:package_examples] then
+			$b.run(:cmd => "mkdir -p install/local/k1tools/doc/ODP/example/packet"+
+				   " && install example/example_debug.h install/local/k1tools/doc/ODP/example"+
+				   " && install platform/k1-nodeos/test/pktio_env install/local/k1tools/doc/ODP/example"+
+				   " && install example/packet/{odp_pktio.c,Makefile.#{conf}}"+
+				   " install/local/k1tools/doc/ODP/example/packet"+
+				   " && install build/x86_64-unknown-linux-gnu/example/generator/odp_generator"+
+				   " install/local/k1tools/doc/ODP/example/odp_generator",
+				:env => $env)
+		end
+		if $conf == "x86_64-unknown-linux-gnu" then
+			$b.run(:cmd => "install build/x86_64-unknown-linux-gnu/example/generator/odp_generator"+
+				           " install/local/k1tools/doc/ODP/example/odp_generator",
+						:env => $env)
+		end
+	}
 
     $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")

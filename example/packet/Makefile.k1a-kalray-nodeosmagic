@@ -1,0 +1,19 @@
+SHELL := /bin/bash
+K1_TOOLCHAIN_DIR := $(shell echo $${K1_TOOLCHAIN_DIR:-/usr/local/k1tools})
+
+board := large_memory
+
+cflags := -Wall -Werror -O3 -g -I$(K1_TOOLCHAIN_DIR)/doc/ODP/example
+lflags := -L$(K1_TOOLCHAIN_DIR)/lib/k1a-kalray-nodeosmagic -lodp -lcrypto
+
+cluster-bin := odp_pktio
+odp_pktio-srcs := odp_pktio.c
+
+include $(K1_TOOLCHAIN_DIR)/share/make/Makefile.kalray
+
+run: $(BUILD_DIR)/odp_pktio
+	source $(K1_TOOLCHAIN_DIR)/doc/ODP/example/pktio_env \
+		&& setup_pktio_env \
+		&& { $(K1_TOOLCHAIN_DIR)/doc/ODP/example/odp_generator -I $$IF0 --srcip 192.168.0.1 --dstip 192.168.0.2 -m u 2>&1 > /dev/null & } \
+		&& $(K1_TOOLCHAIN_DIR)/bin/k1-cluster --mboard=$(board) --user-syscall=$(K1_TOOLCHAIN_DIR)/lib64/libodp_syscall.so -- $< -i magic-$$IF1,magic-$$IF2 -m 0 -c 2 \
+		; cleanup_pktio_env
