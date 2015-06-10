@@ -82,25 +82,17 @@ static int systemcpu(odp_system_info_t *sysinfo)
 	}
 
 	sysinfo->cpu_count = ret;
-
-	sysinfo->huge_page_size = huge_page_size();
-
-	/* Dummy values */
-	if (__bsp_flavour == BSP_EXPLORER) {
-
-		sysinfo->cpu_hz = 20000000ULL;
-	}
-	else {
-		sysinfo->cpu_hz = 400000000ULL;
-	}
-
+	sysinfo->cpu_hz          = _K1_CPU_FREQ;
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
-#if defined(__K1A__)
-	strncpy(sysinfo->model_str, "K1B - Bostan", sizeof(sysinfo->model_str));
-#elif defined(__K1B__)
-	strncpy(sysinfo->model_str, "K1A - Andey", sizeof(sysinfo->model_str));
+#ifdef __k1a__
+#define K1_MODEL_STR	"K1A - Andey"
+#elif __k1b__
+#define K1_MODEL_STR	"K1B - Bostan"
+#else
+#define K1_MODEL_STR	"K1 - Unknown"
 #endif
+	snprintf(sysinfo->model_str, sizeof(sysinfo->model_str), "%s", K1_MODEL_STR);
 
 	return 0;
 }

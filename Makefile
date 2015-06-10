@@ -98,7 +98,7 @@ $(1)-odp-install: $(1)-odp-build
 		install $(ARCH_DIR)/$(1)/doc/output/opendataplane.pdf $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM).pdf; \
 	else true; fi
 
-$(1)-odp-valid: $(1)-odp-build $(TOP_DIR)/install/lib64/libodp_syscall.so
+$(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
 	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check && \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check; \
@@ -123,14 +123,21 @@ doc-install:
 	$(MAKE) -C$(TOP_DIR)/doc-kalray install DOCDIR=$(K1ST_DIR)/doc/ODP/
 
 extra-clean:
-	rm -Rf $(TOP_DIR)/build $(TOP_DIR)/install $(TOP_DIR)/configure $(TOP_DIR)/cunit/build/  $(TOP_DIR)/cunit/install $(TOP_DIR)/cunit/configure
+	rm -Rf $(TOP_DIR)/build $(INST_DIR) $(TOP_DIR)/configure $(TOP_DIR)/cunit/build/  $(TOP_DIR)/cunit/install $(TOP_DIR)/cunit/configure
 extra-configure:
-extra-build: $(TOP_DIR)/install/lib64/libodp_syscall.so
+extra-build: $(INST_DIR)/lib64/libodp_syscall.so
 extra-valid:
-extra-install: $(TOP_DIR)/install/lib64/libodp_syscall.so
+extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
 
-$(TOP_DIR)/install/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
-	$< $(TOP_DIR)/install/local/k1tools/
+example-install: x86_64-unknown-linux-gnu-odp-build
+	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
+	install example/example_debug.h platform/k1-nodeos/test/pktio_env \
+		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeosmagic} \
+		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
+			$(K1ST_DIR)/doc/ODP/example
+
+$(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
+	$< $(INST_DIR)/local/k1tools/
 
 RULE_LIST := clean configure build install valid
 ARCH_COMPONENTS := odp cunit

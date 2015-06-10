@@ -100,8 +100,8 @@ Some compiler flags must be passed to the compiler when trying to
 build an ODP application.
 
 \begin{lstlisting}
-CFLAGS += -I/usr/local/k1tools/k1-nodeos/include
-LDFLAGS += -L/usr/local/k1tools/k1-nodeos/lib/<port>/ -lodp
+CFLAGS += -I$(K1_TOOLCHAIN_DIR)/k1-nodeos/include
+LDFLAGS += -L$($(K1_TOOLCHAIN_DIR)/lib/<port> -lodp
 \end{lstlisting}
 where port is replaced with one of the available K1-ODP port.
 

@@ -64,6 +64,11 @@ errcode_t do_eth_init(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 }
 
+static inline int min(int a, int b)
+{
+	return a <= b ? a : b;
+}
+
 errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
 	unsigned int if_idx;
 	uint32_t name, len;
@@ -73,6 +78,7 @@ errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
 
 	ARG(0, name);
 	ARG(1, len);
+	len = min(len, IFNAMSIZ-1);	/* avoid ifName overflow */
 
 	char ifName[IFNAMSIZ];
 
@@ -80,6 +86,7 @@ errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
 		fprintf(stderr, "Error, unable to write into simulator memory \n");
 		exit(1);
 	}
+	ifName[len] = '\0';	/* len do not account for \0 */
 
 	int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if (fd == -1) {
@@ -88,7 +95,7 @@ errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
 
 	/* get if index */
 	memset(&ethreq, 0, sizeof(struct ifreq));
-	snprintf(ethreq.ifr_name, IFNAMSIZ, "%s", ifName);
+	snprintf(ethreq.ifr_name, sizeof(ethreq.ifr_name), "%s", ifName);
 	int err = ioctl(fd, SIOCGIFINDEX, &ethreq);
 	if (err != 0) {
 		goto error;
@@ -118,6 +125,7 @@ errcode_t do_eth_open(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 
  error:
+	fprintf(stderr, "do_eth_open(%s, %i) failed:%s.\n", ifName, len, strerror(errno));
 	interface->set_return(interface->self, 0, -1);
 	return RET_OK;
 }

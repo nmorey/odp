@@ -5,6 +5,7 @@ $LOAD_PATH.push('metabuild/lib')
 require 'metabuild'
 include Metabuild
 CONFIGS = `make list-configs`.split(" ").inject({}){|x, c| x.merge({ c => {} })}
+
 $options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
@@ -83,6 +84,7 @@ $b.target("package") do
     cd $odp_path
     $b.run(:cmd => "rm -Rf install/")
     $b.run(:cmd => "make -j1 install CONFIGS='#{$configs.join(" ")}'")
+
     $b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => $env)
     tar_package = File.expand_path("odp.tar")
 
