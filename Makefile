@@ -48,9 +48,11 @@ CONFIGS += x86_64-unknown-linux-gnu
 
 $(TOP_DIR)/configure: $(TOP_DIR)/bootstrap $(TOP_DIR)/configure.ac
 	cd $(TOP_DIR) && ./bootstrap
+	@touch $@
 
 $(TOP_DIR)/cunit/configure: $(TOP_DIR)/bootstrap
 	cd $(TOP_DIR)/cunit/ && ./bootstrap
+	@touch $@
 
 define CONFIG_RULE
 #Arg1 = machine name
