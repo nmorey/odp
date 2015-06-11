@@ -16,13 +16,6 @@
 #include <unistd.h>
 
 
-
-typedef struct {
-	const char *cpu_arch_str;
-	int (*cpuinfo_parser)(FILE *file, odp_system_info_t *sysinfo);
-
-} odp_compiler_info_t;
-
 /*
  * Report the number of online CPU's
  */
@@ -41,29 +34,6 @@ static int huge_page_size(void)
 {
 	return ODP_PAGE_SIZE;
 }
-
-/*
- * HW specific /proc/cpuinfo file parsing
- */
-
-static int cpuinfo_mppa(FILE *file ODP_UNUSED, odp_system_info_t *sysinfo)
-{
-	if (__bsp_flavour == BSP_EXPLORER) {
-
-		sysinfo->cpu_hz = 20000000ULL;
-	}
-	else {
-		sysinfo->cpu_hz = 400000000ULL;
-	}
-	return 0;
-}
-
-
-static odp_compiler_info_t compiler_info = {
-	.cpu_arch_str = "mppa",
-	.cpuinfo_parser = cpuinfo_mppa
-};
-
 
 
 /*
@@ -84,6 +54,11 @@ static int systemcpu(odp_system_info_t *sysinfo)
 	sysinfo->cpu_count = ret;
 	sysinfo->huge_page_size = huge_page_size();
 	sysinfo->cpu_hz          = _K1_CPU_FREQ;
+	if (__bsp_flavour == BSP_EXPLORER) {
+
+		sysinfo->cpu_hz = 20000000ULL;
+	}
+
 	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
 
 #if defined(__K1A__)
@@ -104,21 +79,10 @@ static int systemcpu(odp_system_info_t *sysinfo)
  */
 int odp_system_info_init(void)
 {
-	FILE  *file;
-
 	memset(&odp_global_data.system_info, 0, sizeof(odp_system_info_t));
 
 	odp_global_data.system_info.page_size = ODP_PAGE_SIZE;
 
-	file = fopen("/proc/cpuinfo", "rt");
-	if (file == NULL) {
-		ODP_ERR("Failed to open /proc/cpuinfo\n");
-		return -1;
-	}
-
-	compiler_info.cpuinfo_parser(file, &odp_global_data.system_info);
-
-	fclose(file);
 
 	if (systemcpu(&odp_global_data.system_info)) {
 		ODP_ERR("systemcpu failed\n");
