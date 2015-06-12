@@ -102,6 +102,9 @@ struct odp_atomic_u32_s {
 #define STORE_PTR(p, val) STORE_U32((p), (unsigned long)(val))
 #define STORE_PTR_IMM(p, val) STORE_U32_IMM((p), (unsigned long)(val))
 
+#define CAS_PTR(ptr, new, cur) ((void*)(unsigned long)(__builtin_k1_acwsu((void *)(ptr),	\
+									  (unsigned long)(new),	\
+									  (unsigned long)(cur))))
 /** @addtogroup odp_synchronizers
  *  @{
  */
