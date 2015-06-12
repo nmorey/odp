@@ -189,35 +189,55 @@ static inline void ret_blk(struct pool_entry_s *pool, void *block)
 
 static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 {
-	odp_buffer_hdr_t *myhead;
-	POOL_LOCK(&pool->buf_lock);
-	myhead = LOAD_PTR(pool->buf_freelist);
+	odp_buffer_hdr_t *myhead, *newhead, *prevhead;
 
-	if (odp_unlikely(myhead == NULL)) {
-		POOL_UNLOCK(&pool->buf_lock);
+	while(1) {
+		myhead = LOAD_PTR(pool->buf_freelist);
+		if (odp_unlikely(myhead == NULL)) {
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->bufempty);
+			odp_atomic_inc_u64(&pool->bufempty);
 #endif
-	} else {
-		INVALIDATE(myhead);
-		STORE_PTR(pool->buf_freelist, myhead->next);
-		POOL_UNLOCK(&pool->buf_lock);
-		uint64_t bufcount =
-			odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
-
-		/* Check for low watermark condition */
-		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
-			STORE_U32(pool->low_wm_assert, 1);
-#ifdef POOL_STATS
-			odp_atomic_inc_u64(&pool->low_wm_count);
-#endif
+			return NULL;
 		}
+		newhead = LOAD_PTR(myhead->next);
+		if((unsigned long)newhead & 0x1UL){
+			/* Someone is popping this node */
+			continue;
+		}
+		/* Clear the next field of the first elnt */
+		prevhead = CAS_PTR(&myhead->next, (unsigned long)newhead | 0x1UL, newhead);
+
+		if(prevhead != newhead){
+			/* Someone just logically cut the first elnt. Try again */
+			continue;
+		}
+		/* Now switch the list HEAD with our new HEAD */
+		prevhead = CAS_PTR(&pool->buf_freelist, newhead, myhead);
+		if(prevhead != myhead){
+			/* Someone pushed a new elnt ! Revert */
+			STORE_PTR(myhead->next, newhead);
+			continue;
+		}
+		INVALIDATE(myhead);
+		break;
+
+	}
+
+	uint64_t bufcount =
+		odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
+
+	/* Check for low watermark condition */
+	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+		STORE_U32(pool->low_wm_assert, 1);
+#ifdef POOL_STATS
+		odp_atomic_inc_u64(&pool->low_wm_count);
+#endif
+	}
 
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->bufallocs);
+	odp_atomic_inc_u64(&pool->bufallocs);
 #endif
-		myhead->allocator = odp_thread_id();
-	}
+	myhead->allocator = odp_thread_id();
 
 	return (void *)myhead;
 }
@@ -235,12 +255,17 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 	}
 
 	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
-	POOL_LOCK(&pool->buf_lock);
+	__builtin_k1_wpurge();
 
-	buf->next = LOAD_PTR(pool->buf_freelist);
-	STORE_PTR(pool->buf_freelist, buf);
-	POOL_UNLOCK(&pool->buf_lock);
-
+	odp_buffer_hdr_t *myhead, *prevhead;
+	myhead = LOAD_PTR(pool->buf_freelist);
+	while(1) {
+		STORE_PTR(buf->next, myhead);
+		prevhead = CAS_PTR(&pool->buf_freelist, buf, myhead);
+		if(myhead == prevhead)
+			break;
+		myhead = prevhead;
+	}
 	uint64_t bufcount = odp_atomic_fetch_add_u32(&pool->bufcount, 1) + 1;
 
 	/* Check if low watermark condition should be deasserted */
