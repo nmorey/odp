@@ -312,7 +312,7 @@ static void *run_thread_tx(void *arg)
 		LOG_ABORT("Failed to get output queue for thread %d\n", thr_id);
 
 	burst_gap_cycles = odp_time_ns_to_cycles(
-				ODP_TIME_SEC / (targs->pps / targs->batch_len));
+						 (ODP_TIME_SEC * 999) / (1000 * targs->pps / (targs->batch_len)));
 
 	odp_barrier_wait(&globals->tx_barrier);
 
