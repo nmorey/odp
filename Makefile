@@ -1,5 +1,9 @@
 all: build
 
+ifdef DEBUG
+DEBUG_CONF_FLAGS := --enable-debug
+endif
+
 TOP_DIR := $(shell readlink -f $$(pwd))
 ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
@@ -84,7 +88,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--prefix=$(K1ST_DIR) \
 	--libdir=$(K1ST_DIR)lib/$(1) \
 	--include=$(K1ST_DIR)$($(1)_PLATFORM)/include \
-	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS)
+	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 	$(MAKE) -C$(ARCH_DIR)/$(1)/platform V=1 all
