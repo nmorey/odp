@@ -84,7 +84,6 @@ int odp_pool_init_global(void)
 		POOL_LOCK_INIT(&pool->s.blk_lock);
 		pool->s.pool_id = i;
 		pool_entry_ptr[i] = pool;
-		odp_atomic_init_u32(&pool->s.bufcount, 0);
 		odp_atomic_init_u32(&pool->s.blkcount, 0);
 
 #ifdef POOL_STATS
@@ -330,7 +329,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		odp_atomic_init_u32(&pool->s.cons_tail, 0);
 
 		/* Initialization will increment these to their target vals */
-		odp_atomic_store_u32(&pool->s.bufcount, 0);
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
 
 		uint8_t *buf = udata_base_addr - buf_stride;
@@ -452,7 +450,8 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	flush_cache(&local_cache[pool->s.pool_id], &pool->s);
 
 	/* Call fails if pool has allocated buffers */
-	if (odp_atomic_load_u32(&pool->s.bufcount) < pool->s.buf_num) {
+	uint32_t bufcount = odp_atomic_load_u32(&pool->s.prod_tail) - odp_atomic_load_u32(&pool->s.cons_tail);
+	if (bufcount < pool->s.buf_num) {
 		POOL_UNLOCK(&pool->s.lock);
 		return -1;
 	}
@@ -533,7 +532,7 @@ void odp_pool_print(odp_pool_t pool_hdl)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 
-	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.bufcount);
+	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.prod_tail) - odp_atomic_load_u32(&pool->s.cons_tail);
 	uint32_t blkcount  = odp_atomic_load_u32(&pool->s.blkcount);
 #ifdef POOL_STATS
 	uint64_t bufallocs = odp_atomic_load_u64(&pool->s.poolstats.bufallocs);

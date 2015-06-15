@@ -131,7 +131,6 @@ struct pool_entry_s {
 	odp_atomic_u32_t        cons_tail;
 
 	void                   *blk_freelist;
-	odp_atomic_u32_t        bufcount;
 	odp_atomic_u32_t        blkcount;
 #ifdef POOL_STATS
 	_odp_pool_stats_t       poolstats;
@@ -195,10 +194,12 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 		odp_spin();
 
 	odp_atomic_store_u32(&pool->cons_tail, cons_next);
-	uint32_t bufcount = prod_tail - cons_head;
-	bufcount =
-		odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
+
 	/* Check for low watermark condition */
+	uint32_t bufcount = prod_tail - cons_next;
+	if(bufcount > pool->buf_num)
+		bufcount += pool->buf_num;
+
 	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
 		STORE_U32(pool->low_wm_assert, 1);
 #ifdef POOL_STATS
@@ -227,6 +228,7 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
 	__builtin_k1_wpurge();
 	uint32_t prod_head, cons_tail, prod_next;
+
 	do {
 		prod_head =  odp_atomic_load_u32(&pool->prod_head);
 
@@ -250,10 +252,11 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 
 	odp_atomic_store_u32(&pool->prod_tail, prod_next);
 
-	uint32_t bufcount = prod_next - cons_tail;
-	/* uint64_t */ bufcount = odp_atomic_fetch_add_u32(&pool->bufcount, 1) + 1;
-
 	/* Check if low watermark condition should be deasserted */
+	uint32_t bufcount = (prod_next - cons_tail);
+	if(bufcount > pool->buf_num)
+		bufcount += pool->buf_num;
+
 	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
 		STORE_U32(pool->low_wm_assert, 0);
 #ifdef POOL_STATS
