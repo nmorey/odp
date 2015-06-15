@@ -261,7 +261,7 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		}
 
 		/* found free pool */
-		size_t block_size, pad_size, mdata_size, udata_size;
+		size_t block_size, pad_size, mdata_size, udata_size, ring_size;
 
 		pool->s.flags.all = 0;
 
@@ -284,9 +284,10 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pad_size = ODP_CACHE_LINE_SIZE_ROUNDUP(block_size) - block_size;
 		mdata_size = buf_num * buf_stride;
 		udata_size = buf_num * udata_stride;
-
+		ring_size = (buf_num + 1) * sizeof(void*);
 		pool->s.buf_num   = buf_num;
-		pool->s.pool_size = ODP_PAGE_SIZE_ROUNDUP(block_size +
+		pool->s.pool_size = ODP_PAGE_SIZE_ROUNDUP(ring_size +
+							  block_size +
 							  pad_size +
 							  mdata_size +
 							  udata_size);
@@ -309,7 +310,8 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pool->s.seg_size = unseg ? blk_size : seg_len;
 		pool->s.blk_size = blk_size;
 
-		uint8_t *block_base_addr = pool->s.pool_base_addr;
+		odp_buffer_hdr_t **ring_base_addr = (odp_buffer_hdr_t**)pool->s.pool_base_addr;
+		uint8_t *block_base_addr = ((uint8_t*)ring_base_addr) + ring_size;
 		uint8_t *mdata_base_addr =
 			block_base_addr + block_size + pad_size;
 		uint8_t *udata_base_addr = mdata_base_addr + mdata_size;
@@ -319,8 +321,13 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pool->s.udata_size = p_udata_size;
 
 		pool->s.buf_stride = buf_stride;
-		pool->s.buf_freelist = NULL;
 		pool->s.blk_freelist = NULL;
+
+		pool->s.buf_ptrs = ring_base_addr;
+		odp_atomic_init_u32(&pool->s.prod_head, 0);
+		odp_atomic_init_u32(&pool->s.prod_tail, 0);
+		odp_atomic_init_u32(&pool->s.cons_head, 0);
+		odp_atomic_init_u32(&pool->s.cons_tail, 0);
 
 		/* Initialization will increment these to their target vals */
 		odp_atomic_store_u32(&pool->s.bufcount, 0);
