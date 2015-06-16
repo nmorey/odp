@@ -22,6 +22,8 @@ if options["list-configs"] == true then
 end
 workspace  = options["workspace"]
 odp_clone  = options['clone']
+jobs = options['jobs']
+
 odp_path   = File.join(workspace,odp_clone)
 
 k1tools = options["k1tools"]
@@ -37,7 +39,7 @@ repo = Git.new(odp_clone,workspace)
 clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
-package = ParallelTarget.new("package", repo, [build])
+package = Target.new("package", repo, [build])
 
 b = Builder.new("odp", options, [clean, build, valid, package])
 
@@ -69,21 +71,21 @@ end
 b.target("build") do
     b.logtitle = "Report for odp build."
     cd odp_path
-    b.run(:cmd => "make -j4 build CONFIGS='#{configs.join(" ")}'")
+    b.run(:cmd => "make build CONFIGS='#{configs.join(" ")}'")
 end
 
 b.target("valid") do
     b.logtitle = "Report for odp tests."
     cd odp_path
 
-    b.valid(:cmd => "make -j4 valid CONFIGS='#{valid_configs.join(" ")}'")
+    b.valid(:cmd => "make valid CONFIGS='#{valid_configs.join(" ")}'")
 end
 
 b.target("package") do
     b.logtitle = "Report for odp tests."
     cd odp_path
     b.run(:cmd => "rm -Rf install/")
-    b.run(:cmd => "make -j1 install CONFIGS='#{configs.join(" ")}'")
+    b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     tar_package = File.expand_path("odp.tar")
