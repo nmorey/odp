@@ -84,8 +84,8 @@ end
 b.target("package") do
     b.logtitle = "Report for odp tests."
     cd odp_path
- #   b.run(:cmd => "rm -Rf install/")
- #   b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
+    b.run(:cmd => "rm -Rf install/")
+    b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     tar_package = File.expand_path("odp.tar")
