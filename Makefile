@@ -146,7 +146,7 @@ example-install: x86_64-unknown-linux-gnu-odp-build
 			$(K1ST_DIR)/doc/ODP/example
 
 $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
-	$< $(INST_DIR)/local/k1tools/
+	+$< $(INST_DIR)/local/k1tools/
 
 RULE_LIST := clean configure build install valid
 ARCH_COMPONENTS := odp cunit
