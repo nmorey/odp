@@ -39,9 +39,10 @@ repo = Git.new(odp_clone,workspace)
 clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
+long = ParallelTarget.new("long", repo, [])
 package = Target.new("package", repo, [build])
 
-b = Builder.new("odp", options, [clean, build, valid, package])
+b = Builder.new("odp", options, [clean, build, valid, long, package])
 
 b.logsession = "odp"
 
@@ -70,6 +71,14 @@ b.target("valid") do
     cd odp_path
 
     b.valid(:cmd => "make valid CONFIGS='#{valid_configs.join(" ")}'")
+end
+
+
+b.target("long") do
+    b.logtitle = "Report for odp tests."
+    cd odp_path
+
+    b.valid(:cmd => "make -Clong all CONFIGS='#{valid_configs.join(" ")}'")
 end
 
 b.target("package") do
