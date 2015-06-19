@@ -55,18 +55,9 @@ configs = (options["configs"].split(" ")).uniq
 configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
-
-def conf_env(conf)
-    arch = conf.split("-")[0]
-    case arch
-    when "x86_64"
-        return ""
-    when "k1a","k1b"
-        return "CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ "
-    else
-        raise "Unsupported arch"
-    end
-end
+artifacts = File.expand_path(options["artifacts"])
+artifacts = File.join(workspace,"artifacts") if(options["artifacts"].empty?)
+mkdir_p artifacts unless File.exists?(artifacts)
 
 b.target("build") do
     b.logtitle = "Report for odp build."
@@ -84,8 +75,8 @@ end
 b.target("package") do
     b.logtitle = "Report for odp tests."
     cd odp_path
-    b.run(:cmd => "rm -Rf install/")
-    b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
+ #   b.run(:cmd => "rm -Rf install/")
+ #   b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     tar_package = File.expand_path("odp.tar")
@@ -106,6 +97,16 @@ b.target("package") do
             pinfo.output_dir = options["output-dir"]
     end
     b.create_package(tar_package, pinfo)
+
+  # Generates k1r_parameters.sh
+    output_parameters = File.join(artifacts,"k1odp_parameters.sh")
+  b.run("rm -f #{output_parameters}")
+  b.run("echo 'K1ODP_VERSION=#{$version}-#{$buildID}' >> #{output_parameters}")
+  b.run("echo 'K1ODP_RELEASE=#{$version}' >> #{output_parameters}")
+  b.run("echo 'COMMITER_EMAIL=#{options["email"]}' >> #{output_parameters}")
+  b.run("echo 'INTEGRATION_BRANCH=#{ENV.fetch("INTEGRATION_BRANCH",options["branch"])}' >> #{output_parameters}")
+  b.run("echo 'REVISION=#{repo.long_sha1()}' >> #{output_parameters}")
+  b.run("#{workspace}/metabuild/bin/packages.rb --tar=#{File.join(artifacts,"package.tar")} tar")
 end
 
 b.target("clean") do
