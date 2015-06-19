@@ -41,3 +41,4 @@ build/
 install/
 odp.tar
 *.rpm
+artifacts/

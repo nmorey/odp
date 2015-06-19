@@ -101,10 +101,6 @@ b.target("package") do
     pinfo = b.package_info("k1-odp", release_info,
                            package_description, "/usr",
                            workspace, depends)
-    if options["output-dir"] != nil then
-            b.run(:cmd => "mkdir -p #{options["output-dir"]}", :env => env)
-            pinfo.output_dir = options["output-dir"]
-    end
     b.create_package(tar_package, pinfo)
 
   # Generates k1r_parameters.sh
@@ -116,6 +112,7 @@ b.target("package") do
   b.run("echo 'INTEGRATION_BRANCH=#{ENV.fetch("INTEGRATION_BRANCH",options["branch"])}' >> #{output_parameters}")
   b.run("echo 'REVISION=#{repo.long_sha1()}' >> #{output_parameters}")
   b.run("#{workspace}/metabuild/bin/packages.rb --tar=#{File.join(artifacts,"package.tar")} tar")
+
 end
 
 b.target("clean") do
