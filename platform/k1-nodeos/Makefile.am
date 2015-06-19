@@ -4,6 +4,7 @@ include $(top_srcdir)/platform/Makefile.inc
 AM_CFLAGS +=  -I$(srcdir)/include
 AM_CFLAGS +=  -I$(top_srcdir)/include
 AM_CFLAGS +=  -I$(top_srcdir)/helper/include
+AM_LFLAGS =  -lmppanoc
 
 include_HEADERS = \
 		  $(top_srcdir)/include/odp.h
@@ -152,6 +153,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \
 			   odp_packet_magic.c \
+			   odp_packet_cluster.c \
 			   odp_pktio_loop.c \
 			   odp_pool.c \
 			   odp_queue.c \

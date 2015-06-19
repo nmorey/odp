@@ -39,8 +39,8 @@ typedef enum {
 	ODP_PKTIO_TYPE_START = 0x1,
 	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
 	ODP_PKTIO_TYPE_MAGIC,
+	ODP_PKTIO_TYPE_CLUSTER,
 	ODP_PKTIO_TYPE_COUNT,
-	//~ ODP_PKTIO_TYPE_CLUSTER,
 	//~ ODP_PKTIO_TYPE_IOCLUS,
 	//~ ODP_PKTIO_TYPE_ETH,
 	//~ ODP_PKTIO_TYPE_ETH40G,
@@ -51,6 +51,8 @@ typedef struct {
 	odp_pool_t pool; 		/**< pool to alloc packets from */
 	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
 	size_t buf_size; 		/**< size of buffer payload in 'pool' */
+	uint64_t sent_pkt_count;	/**< Count of packet sent to the clusters */
+	uint64_t recv_pkt_count;	/**< Count of packet received */
 } pktio_cluster_t;
 
 typedef struct {
