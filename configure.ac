@@ -85,29 +85,37 @@ AS_CASE([$host],
   					    k1_jtag=yes
 						k1_core=k1a
   					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual $K1A_ARCH_FLAG"
-						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
+						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
+						EXEEXT=.kelf
+						],
   [k1b-kalray-nodeos], [ARCH=k1b-nodeos
   					    k1_jtag=yes
 						k1_core=k1b
  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1b -mboard=explorer"
-						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
+						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
+						EXEEXT=.kelf
+						],
   [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
     					     k1_cluster=yes
 							 k1_core=k1a
   				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  $K1A_ARCH_FLAG"
-							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
+							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
+							 EXEEXT=.kelf
+							 ],
   [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
     					     k1_cluster=yes
 							 k1_core=k1b
   				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -march=k1b"
-							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
+							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
+							 EXEEXT=.kelf
+							 ],
 
   [ARCH=linux]
 )
 AC_SUBST([ARCH])
 AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
 AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
-
+AC_SUBST([EXEEXT])
 ##########################################################################
 # Set correct platform library version
 ##########################################################################
