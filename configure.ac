@@ -126,6 +126,8 @@ AC_ARG_WITH([platform],
     ])
 
 AC_SUBST([with_platform])
+AC_SUBST([platform_with_platform], ["platform/${with_platform}"])
+AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 
 if test "${with_platform}" == "linux-generic";
 then
@@ -372,14 +374,17 @@ AC_CONFIG_FILES([Makefile
 		 helper/Makefile
 		 helper/test/Makefile
 		 pkgconfig/libodp.pc
-		 platform/Makefile
 		 platform/linux-generic/Makefile
 		 platform/k1-nodeos/Makefile
+		 platform/linux-generic/test/pktio/Makefile
+		 platform/k1-nodeos/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
 		 test/validation/Makefile
+		 test/validation/common/Makefile
+		 test/validation/pktio/Makefile
 		 test/miscellaneous/Makefile
 		 ])
 

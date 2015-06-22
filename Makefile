@@ -91,7 +91,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
-	$(MAKE) -C$(ARCH_DIR)/$(1)/platform V=1 all
+	$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM) V=1 all
 	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test V=1 all; \
 	else true; fi
@@ -140,7 +140,7 @@ extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
 
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
-	install example/example_debug.h platform/k1-nodeos/test/pktio_env \
+	install example/example_debug.h platform/k1-nodeos/test/pktio/pktio_env \
 		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeosmagic} \
 		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
 			$(K1ST_DIR)/doc/ODP/example

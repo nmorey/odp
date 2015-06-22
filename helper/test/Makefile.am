@@ -3,7 +3,8 @@ include $(top_srcdir)/test/Makefile.inc
 AM_CFLAGS += -I$(srcdir)/common
 AM_LDFLAGS += -static
 
-EXECUTABLES = odp_thread \
+EXECUTABLES = odp_chksum \
+              odp_thread \
               odp_process
 
 COMPILE_ONLY =
@@ -19,5 +20,6 @@ dist_bin_SCRIPTS =
 bin_PROGRAMS = $(EXECUTABLES) $(COMPILE_ONLY)
 
 
+dist_odp_chksum_SOURCES = odp_chksum.c
 dist_odp_thread_SOURCES = odp_thread.c
 dist_odp_process_SOURCES = odp_process.c

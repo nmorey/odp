@@ -1,3 +1,4 @@
+PRE_LDADD = $(top_builddir)/test/validation/common/libcunit_common_as_main.a
 include $(top_srcdir)/test/Makefile.inc
 
 AM_CFLAGS += -I$(srcdir)/common
@@ -20,9 +21,7 @@ EXECUTABLES =  odp_buffer.kelf \
 	      odp_thread.kelf \
 	      odp_ver_abt_log_dbg.kelf
 
-TESTSCRIPTS = odp_pktio_run
-
-COMPILE_ONLY = odp_pktio.kelf
+COMPILE_ONLY =
 
 if crypto
   EXECUTABLES  += odp_crypto.kelf
@@ -30,11 +29,10 @@ if crypto
 endif
 
 
-if test_vald
-TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
-endif
 
-dist_bin_SCRIPTS = odp_pktio_run
+if test_vald
+TESTS = $(EXECUTABLES)
+endif
 
 bin_PROGRAMS = $(EXECUTABLES) $(COMPILE_ONLY)
 
@@ -60,7 +58,6 @@ dist_odp_shared_memory_kelf_SOURCES	= odp_shared_memory.c $(ODP_CU_COMMON)
 dist_odp_synchronizers_kelf_SOURCES = odp_synchronizers.c $(ODP_CU_COMMON)
 dist_odp_time_kelf_SOURCES   = odp_time.c $(ODP_CU_COMMON)
 dist_odp_timer_kelf_SOURCES  = odp_timer.c $(ODP_CU_COMMON)
-dist_odp_pktio_kelf_SOURCES	= odp_pktio.c $(ODP_CU_COMMON)
 dist_odp_packet_kelf_SOURCES = odp_packet.c $(ODP_CU_COMMON)
 dist_odp_pool_kelf_SOURCES = odp_pool.c $(ODP_CU_COMMON)
 dist_odp_cpumask_kelf_SOURCES = odp_cpumask.c $(ODP_CU_COMMON)
@@ -69,3 +66,7 @@ odp_ver_abt_log_dbg_kelf_CFLAGS = $(AM_CFLAGS) -I$(srcdir)/ver_abt_log_dbg
 dist_odp_ver_abt_log_dbg_kelf_SOURCES  = ver_abt_log_dbg/odp_system.c \
 										 ver_abt_log_dbg/odp_errno.c \
 										 ver_abt_log_dbg/odp_ver_abt_log_dbg.c $(ODP_CU_COMMON)
+
+ODP_MODULES = pktio
+SUBDIRS = common $(ODP_MODULES)
+
