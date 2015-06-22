@@ -426,6 +426,7 @@ odp_pool_t odp_pool_create(const char *name,
 		pool->s.low_wm  = buf_num / 4;
 
 		pool_hdl = pool->s.pool_hdl;
+		__k1_wmb();
 		break;
 	}
 
