@@ -724,7 +724,7 @@ static void barrier_test_init(void)
 	global_mem->slow_thread_num = 1;
 	global_mem->barrier_cnt1 = 1;
 	global_mem->barrier_cnt2 = 1;
-	__k1_wmb();
+	odp_sync_stores();
 }
 
 static void test_atomic_inc_32(void)
