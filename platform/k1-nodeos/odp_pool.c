@@ -163,7 +163,7 @@ odp_pool_t odp_pool_create(const char *name,
 		params->buf.align = 0; /* tmo.__res2 */
 	}
 
-	/* Default initialization paramters */
+	/* Default initialization parameters */
 	uint32_t p_udata_size = 0;
 	uint32_t udata_stride = 0;
 
@@ -367,6 +367,7 @@ odp_pool_t odp_pool_create(const char *name,
 			tmp->size = 0;
 			odp_atomic_init_u32(&tmp->ref_count, 0);
 			tmp->type = params->type;
+			tmp->event_type = params->type;
 			tmp->pool_hdl = pool->s.pool_hdl;
 			tmp->uarea_addr = (void *)udat;
 			tmp->uarea_size = p_udata_size;
