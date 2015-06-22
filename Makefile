@@ -46,7 +46,7 @@ x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
 x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
 x86_64-unknown-linux-gnu_MAKE_VALID  :=
-x86_64-unknown-linux-gnu_BUILD_TESTS := false
+x86_64-unknown-linux-gnu_BUILD_TESTS := true
 x86_64-unknown-linux-gnu_INSTALL     := false
 CONFIGS += x86_64-unknown-linux-gnu
 
