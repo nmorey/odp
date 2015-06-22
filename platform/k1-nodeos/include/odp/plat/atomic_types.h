@@ -72,6 +72,17 @@ struct odp_atomic_u32_s {
 		___old_val; /* Return old value */									\
 	})
 
+/** @addtogroup odp_synchronizers
+ *  @{
+ */
+
+typedef struct odp_atomic_u64_s odp_atomic_u64_t;
+
+typedef struct odp_atomic_u32_s odp_atomic_u32_t;
+
+/**
+ * @}
+ */
 #define INVALIDATE_AREA(p, s) do {									\
 		const char *__ptr;									\
 		for (__ptr = (char*)(p); __ptr < ((char*)(p)) + (s); __ptr += _K1_DCACHE_LINE_SIZE) {	\
@@ -105,17 +116,6 @@ struct odp_atomic_u32_s {
 #define CAS_PTR(ptr, new, cur) ((void*)(unsigned long)(__builtin_k1_acwsu((void *)(ptr),	\
 									  (unsigned long)(new),	\
 									  (unsigned long)(cur))))
-/** @addtogroup odp_synchronizers
- *  @{
- */
-
-typedef struct odp_atomic_u64_s odp_atomic_u64_t;
-
-typedef struct odp_atomic_u32_s odp_atomic_u32_t;
-
-/**
- * @}
- */
 
 #ifdef __cplusplus
 }
