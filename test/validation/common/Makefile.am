@@ -1,5 +1,5 @@
-AUTOMAKE_OPTIONS = foreign
 include $(top_srcdir)/test/Makefile.inc
+AUTOMAKE_OPTIONS += foreign
 
 #libcunit_common_as_main.a is meant to be removed when all tests define
 #their own main
