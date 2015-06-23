@@ -15,21 +15,6 @@
 /* sysconf */
 #include <unistd.h>
 
-
-/*
- * Report the number of online CPU's
- */
-static int sysconf_cpu_count(void)
-{
-	long ret;
-
-	ret = sysconf(_SC_NPROCESSORS_ONLN);
-	if (ret < 0)
-		return 0;
-
-	return (int)ret;
-}
-
 static int huge_page_size(void)
 {
 	return ODP_PAGE_SIZE;
@@ -45,14 +30,8 @@ static int systemcpu(odp_system_info_t *sysinfo)
 {
 	int ret;
 
-	ret = sysconf_cpu_count();
-	if (ret == 0) {
-		ODP_ERR("sysconf_cpu_count failed.\n");
-		return -1;
-	}
-
-	sysinfo->cpu_count = ret;
-	sysinfo->huge_page_size = huge_page_size();
+	sysinfo->cpu_count = BSP_NB_PE_MAX;
+	sysinfo->huge_page_size =  ODP_PAGE_SIZE;
 	sysinfo->cpu_hz          = _K1_CPU_FREQ;
 	if (__bsp_flavour == BSP_EXPLORER) {
 
