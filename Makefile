@@ -12,7 +12,8 @@ CONFIGS :=
 
 k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1a-kalray-nodeos_CONF_OPTS   :=
-k1a-kalray-nodeos_PLATFORM    := k1-nodeos
+k1a-kalray-nodeos_PLATFORM    := k1-cluster
+k1a-kalray-nodeos_INC_DIR     := k1a-nodeos
 k1a-kalray-nodeos_MAKE_VALID  := -j1
 k1a-kalray-nodeos_BUILD_TESTS := true
 k1a-kalray-nodeos_INSTALL     := true
@@ -20,7 +21,8 @@ CONFIGS += k1a-kalray-nodeos
 
 k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1a-kalray-nodeosmagic_CONF_OPTS   :=
-k1a-kalray-nodeosmagic_PLATFORM    := k1-nodeos
+k1a-kalray-nodeosmagic_PLATFORM    := k1-cluster
+k1a-kalray-nodeosmagic_INC_DIR     := k1a-nodeos
 k1a-kalray-nodeosmagic_MAKE_VALID  :=
 k1a-kalray-nodeosmagic_BUILD_TESTS := true
 k1a-kalray-nodeosmagic_INSTALL     := true
@@ -28,7 +30,8 @@ CONFIGS += k1a-kalray-nodeosmagic
 
 k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1b-kalray-nodeos_CONF_OPTS   :=
-k1b-kalray-nodeos_PLATFORM    := k1-nodeos
+k1b-kalray-nodeos_PLATFORM    := k1-cluster
+k1b-kalray-nodeos_INC_DIR     := k1b-nodeos
 k1b-kalray-nodeos_MAKE_VALID  := -j1
 k1b-kalray-nodeos_BUILD_TESTS := true
 k1b-kalray-nodeos_INSTALL     := true
@@ -36,7 +39,8 @@ CONFIGS += k1b-kalray-nodeos
 
 k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
 k1b-kalray-nodeosmagic_CONF_OPTS   :=
-k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-nodeosmagic_PLATFORM    := k1-cluster
+k1b-kalray-nodeosmagic_INC_DIR     := k1b-nodeos
 k1b-kalray-nodeosmagic_MAKE_VALID  :=
 k1b-kalray-nodeosmagic_BUILD_TESTS := true
 k1b-kalray-nodeosmagic_INSTALL     := true
@@ -45,7 +49,8 @@ _CONFIGS += k1b-kalray-nodeosmagic
 
 k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
 k1a-kalray-mos_CONF_OPTS   :=
-k1a-kalray-mos_PLATFORM    := k1-nodeos
+k1a-kalray-mos_PLATFORM    := k1-cluster
+k1a-kalray-mos_INC_DIR    := k1a-elf
 k1a-kalray-mos_MAKE_VALID  := -j1
 k1a-kalray-mos_BUILD_TESTS := true
 k1a-kalray-mos_INSTALL     := true
@@ -53,7 +58,8 @@ _CONFIGS += k1a-kalray-mos
 
 k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
 k1a-kalray-mosmagic_CONF_OPTS   :=
-k1a-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1a-kalray-mosmagic_PLATFORM    := k1-cluster
+k1a-kalray-mosmagic_INC_DIR    := k1a-elf
 k1a-kalray-mosmagic_MAKE_VALID  :=
 k1a-kalray-mosmagic_BUILD_TESTS := true
 k1a-kalray-mosmagic_INSTALL     := true
@@ -61,7 +67,8 @@ _CONFIGS += k1a-kalray-mosmagic
 
 k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
 k1b-kalray-mos_CONF_OPTS   :=
-k1b-kalray-mos_PLATFORM    := k1-nodeos
+k1b-kalray-mos_PLATFORM    := k1-cluster
+k1b-kalray-mos_INC_DIR    := k1b-elf
 k1b-kalray-mos_MAKE_VALID  := -j1
 k1b-kalray-mos_BUILD_TESTS := true
 k1b-kalray-mos_INSTALL     := true
@@ -69,7 +76,8 @@ _CONFIGS += k1b-kalray-mos
 
 k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
 k1b-kalray-mosmagic_CONF_OPTS   :=
-k1b-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-mosmagic_PLATFORM    := k1-cluster
+k1b-kalray-mosmagic_INC_DIR    := k1b-elf
 k1b-kalray-mosmagic_MAKE_VALID  :=
 k1b-kalray-mosmagic_BUILD_TESTS := true
 k1b-kalray-mosmagic_INSTALL     := true
@@ -78,6 +86,7 @@ _CONFIGS += k1b-kalray-mosmagic
 x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
 x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
+x86_64-unknown-linux-gnu_INC_DIR     := 
 x86_64-unknown-linux-gnu_MAKE_VALID  :=
 x86_64-unknown-linux-gnu_BUILD_TESTS := true
 x86_64-unknown-linux-gnu_INSTALL     := false
@@ -120,7 +129,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--with-cunit-path=$(TOP_DIR)/cunit/install/$(1)/ --enable-test-vald \
 	--prefix=$(K1ST_DIR) \
 	--libdir=$(K1ST_DIR)lib/$(1) \
-	--include=$(K1ST_DIR)$($(1)_PLATFORM)/include \
+	--include=$(K1ST_DIR)$($(1)_INC_DIR)/include \
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
@@ -173,7 +182,7 @@ extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
 
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
-	install example/example_debug.h platform/k1-nodeos/test/pktio/pktio_env \
+	install example/example_debug.h platform/k1-cluster/test/pktio/pktio_env \
 		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeosmagic} \
 		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
 			$(K1ST_DIR)/doc/ODP/example
