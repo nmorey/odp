@@ -70,8 +70,9 @@ int odph_linux_cpumask_default(odp_cpumask_t *mask, int num_in)
 	odp_cpumask_zero(mask);
 	for (i = 0; i < num; i++) {
 		int cpu;
-
-		cpu = (first_cpu + i) % cpu_count;
+		/* Add one for the module as odp_cpu_count only
+		 * returned available CPU (ie [1..cpucount]) */
+		cpu = (first_cpu + i) % (cpu_count + 1);
 		odp_cpumask_set(mask, cpu);
 	}
 
