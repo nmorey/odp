@@ -34,13 +34,46 @@ k1b-kalray-nodeos_BUILD_TESTS := true
 k1b-kalray-nodeos_INSTALL     := true
 CONFIGS += k1b-kalray-nodeos
 
-# k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
-# k1b-kalray-nodeosmagic_CONF_OPTS   :=
-# k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
-# k1b-kalray-nodeosmagic_MAKE_VALID  :=
-# k1b-kalray-nodeosmagic_BUILD_TESTS := true
-# k1b-kalray-nodeosmagic_INSTALL     := true
-# CONFIGS += k1b-kalray-nodeosmagic
+k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1b-kalray-nodeosmagic_CONF_OPTS   :=
+k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-nodeosmagic_MAKE_VALID  :=
+k1b-kalray-nodeosmagic_BUILD_TESTS := true
+k1b-kalray-nodeosmagic_INSTALL     := true
+_CONFIGS += k1b-kalray-nodeosmagic
+
+
+k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mos_CONF_OPTS   :=
+k1a-kalray-mos_PLATFORM    := k1-nodeos
+k1a-kalray-mos_MAKE_VALID  := -j1
+k1a-kalray-mos_BUILD_TESTS := true
+k1a-kalray-mos_INSTALL     := true
+_CONFIGS += k1a-kalray-mos
+
+k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mosmagic_CONF_OPTS   :=
+k1a-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1a-kalray-mosmagic_MAKE_VALID  :=
+k1a-kalray-mosmagic_BUILD_TESTS := true
+k1a-kalray-mosmagic_INSTALL     := true
+_CONFIGS += k1a-kalray-mosmagic
+
+k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mos_CONF_OPTS   :=
+k1b-kalray-mos_PLATFORM    := k1-nodeos
+k1b-kalray-mos_MAKE_VALID  := -j1
+k1b-kalray-mos_BUILD_TESTS := true
+k1b-kalray-mos_INSTALL     := true
+_CONFIGS += k1b-kalray-mos
+
+k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mosmagic_CONF_OPTS   :=
+k1b-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-mosmagic_MAKE_VALID  :=
+k1b-kalray-mosmagic_BUILD_TESTS := true
+k1b-kalray-mosmagic_INSTALL     := true
+_CONFIGS += k1b-kalray-mosmagic
 
 x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
@@ -117,7 +150,7 @@ $(1)-odp-clean:
 	rm -Rf $(ARCH_DIR)/$(1)
 endef
 
-$(foreach CONFIG, $(CONFIGS), \
+$(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
 	$(eval $(call CONFIG_RULE,$(CONFIG))))
 
 list-configs:
