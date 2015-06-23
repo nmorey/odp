@@ -77,6 +77,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 k1_core=k1a
 k1_cluster=no
 k1_jtag=no
+OS=linux
 
 AS_CASE([$host],
   [x86*], [ARCH=x86],
@@ -96,10 +97,12 @@ AS_CASE([$host],
 AS_CASE([$host],
   [k1*-nodeos*], [AM_CFLAGS="$AM_CFLAGS -DK1_NODEOS"
 				  AM_LDFLAGS=""
-				  ARCH=${ARCH}-nodeos],
+				  ARCH=${ARCH}-nodeos,
+				  OS=nodeos],
   [k1*-mos*],    [AM_CFLAGS="$AM_CFLAGS -mhypervisor -DK1_MOS"
 				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask"
-				  ARCH=${ARCH}-mos],
+				  ARCH=${ARCH}-mos
+				  OS=mos],
   [*],           [AM_CFLAGS="$AM_CFLAGS"
 				  AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
 )
@@ -112,6 +115,7 @@ AS_CASE([$host],
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
 
 AC_SUBST([ARCH])
+AC_SUBST([OS])
 AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
 AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
 AC_SUBST([EXEEXT])

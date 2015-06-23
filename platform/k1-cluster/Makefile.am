@@ -147,7 +147,6 @@ __LIB__libodp_la_SOURCES = \
 			   odp_event.c \
 			   odp_init.c \
 			   odp_impl.c \
-			   odp_linux.c \
 			   odp_packet.c \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \
@@ -166,7 +165,10 @@ __LIB__libodp_la_SOURCES = \
 			   odp_time.c \
 			   odp_timer.c \
 			   odp_version.c \
-			   odp_weak.c
+			   odp_weak.c \
+			   odp_linux.c \
+			   os/@OS@/linux.c
+
 
 if crypto
 __LIB__libodp_la_SOURCES += odp_crypto.c 
