@@ -10,7 +10,7 @@ INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 CONFIGS :=
 
-k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1a-kalray-nodeos_CONF_OPTS   :=
 k1a-kalray-nodeos_PLATFORM    := k1-cluster
 k1a-kalray-nodeos_INC_DIR     := k1a-nodeos
@@ -20,7 +20,7 @@ k1a-kalray-nodeos_INSTALL     := true
 k1a-kalray-nodeos_INSTALL_DOC := true
 CONFIGS += k1a-kalray-nodeos
 
-k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1a-kalray-nodeosmagic_CONF_OPTS   :=
 k1a-kalray-nodeosmagic_PLATFORM    := k1-cluster
 k1a-kalray-nodeosmagic_INC_DIR     := k1a-nodeos
@@ -29,7 +29,7 @@ k1a-kalray-nodeosmagic_BUILD_TESTS := true
 k1a-kalray-nodeosmagic_INSTALL     := true
 CONFIGS += k1a-kalray-nodeosmagic
 
-k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1b-kalray-nodeos_CONF_OPTS   :=
 k1b-kalray-nodeos_PLATFORM    := k1-cluster
 k1b-kalray-nodeos_INC_DIR     := k1b-nodeos
@@ -38,7 +38,7 @@ k1b-kalray-nodeos_BUILD_TESTS := true
 k1b-kalray-nodeos_INSTALL     := true
 CONFIGS += k1b-kalray-nodeos
 
-k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1b-kalray-nodeosmagic_CONF_OPTS   :=
 k1b-kalray-nodeosmagic_PLATFORM    := k1-cluster
 k1b-kalray-nodeosmagic_INC_DIR     := k1b-nodeos
@@ -48,7 +48,7 @@ k1b-kalray-nodeosmagic_INSTALL     := true
 _CONFIGS += k1b-kalray-nodeosmagic
 
 
-k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mos_CONF_OPTS   :=
 k1a-kalray-mos_PLATFORM    := k1-cluster
 k1a-kalray-mos_INC_DIR    := k1a-elf
@@ -57,7 +57,7 @@ k1a-kalray-mos_BUILD_TESTS := true
 k1a-kalray-mos_INSTALL     := true
 _CONFIGS += k1a-kalray-mos
 
-k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mosmagic_CONF_OPTS   :=
 k1a-kalray-mosmagic_PLATFORM    := k1-cluster
 k1a-kalray-mosmagic_INC_DIR    := k1a-elf
@@ -66,7 +66,7 @@ k1a-kalray-mosmagic_BUILD_TESTS := true
 k1a-kalray-mosmagic_INSTALL     := true
 _CONFIGS += k1a-kalray-mosmagic
 
-k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mos_CONF_OPTS   :=
 k1b-kalray-mos_PLATFORM    := k1-cluster
 k1b-kalray-mos_INC_DIR    := k1b-elf
@@ -75,7 +75,7 @@ k1b-kalray-mos_BUILD_TESTS := true
 k1b-kalray-mos_INSTALL     := true
 _CONFIGS += k1b-kalray-mos
 
-k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mosmagic_CONF_OPTS   :=
 k1b-kalray-mosmagic_PLATFORM    := k1-cluster
 k1b-kalray-mosmagic_INC_DIR    := k1b-elf
@@ -143,7 +143,7 @@ $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 
 $(1)-odp-install: $(1)-odp-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install; \
+		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install-strip; \
 	else true; fi
 	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf && \
