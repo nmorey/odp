@@ -124,6 +124,7 @@ noinst_HEADERS = \
 		  ${top_srcdir}/platform/k1-cluster/include/odp_schedule_internal.h \
 		  ${top_srcdir}/platform/k1-cluster/include/odp_spin_internal.h \
 		  ${top_srcdir}/platform/k1-cluster/include/odp_timer_internal.h \
+		  ${top_srcdir}/platform/k1-cluster/include/odp_timer_types_internal.h \
 		  ${top_srcdir}/platform/k1-cluster/Makefile.inc
 
 subdirheadersdir = $(includedir)/odp/helper
@@ -164,6 +165,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_ticketlock.c \
 			   odp_time.c \
 			   odp_timer.c \
+			   os/@OS@/timer.c \
 			   odp_version.c \
 			   odp_weak.c \
 			   odp_linux.c \

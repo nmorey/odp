@@ -39,6 +39,7 @@
 #include <odp/time.h>
 #include <odp/timer.h>
 #include <odp_timer_internal.h>
+#include <odp_timer_types_internal.h>
 
 #define TMO_UNUSED   ((uint64_t)0x7FFFFFFFFFFFFFFF)
 /* TMO_INACTIVE is or-ed with the expiration tick to indicate an expired timer.
@@ -63,19 +64,7 @@ static odp_timeout_hdr_t *timeout_hdr_from_buf(odp_buffer_t buf)
 	return (odp_timeout_hdr_t *)odp_buf_to_hdr(buf);
 }
 
-/******************************************************************************
- * odp_timer abstract datatype
- *****************************************************************************/
 
-typedef struct tick_buf_s {
-	odp_atomic_u64_t exp_tck;/* Expiration tick or TMO_xxx */
-	odp_buffer_t tmo_buf;/* ODP_BUFFER_INVALID if timer not active */
-} tick_buf_t;
-
-typedef struct odp_timer_s {
-	void *user_ptr;
-	odp_queue_t queue;/* Used for free list when timer is free */
-} odp_timer;
 
 static void timer_init(odp_timer *tim,
 		tick_buf_t *tb,
@@ -118,25 +107,6 @@ static inline void set_next_free(odp_timer *tim, uint32_t nf)
  * Inludes alloc and free timer
  *****************************************************************************/
 
-typedef struct odp_timer_pool_s {
-/* Put frequently accessed fields in the first cache line */
-	odp_atomic_u64_t cur_tick;/* Current tick value */
-	uint64_t min_rel_tck;
-	uint64_t max_rel_tck;
-	tick_buf_t *tick_buf; /* Expiration tick and timeout buffer */
-	odp_timer *timers; /* User pointer and queue handle (and lock) */
-	odp_atomic_u32_t high_wm;/* High watermark of allocated timers */
-	odp_spinlock_t itimer_running;
-	odp_spinlock_t lock;
-	uint32_t num_alloc;/* Current number of allocated timers */
-	uint32_t first_free;/* 0..max_timers-1 => free timer */
-	uint32_t tp_idx;/* Index into timer_pool array */
-	odp_timer_pool_param_t param;
-	char name[ODP_TIMER_POOL_NAME_LEN];
-	odp_shm_t shm;
-	timer_t timerid;
-} odp_timer_pool;
-
 #define MAX_TIMER_POOLS 255 /* Leave one for ODP_TIMER_INVALID */
 #define INDEX_BITS 24
 static odp_atomic_u32_t num_timer_pools;
@@ -168,10 +138,6 @@ static inline odp_timer_t tp_idx_to_handle(struct odp_timer_pool_s *tp,
 	ODP_ASSERT(idx < (1U << INDEX_BITS));
 	return (tp->tp_idx << INDEX_BITS) | idx;
 }
-
-/* Forward declarations */
-static void itimer_init(odp_timer_pool *tp);
-static void itimer_fini(odp_timer_pool *tp);
 
 static odp_timer_pool *odp_timer_pool_new(
 	const char *_name,
@@ -220,7 +186,7 @@ static odp_timer_pool *odp_timer_pool_new(
 	odp_spinlock_init(&tp->itimer_running);
 	timer_pool[tp_idx] = tp;
 	if (tp->param.clk_src == ODP_CLOCK_CPU)
-		itimer_init(tp);
+		_odp_timer_init(tp);
 	return tp;
 }
 
@@ -236,7 +202,7 @@ static void odp_timer_pool_del(odp_timer_pool *tp)
 		ODP_ABORT("%s: timers in use\n", tp->name);
 	}
 	if (tp->param.clk_src == ODP_CLOCK_CPU)
-		itimer_fini(tp);
+		_odp_timer_fini(tp);
 	int rc = odp_shm_free(tp->shm);
 	if (rc != 0)
 		ODP_ABORT("Failed to free shared memory (%d)\n", rc);
@@ -450,7 +416,7 @@ static unsigned timer_expire(odp_timer_pool *tp, uint32_t idx, uint64_t tick)
 	}
 }
 
-static unsigned odp_timer_pool_expire(odp_timer_pool_t tpid, uint64_t tick)
+unsigned _odp_timer_pool_expire(odp_timer_pool_t tpid, uint64_t tick)
 {
 	tick_buf_t *array = &tpid->tick_buf[0];
 	uint32_t high_wm = _odp_atomic_u32_load_mm(&tpid->high_wm,
@@ -469,73 +435,6 @@ static unsigned odp_timer_pool_expire(odp_timer_pool_t tpid, uint64_t tick)
 	return nexp;
 }
 
-/******************************************************************************
- * POSIX timer support
- * Functions that use Linux/POSIX per-process timers and related facilities
- *****************************************************************************/
-
-static odp_timer_pool * _odp_timer_pool_global = NULL;
-
-static void timer_notify(union sigval sigval ODP_UNUSED)
-{
-	odp_timer_pool *tp = _odp_timer_pool_global;
-	uint64_t prev_tick = odp_atomic_fetch_inc_u64(&tp->cur_tick);
-	/* Attempt to acquire the lock, check if the old value was clear */
-	if (odp_spinlock_trylock(&tp->itimer_running)) {
-		/* Scan timer array, looking for timers to expire */
-		(void)odp_timer_pool_expire(tp, prev_tick);
-		odp_spinlock_unlock(&tp->itimer_running);
-	}
-	/* Else skip scan of timers. cur_tick was updated and next itimer
-	 * invocation will process older expiration ticks as well */
-}
-
-static void itimer_init(odp_timer_pool *tp)
-{
-	struct sigevent   sigev;
-	struct itimerspec ispec;
-	uint64_t res, sec, nsec;
-
-	if(_odp_timer_pool_global != NULL){
-		ODP_ABORT("Cannot have more than one timer at once");
-	}
-	ODP_DBG("Creating POSIX timer for timer pool %s, period %"
-		PRIu64" ns\n", tp->name, tp->param.res_ns);
-
-	memset(&sigev, 0, sizeof(sigev));
-	memset(&ispec, 0, sizeof(ispec));
-
-	_odp_timer_pool_global = tp;
-	sigev.sigev_notify          = SIGEV_CALLBACK;
-	sigev.sigev_notify_function = timer_notify;
-	sigev.sigev_value.sival_ptr = tp;
-
-	if (timer_create(CLOCK_MONOTONIC, &sigev, &tp->timerid))
-		ODP_ABORT("timer_create() returned error %s\n",
-			  strerror(errno));
-
-	res  = tp->param.res_ns;
-	sec  = res / ODP_TIME_SEC;
-	nsec = res - sec * ODP_TIME_SEC;
-
-	ispec.it_interval.tv_sec  = (time_t)sec;
-	ispec.it_interval.tv_nsec = (long)nsec;
-	ispec.it_value.tv_sec     = (time_t)sec;
-	ispec.it_value.tv_nsec    = (long)nsec;
-
-	if (timer_settime(tp->timerid, 0, &ispec, NULL))
-		ODP_ABORT("timer_settime() returned error %s\n",
-			  strerror(errno));
-}
-
-static void itimer_fini(odp_timer_pool *tp)
-{
-	if (timer_delete(tp->timerid) != 0)
-		ODP_ABORT("timer_delete() returned error %s\n",
-			  strerror(errno));
-	if(_odp_timer_pool_global == tp)
-		_odp_timer_pool_global = NULL;
-}
 
 /******************************************************************************
  * Public API functions
