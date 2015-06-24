@@ -37,6 +37,17 @@ int cluster_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable
 int cluster_promisc_mode(pktio_entry_t *const pktio_entry);
 int cluster_mtu_get(pktio_entry_t *const pktio_entry);
 
+/** \brief odp_ucode_linear
+ * linear transfer
+ * arg0: number of 64 bits elements
+ * arg1: number of 8 bits elements (payload size)
+ * arg2: destination offset
+ * arg3: local offset
+ */
+extern unsigned long long odp_ucode_linear[] __attribute__((aligned(128)));
+
+
+
 /**
  * Node availability
  */
@@ -136,7 +147,7 @@ static int cluster_init_noc_tx(void)
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
 
-	uc_conf.program_start = (uintptr_t) mppa_noc_linear_firmware_eot_event;
+	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
 	uc_conf.buffer_base = 0x0;
 	uc_conf.buffer_size = 2 * 1024 * 1024;
 
@@ -174,7 +185,7 @@ int cluster_global_init(void)
 
 	if (cluster_init_noc_tx())
 		return 1;
-		
+
 	sleep(1);
 
 	return 0;
