@@ -145,7 +145,6 @@ $(1)-odp-install: $(1)-odp-build
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf &&  \
 		mkdir -p $(K1ST_DIR)/doc/ODP/ && \
 		install $(ARCH_DIR)/$(1)/doc/output/opendataplane.pdf $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM).pdf && \
-		rm -Rf $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
 		cp -R $(ARCH_DIR)/$(1)/doc/output/html $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
 	else true; fi
 
