@@ -39,6 +39,6 @@ syscall/build_x86_64
 .metabuild
 build/
 install/
-odp.tar
+*.tar
 *.rpm
 artifacts/
