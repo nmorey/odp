@@ -62,6 +62,7 @@ struct odp_atomic_u32_s {
 })
 #endif
 
+
 /** @addtogroup odp_synchronizers
  *  @{
  */
@@ -73,6 +74,11 @@ typedef struct odp_atomic_u32_s odp_atomic_u32_t;
 /**
  * @}
  */
+
+#define INVALIDATE(p) ((void)(p))
+#define LOAD_U32(p) (*(uint32_t*)(&(p)))
+#define STORE_U32(p, val) (*(uint32_t*)(&(p)) = (val))
+
 
 #ifdef __cplusplus
 }

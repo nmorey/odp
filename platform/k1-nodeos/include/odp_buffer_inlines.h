@@ -26,6 +26,7 @@ static inline odp_buffer_t odp_buffer_encode_handle(odp_buffer_hdr_t *hdr)
 	uint32_t pool_id = pool_handle_to_index(hdr->pool_hdl);
 	struct pool_entry_s *pool = get_pool_entry(pool_id);
 
+	handle.handle = 0;
 	handle.pool_id = pool_id;
 	handle.index = ((uint8_t *)hdr - pool->pool_mdata_addr) /
 		ODP_CACHE_LINE_SIZE;
@@ -195,6 +196,15 @@ static inline void *segment_map(odp_buffer_hdr_t *buf,
 	return (void *)seg_addr;
 }
 
+static inline int _odp_buffer_event_type(odp_buffer_t buf)
+{
+	return odp_buf_to_hdr(buf)->event_type;
+}
+
+static inline void _odp_buffer_event_type_set(odp_buffer_t buf, int ev)
+{
+	odp_buf_to_hdr(buf)->event_type = ev;
+}
 
 #ifdef __cplusplus
 }

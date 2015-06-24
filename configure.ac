@@ -81,33 +81,40 @@ k1_jtag=no
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
-  [k1a-kalray-nodeos], [ARCH=k1a-nodeos
-  					    k1_jtag=yes
-						k1_core=k1a
-  					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual $K1A_ARCH_FLAG"
-						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
-  [k1b-kalray-nodeos], [ARCH=k1b-nodeos
-  					    k1_jtag=yes
-						k1_core=k1b
- 					   	AM_CFLAGS="$AM_CFLAGS -Wno-cast-qual -march=k1b -mboard=explorer"
-						AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
-  [k1a-kalray-nodeosmagic], [ARCH=k1a-nodeos
-    					     k1_cluster=yes
-							 k1_core=k1a
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual  $K1A_ARCH_FLAG"
-							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
-  [k1b-kalray-nodeosmagic], [ARCH=k1b-nodeos
-    					     k1_cluster=yes
-							 k1_core=k1b
-  				 			 AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory -Wno-cast-qual -march=k1b"
-							 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"],
-
-  [ARCH=linux]
+  [k1a-kalray-*], [ARCH=k1a
+				   k1_core=k1a
+  				   AM_CFLAGS="-Wno-cast-qual $K1A_ARCH_FLAG"
+				   EXEEXT=.kelf
+				  ],
+  [k1b-kalray-*], [ARCH=k1b
+				   k1_core=k1b
+ 				   AM_CFLAGS="-Wno-cast-qual -march=k1b -mboard=explorer"
+				   EXEEXT=.kelf
+				  ],
+  [*]
 )
+AS_CASE([$host],
+  [k1*-nodeos*], [AM_CFLAGS="$AM_CFLAGS -DK1_NODEOS"
+				  AM_LDFLAGS=""
+				  ARCH=${ARCH}-nodeos],
+  [k1*-mos*],    [AM_CFLAGS="$AM_CFLAGS -mhypervisor -DK1_MOS"
+				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask"
+				  ARCH=${ARCH}-mos],
+  [*],           [AM_CFLAGS="$AM_CFLAGS"
+				  AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
+)
+AS_CASE([$host],
+  [k1*magic], [AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory"
+  			   k1_cluster=yes],
+  [k1*os],    [k1_jtag=yes],
+  [*]
+)
+AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
+
 AC_SUBST([ARCH])
 AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
 AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
-
+AC_SUBST([EXEEXT])
 ##########################################################################
 # Set correct platform library version
 ##########################################################################
@@ -126,6 +133,8 @@ AC_ARG_WITH([platform],
     ])
 
 AC_SUBST([with_platform])
+AC_SUBST([platform_with_platform], ["platform/${with_platform}"])
+AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 
 if test "${with_platform}" == "linux-generic";
 then
@@ -264,18 +273,6 @@ ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG=$ODP_DEBUG"
 AM_CONDITIONAL(DEBUG, test "x$enableeval" = "xyes")
 
 ##########################################################################
-# Check for pthreads availability
-##########################################################################
-
-AX_PTHREAD([CC="$PTHREAD_CC"], [
-    echo "Error! We require pthreads to be available"
-    exit -1
-    ])
-LIBS="$PTHREAD_LIBS $LIBS"
-AM_CFLAGS="$AM_CFLAGS $PTHREAD_CFLAGS"
-AM_LDFLAGS="$AM_LDFLAGS $PTHREAD_LDFLAGS"
-
-##########################################################################
 # Check for doxygen availability
 ##########################################################################
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
@@ -372,14 +369,17 @@ AC_CONFIG_FILES([Makefile
 		 helper/Makefile
 		 helper/test/Makefile
 		 pkgconfig/libodp.pc
-		 platform/Makefile
 		 platform/linux-generic/Makefile
 		 platform/k1-nodeos/Makefile
+		 platform/linux-generic/test/pktio/Makefile
+		 platform/k1-nodeos/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
 		 test/validation/Makefile
+		 test/validation/common/Makefile
+		 test/validation/pktio/Makefile
 		 test/miscellaneous/Makefile
 		 ])
 
@@ -387,8 +387,6 @@ AC_SEARCH_LIBS([timer_create],[rt posix4])
 
 ##########################################################################
 # distribute the changed variables among the Makefiles
-
-AM_LDFLAGS="$AM_LDFLAGS -pthread -lrt"
 
 AC_SUBST([LIBS])
 AC_SUBST([AM_CPPFLAGS])

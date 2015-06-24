@@ -2,7 +2,7 @@
 # Configuration validation subroutine script.
 #   Copyright 1992-2014 Free Software Foundation, Inc.
 
-timestamp='2015-04-28'
+timestamp='2015-06-23'
 
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -161,6 +161,8 @@ case $os in
 		basic_machine=$1
 		;;
 	-nodeos|-nodeosmagic)
+		;;
+	-mos|-mosmagic)
 		;;
 	-scout)
 		;;
@@ -1380,7 +1382,7 @@ case $os in
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
 	      | -sym* | -kopensolaris* | -plan9* \
 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
-	      | -aos* | -aros* | -nodeos | -nodeosmagic \
+	      | -aos* | -aros* | -nodeos | -nodeosmagic | -mos | -mosmagic \
 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \

@@ -5,8 +5,6 @@ AM_CFLAGS +=  -I$(srcdir)/include
 AM_CFLAGS +=  -I$(top_srcdir)/include
 AM_CFLAGS +=  -I$(top_srcdir)/helper/include
 
-SUBDIRS = test
-
 include_HEADERS = \
 		  $(top_srcdir)/include/odp.h
 
@@ -146,6 +144,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_buffer.c \
 			   odp_classification.c \
 			   odp_cpumask.c \
+			   odp_crypto.c \
 			   odp_errno.c \
 			   odp_event.c \
 			   odp_init.c \
@@ -170,7 +169,3 @@ __LIB__libodp_la_SOURCES = \
 			   odp_version.c \
 			   odp_weak.c \
 			   arch/@ARCH@/odp_time.c
-
-if crypto
-__LIB__libodp_la_SOURCES += odp_crypto.c
-endif

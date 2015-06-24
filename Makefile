@@ -34,19 +34,52 @@ k1b-kalray-nodeos_BUILD_TESTS := true
 k1b-kalray-nodeos_INSTALL     := true
 CONFIGS += k1b-kalray-nodeos
 
-# k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
-# k1b-kalray-nodeosmagic_CONF_OPTS   :=
-# k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
-# k1b-kalray-nodeosmagic_MAKE_VALID  :=
-# k1b-kalray-nodeosmagic_BUILD_TESTS := true
-# k1b-kalray-nodeosmagic_INSTALL     := true
-# CONFIGS += k1b-kalray-nodeosmagic
+k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
+k1b-kalray-nodeosmagic_CONF_OPTS   :=
+k1b-kalray-nodeosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-nodeosmagic_MAKE_VALID  :=
+k1b-kalray-nodeosmagic_BUILD_TESTS := true
+k1b-kalray-nodeosmagic_INSTALL     := true
+_CONFIGS += k1b-kalray-nodeosmagic
+
+
+k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mos_CONF_OPTS   :=
+k1a-kalray-mos_PLATFORM    := k1-nodeos
+k1a-kalray-mos_MAKE_VALID  := -j1
+k1a-kalray-mos_BUILD_TESTS := true
+k1a-kalray-mos_INSTALL     := true
+_CONFIGS += k1a-kalray-mos
+
+k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1a-kalray-mosmagic_CONF_OPTS   :=
+k1a-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1a-kalray-mosmagic_MAKE_VALID  :=
+k1a-kalray-mosmagic_BUILD_TESTS := true
+k1a-kalray-mosmagic_INSTALL     := true
+_CONFIGS += k1a-kalray-mosmagic
+
+k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mos_CONF_OPTS   :=
+k1b-kalray-mos_PLATFORM    := k1-nodeos
+k1b-kalray-mos_MAKE_VALID  := -j1
+k1b-kalray-mos_BUILD_TESTS := true
+k1b-kalray-mos_INSTALL     := true
+_CONFIGS += k1b-kalray-mos
+
+k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++
+k1b-kalray-mosmagic_CONF_OPTS   :=
+k1b-kalray-mosmagic_PLATFORM    := k1-nodeos
+k1b-kalray-mosmagic_MAKE_VALID  :=
+k1b-kalray-mosmagic_BUILD_TESTS := true
+k1b-kalray-mosmagic_INSTALL     := true
+_CONFIGS += k1b-kalray-mosmagic
 
 x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
 x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
 x86_64-unknown-linux-gnu_MAKE_VALID  :=
-x86_64-unknown-linux-gnu_BUILD_TESTS := false
+x86_64-unknown-linux-gnu_BUILD_TESTS := true
 x86_64-unknown-linux-gnu_INSTALL     := false
 CONFIGS += x86_64-unknown-linux-gnu
 
@@ -91,7 +124,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
-	$(MAKE) -C$(ARCH_DIR)/$(1)/platform V=1 all
+	$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM) V=1 all
 	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test V=1 all; \
 	else true; fi
@@ -117,7 +150,7 @@ $(1)-odp-clean:
 	rm -Rf $(ARCH_DIR)/$(1)
 endef
 
-$(foreach CONFIG, $(CONFIGS), \
+$(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
 	$(eval $(call CONFIG_RULE,$(CONFIG))))
 
 list-configs:
@@ -140,7 +173,7 @@ extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
 
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
-	install example/example_debug.h platform/k1-nodeos/test/pktio_env \
+	install example/example_debug.h platform/k1-nodeos/test/pktio/pktio_env \
 		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeosmagic} \
 		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
 			$(K1ST_DIR)/doc/ODP/example
