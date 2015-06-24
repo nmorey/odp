@@ -129,7 +129,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--with-cunit-path=$(TOP_DIR)/cunit/install/$(1)/ --enable-test-vald \
 	--prefix=$(K1ST_DIR) \
 	--libdir=$(K1ST_DIR)lib/$(1) \
-	--include=$(K1ST_DIR)$($(1)_INC_DIR)/include \
+	--includedir=$(K1ST_DIR)$($(1)_INC_DIR)/include \
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
