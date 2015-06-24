@@ -142,14 +142,16 @@ static int cluster_init_noc_rx(void)
 	return 0;
 }
 
+extern char _heap_start, _heap_end;
+
 static int cluster_init_noc_tx(void)
 {
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
 
 	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
-	uc_conf.buffer_base = 0x0;
-	uc_conf.buffer_size = 2 * 1024 * 1024;
+	uc_conf.buffer_base = (uintptr_t) &_heap_start;
+	uc_conf.buffer_size = &_heap_end - &_heap_start;
 
 	/* We will only use events */
 	mppa_noc_disable_interrupt_handler(NOC_CLUS_IFACE_ID,
@@ -316,7 +318,11 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused))
 	event_line.line = MPPA_NOC_USE_EVENT;
 	event_line.pe_mask = __k1_get_cpu_id();
 
-	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, frame_len, pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT);
+	uintptr_t remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) * ODP_PKTIO_MAX_PKT_SIZE;
+
+	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, frame_len, remote_offset);
+	/* We added a local offset to our ucode */
+	uc_conf.parameters[3] = (uintptr_t) frame - (uintptr_t) &_heap_start;
 
 	/* Get and configure route */
 	config._.bandwidth = mppa_noc_dnoc_get_window_length(NOC_CLUS_IFACE_ID);
