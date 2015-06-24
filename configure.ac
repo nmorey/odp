@@ -100,7 +100,7 @@ AS_CASE([$host],
 				  ARCH=${ARCH}-nodeos,
 				  OS=nodeos],
   [k1*-mos*],    [AM_CFLAGS="$AM_CFLAGS -mhypervisor -DK1_MOS"
-				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask"
+				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096"
 				  ARCH=${ARCH}-mos
 				  OS=mos],
   [*],           [AM_CFLAGS="$AM_CFLAGS"
