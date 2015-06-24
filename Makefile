@@ -17,6 +17,7 @@ k1a-kalray-nodeos_INC_DIR     := k1a-nodeos
 k1a-kalray-nodeos_MAKE_VALID  := -j1
 k1a-kalray-nodeos_BUILD_TESTS := true
 k1a-kalray-nodeos_INSTALL     := true
+k1a-kalray-nodeos_INSTALL_DOC := true
 CONFIGS += k1a-kalray-nodeos
 
 k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++
@@ -142,11 +143,15 @@ $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 
 $(1)-odp-install: $(1)-odp-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install && \
-		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf &&  \
+		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install; \
+	else true; fi
+	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
+		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf && \
 		mkdir -p $(K1ST_DIR)/doc/ODP/ && \
 		install $(ARCH_DIR)/$(1)/doc/output/opendataplane.pdf $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM).pdf && \
-		cp -R $(ARCH_DIR)/$(1)/doc/output/html $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
+		rm -Rf   $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
+		mkdir -p $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
+		cp -Rf $(ARCH_DIR)/$(1)/doc/output/html/* $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
 	else true; fi
 
 $(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
