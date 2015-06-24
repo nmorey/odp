@@ -55,6 +55,15 @@
 static _odp_atomic_flag_t locks[NUM_LOCKS]; /* Multiple locks per cache line! */
 #define IDX2LOCK(idx) (&locks[(idx) % NUM_LOCKS])
 
+#define LOCK(a)      do {			\
+		INVALIDATE(a);			\
+		odp_spinlock_lock(&(a)->lock);	\
+	} while(0)
+#define UNLOCK(a)    do {				\
+		__k1_wmb();				\
+		odp_spinlock_unlock(&(a)->lock);	\
+	}while(0)
+
 /******************************************************************************
  * Translation between timeout buffer and timeout header
  *****************************************************************************/
@@ -192,7 +201,7 @@ static odp_timer_pool *odp_timer_pool_new(
 
 static void odp_timer_pool_del(odp_timer_pool *tp)
 {
-	odp_spinlock_lock(&tp->lock);
+	LOCK(tp);
 	timer_pool[tp->tp_idx] = NULL;
 	/* Wait for itimer thread to stop running */
 	odp_spinlock_lock(&tp->itimer_running);
@@ -206,6 +215,7 @@ static void odp_timer_pool_del(odp_timer_pool *tp)
 	int rc = odp_shm_free(tp->shm);
 	if (rc != 0)
 		ODP_ABORT("Failed to free shared memory (%d)\n", rc);
+	__k1_wmb();
 }
 
 static inline odp_timer_t timer_alloc(odp_timer_pool *tp,
@@ -213,7 +223,7 @@ static inline odp_timer_t timer_alloc(odp_timer_pool *tp,
 				      void *user_ptr)
 {
 	odp_timer_t hdl;
-	odp_spinlock_lock(&tp->lock);
+	LOCK(tp);
 	if (odp_likely(tp->num_alloc < tp->param.num_timers)) {
 		tp->num_alloc++;
 		/* Remove first unused timer from free list */
@@ -235,7 +245,7 @@ static inline odp_timer_t timer_alloc(odp_timer_pool *tp,
 		__odp_errno = ENFILE; /* Reusing file table overflow */
 		hdl = ODP_TIMER_INVALID;
 	}
-	odp_spinlock_unlock(&tp->lock);
+	UNLOCK(tp);
 	return hdl;
 }
 
@@ -255,12 +265,12 @@ static inline odp_buffer_t timer_free(odp_timer_pool *tp, uint32_t idx)
 	timer_fini(tim, &tp->tick_buf[idx]);
 
 	/* Insert timer into free list */
-	odp_spinlock_lock(&tp->lock);
+	LOCK(tp);
 	set_next_free(tim, tp->first_free);
 	tp->first_free = idx;
 	ODP_ASSERT(tp->num_alloc != 0);
 	tp->num_alloc--;
-	odp_spinlock_unlock(&tp->lock);
+	UNLOCK(tp);
 
 	return old_buf;
 }
