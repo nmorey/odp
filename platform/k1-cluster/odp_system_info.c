@@ -15,65 +15,6 @@
 /* sysconf */
 #include <unistd.h>
 
-
-/*
- * Report the number of online CPU's
- */
-static int sysconf_cpu_count(void)
-{
-	long ret;
-
-	ret = sysconf(_SC_NPROCESSORS_ONLN);
-	if (ret < 0)
-		return 0;
-
-	return (int)ret;
-}
-
-static int huge_page_size(void)
-{
-	return ODP_PAGE_SIZE;
-}
-
-
-/*
- * Use sysconf and dummy values in generic case
- */
-
-
-static int systemcpu(odp_system_info_t *sysinfo)
-{
-	int ret;
-
-	ret = sysconf_cpu_count();
-	if (ret == 0) {
-		ODP_ERR("sysconf_cpu_count failed.\n");
-		return -1;
-	}
-
-	sysinfo->cpu_count = ret;
-	sysinfo->huge_page_size = huge_page_size();
-	sysinfo->cpu_hz          = _K1_CPU_FREQ;
-	if (__bsp_flavour == BSP_EXPLORER) {
-
-		sysinfo->cpu_hz = 20000000ULL;
-	}
-
-	sysinfo->cache_line_size = _K1_DCACHE_LINE_SIZE;
-
-#if defined(__K1A__)
-#define K1_MODEL_STR	"K1A - Andey"
-#elif defined(__K1B__)
-#define K1_MODEL_STR	"K1B - Bostan"
-#else
-#define K1_MODEL_STR	"K1 - Unknown"
-#endif
-	snprintf(sysinfo->model_str, sizeof(sysinfo->model_str), "%s", K1_MODEL_STR);
-
-	return 0;
-}
-
-
 /*
  * System info initialisation
  */
@@ -83,11 +24,26 @@ int odp_system_info_init(void)
 
 	odp_global_data.system_info.page_size = ODP_PAGE_SIZE;
 
+	odp_global_data.system_info.cpu_count = BSP_NB_PE_P;
+	odp_global_data.system_info.huge_page_size =  ODP_PAGE_SIZE;
+	odp_global_data.system_info.cpu_hz          = _K1_CPU_FREQ;
 
-	if (systemcpu(&odp_global_data.system_info)) {
-		ODP_ERR("systemcpu failed\n");
-		return -1;
+	if (__bsp_flavour == BSP_EXPLORER) {
+		odp_global_data.system_info.cpu_hz = 20000000ULL;
 	}
+
+	odp_global_data.system_info.cache_line_size = _K1_DCACHE_LINE_SIZE;
+
+#if defined(__K1A__)
+#define K1_MODEL_STR	"K1A - Andey"
+#elif defined(__K1B__)
+#define K1_MODEL_STR	"K1B - Bostan"
+#else
+#define K1_MODEL_STR	"K1 - Unknown"
+#endif
+	snprintf(odp_global_data.system_info.model_str,
+		 sizeof(odp_global_data.system_info.model_str),
+		 "%s", K1_MODEL_STR);
 
 	return 0;
 }

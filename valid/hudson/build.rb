@@ -88,20 +88,32 @@ b.target("package") do
     b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
-    tar_package = File.expand_path("odp.tar")
-
-    depends = []
-    depends.push b.depends_info_struct.new("k1-tools","=", options["k1version"], "")
+    b.run(:cmd => "cd install/; tar cf ../odp-tests.tar local/k1tools/share/odp/*/tests", :env => env)
 
     (version,releaseID,sha1) = repo.describe()
     release_info = b.release_info(version,releaseID,sha1)
-
     sha1 = repo.sha1()
+
+    #K1 ODP
+    tar_package = File.expand_path("odp.tar")
+    depends = []
+    depends.push b.depends_info_struct.new("k1-tools","=", options["k1version"], "")
     package_description = "K1 ODP package (k1-odp-#{version}-#{releaseID} sha1 #{sha1})."
     pinfo = b.package_info("k1-odp", release_info,
                            package_description, "/usr",
                            workspace, depends)
     b.create_package(tar_package, pinfo)
+
+    #K1 ODP Tests
+    tar_package = File.expand_path("odp-tests.tar")
+    depends = []
+    depends.push b.depends_info_struct.new("k1-odp","=", release_info.full_version)
+    package_description = "K1 ODP Standard Tests (k1-odp-tests-#{version}-#{releaseID} sha1 #{sha1})."
+    pinfo = b.package_info("k1-odp-tests", release_info,
+                           package_description, "/usr",
+                           workspace, depends)
+    b.create_package(tar_package, pinfo)
+
 
   # Generates k1r_parameters.sh
     output_parameters = File.join(artifacts,"k1odp_parameters.sh")

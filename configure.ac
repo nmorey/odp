@@ -77,6 +77,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 k1_core=k1a
 k1_cluster=no
 k1_jtag=no
+OS=linux
 
 AS_CASE([$host],
   [x86*], [ARCH=x86],
@@ -96,10 +97,12 @@ AS_CASE([$host],
 AS_CASE([$host],
   [k1*-nodeos*], [AM_CFLAGS="$AM_CFLAGS -DK1_NODEOS"
 				  AM_LDFLAGS=""
-				  ARCH=${ARCH}-nodeos],
+				  ARCH=${ARCH}-nodeos,
+				  OS=nodeos],
   [k1*-mos*],    [AM_CFLAGS="$AM_CFLAGS -mhypervisor -DK1_MOS"
-				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask"
-				  ARCH=${ARCH}-mos],
+				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096"
+				  ARCH=${ARCH}-mos
+				  OS=mos],
   [*],           [AM_CFLAGS="$AM_CFLAGS"
 				  AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
 )
@@ -112,6 +115,7 @@ AS_CASE([$host],
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
 
 AC_SUBST([ARCH])
+AC_SUBST([OS])
 AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
 AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
 AC_SUBST([EXEEXT])
@@ -139,9 +143,9 @@ AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 if test "${with_platform}" == "linux-generic";
 then
     m4_include([./platform/linux-generic/m4/configure.m4])
-elif test "${with_platform}" == "k1-nodeos";
+elif test "${with_platform}" == "k1-cluster";
 then
-    m4_include([./platform/k1-nodeos/m4/configure.m4])
+    m4_include([./platform/k1-cluster/m4/configure.m4])
 else
     echo "UNSUPPORTED PLATFORM: ${with_platform}"
     exit 1
@@ -370,9 +374,9 @@ AC_CONFIG_FILES([Makefile
 		 helper/test/Makefile
 		 pkgconfig/libodp.pc
 		 platform/linux-generic/Makefile
-		 platform/k1-nodeos/Makefile
+		 platform/k1-cluster/Makefile
 		 platform/linux-generic/test/pktio/Makefile
-		 platform/k1-nodeos/test/pktio/Makefile
+		 platform/k1-cluster/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile

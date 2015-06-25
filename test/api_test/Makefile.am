@@ -1,5 +1,6 @@
 include $(top_srcdir)/test/Makefile.inc
 
+bindir      = $(datarootdir)/tests/api_test/
 bin_PROGRAMS = odp_ring
 
 odp_ring_CFLAGS = $(AM_CFLAGS)

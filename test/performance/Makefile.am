@@ -1,5 +1,7 @@
 include $(top_srcdir)/test/Makefile.inc
 
+bindir      = $(datarootdir)/tests/performance
+
 if TARGET_IS_K1_JTAG
 EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
 TESTSCRIPTS = odp_scheduling_run # \

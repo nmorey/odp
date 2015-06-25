@@ -1,7 +1,8 @@
 PRE_LDADD = $(top_builddir)/test/validation/common/libcunit_common_as_main.a
 include $(top_srcdir)/test/Makefile.inc
 
-AM_CFLAGS += -I$(srcdir)/common
+bindir      = $(datarootdir)/tests/validation/
+AM_CFLAGS  += -I$(srcdir)/common
 AM_LDFLAGS += -static
 
 EXECUTABLES =  odp_buffer$(EXEEXT) \
