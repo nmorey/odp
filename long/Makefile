@@ -2,7 +2,7 @@ O ?= ./output
 
 project-name := odp
 
-ODP_SRC_DIR ?= $(error ODP_SRC_DIR must be defined)
+ODP_SRC_DIR ?= $(CURDIR)/../
 ODP_PLATFORM ?= k1-cluster
 ODP_ARCH ?= k1a-kalray-nodeos
 
