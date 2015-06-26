@@ -109,6 +109,9 @@ static int cluster_init_dnoc_rx(int clus_id)
 
 static int cluster_init_cnoc_rx(int clus_id)
 {
+#ifdef __k1b__
+	mppa_cnoc_mailbox_notif_t notif = {0};
+#endif
 	mppa_noc_ret_t ret;
 	mppa_noc_cnoc_rx_configuration_t conf = {0};
 	int rx_id = CNOC_CLUS_BASE_RX_ID + clus_id;
@@ -121,7 +124,11 @@ static int cluster_init_cnoc_rx(int clus_id)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	ret = mppa_noc_cnoc_rx_configure(NOC_CLUS_IFACE_ID, rx_id, conf);
+	ret = mppa_noc_cnoc_rx_configure(NOC_CLUS_IFACE_ID, rx_id, conf
+#ifdef __k1b__
+		, &notif
+#endif
+	);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -186,6 +193,7 @@ static int cluster_init_noc_tx(void)
 
 int cluster_global_init(void)
 {
+	printf("PROUTTTTT\n");
 	mppacl_init_available_clusters();
 
 	if (cluster_init_noc_rx())
@@ -247,6 +255,7 @@ void cluster_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
 	mac_addr_u[0] = pktio_clus->clus_id;
 }
 
+#ifdef __k1a__
 static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
 {
 	mppa_noc_ret_t nret;
@@ -268,7 +277,9 @@ static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
 
 	return 0;
 }
+#endif
 
+#ifdef __k1a__
 static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet_t *pkt)
 {
 	uint8_t *pkt_buf;
@@ -284,7 +295,7 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet
 
 	pkt_header = (struct cluster_pkt_header *) g_pkt_recv_buf[pkt_slot];
 	recv_bytes = pkt_header->pkt_size;
-	printf("Received packet of %zd bytes in slot %lld\n", recv_bytes, pkt_slot);
+	printf("Received packet of %zd bytes in slot %d\n", recv_bytes, pkt_slot);
 
 	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] + sizeof(struct cluster_pkt_header), recv_bytes);
 
@@ -308,12 +319,14 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet
 
 	return 0;
 }
+#endif
 
 int cluster_recv(__attribute__((unused)) pktio_entry_t *const pktio_entry, __attribute__((unused))odp_packet_t pkt_table[], __attribute__((unused))int len)
 {
+	unsigned int nb_rx = 0;
+#ifdef __k1a__
 	mppa_noc_dnoc_rx_counters_t counter;
 	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
-	unsigned int nb_rx;
 	odp_packet_t pkt;
 
 	/* Check if we received some packets */
@@ -327,8 +340,9 @@ int cluster_recv(__attribute__((unused)) pktio_entry_t *const pktio_entry, __att
 		cluster_receive_single_packet(pktio_clus, &pkt);
 		pkt_table[nb_rx] = pkt;
 	}
+#endif
 
-	return 0;
+	return nb_rx;
 }
 
 static inline int
@@ -337,7 +351,7 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused))
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
 	mppa_dnoc_channel_config_t config = { 0 };
 	mppa_dnoc_header_t header = { 0 };
-	mppa_noc_event_line_t event_line;
+
 	mppa_noc_uc_program_run_t program_run;
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
@@ -345,7 +359,13 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused))
 	uintptr_t remote_offset;
 	uint8_t *tmp_pkt;
 	struct cluster_pkt_header pkt_header;
+#ifdef __k1a__
+	mppa_noc_event_line_t event_line;
 
+	/* Event config */
+	event_line.line = MPPA_NOC_USE_EVENT;
+	event_line.pe_mask = __k1_get_cpu_id();
+#endif
 	uc_conf.pointers = NULL;
 	uc_conf.event_counter = 0;
 
@@ -356,12 +376,12 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused))
 	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >= ODP_PKTIO_MAX_PKT_COUNT)
 		return 1;
 
-	/* Event config */
-	event_line.line = MPPA_NOC_USE_EVENT;
-	event_line.pe_mask = __k1_get_cpu_id();
 
 	/* Get and configure route */
+#ifdef __k1a__
+	config.word = 0;
 	config._.bandwidth = mppa_noc_dnoc_get_window_length(NOC_CLUS_IFACE_ID);
+#endif
 
 	header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
 
@@ -383,7 +403,11 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused))
 	/* We added a local offset to our ucode */
 	uc_conf.parameters[3] = (uintptr_t) tmp_pkt - (uintptr_t) &_heap_start;
 
-	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID, uc_conf, header, config, event_line);
+	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID, uc_conf, header, config
+#ifdef __k1a__
+		, event_line
+#endif
+	);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
