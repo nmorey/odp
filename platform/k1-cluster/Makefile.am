@@ -139,6 +139,8 @@ subdirheaders_HEADERS = \
 			$(top_srcdir)/helper/include/odp/helper/tcp.h \
 			$(top_srcdir)/helper/include/odp/helper/udp.h
 
+__LIB__libodp_la_LIBADD = -lmppanoc -lmpparouting
+
 __LIB__libodp_la_SOURCES = \
 			   odp_barrier.c \
 			   odp_buffer.c \
@@ -151,6 +153,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_packet.c \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \
+			   odp_packet_cluster.c \
 			   odp_packet_magic.c \
 			   odp_pktio_loop.c \
 			   odp_pool.c \
