@@ -27,12 +27,16 @@ extern "C" {
  */
 struct odp_atomic_u64_s {
 	union {
+#if defined(__K1A__)
 		struct {
 			int lock : 1;
 			uint64_t v : 63; /**< Actual storage for the atomic variable */
 			/* Some architectures do not support lock-free operations on 64-bit
 			 * data types. We use a spin lock to ensure atomicity. */
 		};
+#elif defined(__K1B__)
+		uint64_t v;
+#endif
 		uint64_t _type;
 		uint64_t _u64;
 	};

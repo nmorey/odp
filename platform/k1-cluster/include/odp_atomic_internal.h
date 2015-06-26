@@ -332,51 +332,6 @@ static inline void _odp_atomic_u64_store_mm(odp_atomic_u64_t *atom,
 }
 
 /**
- * Atomic exchange (swap) of 64-bit atomic variable
- *
- * @param[in,out] atom Pointer to a 64-bit atomic variable
- * @param val   New value to write to the atomic variable
- * @param mmodel Memory order associated with the exchange operation
- *
- * @return Old value of variable
- */
-static inline uint64_t _odp_atomic_u64_xchg_mm(odp_atomic_u64_t *atom,
-		uint64_t val,
-		_odp_memmodel_t mmodel ODP_UNUSED)
-
-{
-	return ATOMIC_OP(atom, a.v = val);
-}
-
-/**
- * Atomic compare and exchange (swap) of 64-bit atomic variable
- * "Strong" semantics, will not fail spuriously.
- *
- * @param[in,out] atom Pointer to a 64-bit atomic variable
- * @param[in,out] exp Pointer to expected value (updated on failure)
- * @param val   New value to write
- * @param success Memory order associated with a successful compare-and-swap
- * operation
- * @param failure Memory order associated with a failed compare-and-swap
- * operation
- *
- * @retval 1 exchange successful
- * @retval 0 exchange failed and '*exp' updated with current value
- */
-static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
-		uint64_t *exp,
-		uint64_t val,
-		_odp_memmodel_t success ODP_UNUSED,
-		_odp_memmodel_t failure ODP_UNUSED)
-{
-	uint64_t oldval = ATOMIC_OP(atom, if(a.v == *exp){a.v = val;}) ;
-	if(oldval == *exp)
-		return 1;
-	*exp = oldval;
-	return 0;
-}
-
-/**
  * Atomic fetch and add of 64-bit atomic variable
  *
  * @param[in,out] atom Pointer to a 64-bit atomic variable
