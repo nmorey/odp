@@ -196,7 +196,21 @@ static inline uint32_t _odp_atomic_u32_xchg_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel ODP_UNUSED)
 
 {
+#if defined(__K1A__)
 	return ATOMIC_OP(atom, a.v = val);
+#elif defined(__K1B__)
+	uint32_t old_val = LOAD_U32(atom->v);
+	do {
+		__k1_uint64_t tmp = 0;
+		tmp = __builtin_k1_acwsu((void *)&atom->v, val, old_val );
+
+		uint32_t ret_val = tmp & 0xFFFFFFFF;
+		if (ret_val == old_val)
+			return 1;
+
+		old_val = ret_val;
+	} while(1);
+#endif
 }
 
 /**
@@ -221,11 +235,22 @@ static inline int _odp_atomic_u32_cmp_xchg_strong_mm(
 		_odp_memmodel_t success ODP_UNUSED,
 		_odp_memmodel_t failure ODP_UNUSED)
 {
+#if defined(__K1A__)
 	uint32_t oldval = ATOMIC_OP(atom, if(a.v == *exp){a.v = val;}) ;
 	if(oldval == *exp)
 		return 1;
 	*exp = oldval;
 	return 0;
+#elif defined(__K1B__)
+	__k1_uint64_t tmp = 0;
+	tmp = __builtin_k1_acwsu((void *)&atom->v, val, *exp );
+	if((tmp & 0xFFFFFFFF) == *exp){
+		return 1;
+	}else{
+		*exp = (tmp & 0xFFFFFFFF);
+		return 0;
+	}
+#endif
 }
 
 /**
