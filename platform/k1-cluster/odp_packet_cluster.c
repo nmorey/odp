@@ -193,7 +193,6 @@ static int cluster_init_noc_tx(void)
 
 int cluster_global_init(void)
 {
-	printf("PROUTTTTT\n");
 	mppacl_init_available_clusters();
 
 	if (cluster_init_noc_rx())
@@ -201,8 +200,6 @@ int cluster_global_init(void)
 
 	if (cluster_init_noc_tx())
 		return 1;
-
-	sleep(1);
 
 	return 0;
 }
