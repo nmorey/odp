@@ -383,6 +383,7 @@ AC_CONFIG_FILES([Makefile
 		 test/performance/Makefile
 		 test/validation/Makefile
 		 test/validation/common/Makefile
+		 test/validation/crypto/Makefile
 		 test/validation/pktio/Makefile
 		 test/miscellaneous/Makefile
 		 ])

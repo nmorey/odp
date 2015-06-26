@@ -196,7 +196,21 @@ static inline uint32_t _odp_atomic_u32_xchg_mm(odp_atomic_u32_t *atom,
 		_odp_memmodel_t mmodel ODP_UNUSED)
 
 {
+#if defined(__K1A__)
 	return ATOMIC_OP(atom, a.v = val);
+#elif defined(__K1B__)
+	uint32_t old_val = LOAD_U32(atom->v);
+	do {
+		__k1_uint64_t tmp = 0;
+		tmp = __builtin_k1_acwsu((void *)&atom->v, val, old_val );
+
+		uint32_t ret_val = tmp & 0xFFFFFFFF;
+		if (ret_val == old_val)
+			return 1;
+
+		old_val = ret_val;
+	} while(1);
+#endif
 }
 
 /**
@@ -221,11 +235,22 @@ static inline int _odp_atomic_u32_cmp_xchg_strong_mm(
 		_odp_memmodel_t success ODP_UNUSED,
 		_odp_memmodel_t failure ODP_UNUSED)
 {
+#if defined(__K1A__)
 	uint32_t oldval = ATOMIC_OP(atom, if(a.v == *exp){a.v = val;}) ;
 	if(oldval == *exp)
 		return 1;
 	*exp = oldval;
 	return 0;
+#elif defined(__K1B__)
+	__k1_uint64_t tmp = 0;
+	tmp = __builtin_k1_acwsu((void *)&atom->v, val, *exp );
+	if((tmp & 0xFFFFFFFF) == *exp){
+		return 1;
+	}else{
+		*exp = (tmp & 0xFFFFFFFF);
+		return 0;
+	}
+#endif
 }
 
 /**
@@ -329,51 +354,6 @@ static inline void _odp_atomic_u64_store_mm(odp_atomic_u64_t *atom,
 		_odp_memmodel_t mmodel ODP_UNUSED)
 {
 	odp_atomic_store_u64(atom, val);
-}
-
-/**
- * Atomic exchange (swap) of 64-bit atomic variable
- *
- * @param[in,out] atom Pointer to a 64-bit atomic variable
- * @param val   New value to write to the atomic variable
- * @param mmodel Memory order associated with the exchange operation
- *
- * @return Old value of variable
- */
-static inline uint64_t _odp_atomic_u64_xchg_mm(odp_atomic_u64_t *atom,
-		uint64_t val,
-		_odp_memmodel_t mmodel ODP_UNUSED)
-
-{
-	return ATOMIC_OP(atom, a.v = val);
-}
-
-/**
- * Atomic compare and exchange (swap) of 64-bit atomic variable
- * "Strong" semantics, will not fail spuriously.
- *
- * @param[in,out] atom Pointer to a 64-bit atomic variable
- * @param[in,out] exp Pointer to expected value (updated on failure)
- * @param val   New value to write
- * @param success Memory order associated with a successful compare-and-swap
- * operation
- * @param failure Memory order associated with a failed compare-and-swap
- * operation
- *
- * @retval 1 exchange successful
- * @retval 0 exchange failed and '*exp' updated with current value
- */
-static inline int _odp_atomic_u64_cmp_xchg_strong_mm(odp_atomic_u64_t *atom,
-		uint64_t *exp,
-		uint64_t val,
-		_odp_memmodel_t success ODP_UNUSED,
-		_odp_memmodel_t failure ODP_UNUSED)
-{
-	uint64_t oldval = ATOMIC_OP(atom, if(a.v == *exp){a.v = val;}) ;
-	if(oldval == *exp)
-		return 1;
-	*exp = oldval;
-	return 0;
 }
 
 /**

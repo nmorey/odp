@@ -84,9 +84,10 @@ int odph_linux_pthread_create(odph_linux_pthread_t *thread_tbl,
 
 		thread_tbl[i].start_args->start_routine = start_routine;
 		thread_tbl[i].start_args->arg           = arg;
-		if(utask_start_pe(&thread_tbl[i].thread, odp_run_start_routine, thread_tbl[i].start_args, cpu))
+		utask_t task;
+		if(utask_start_pe(&task, odp_run_start_routine, thread_tbl[i].start_args, cpu))
 			ODP_ABORT("Thread failed");
-
+		thread_tbl[i].thread = task.val;
 		cpu = odp_cpumask_next(&mask, cpu);
 	}
 	return i;
@@ -99,7 +100,9 @@ void odph_linux_pthread_join(odph_linux_pthread_t *thread_tbl, int num)
 
 	for (i = 0; i < num; i++) {
 		/* Wait thread to exit */
-		utask_join(thread_tbl[i].thread, NULL);
+		utask_t task;
+		task.val = thread_tbl[i].thread;
+		utask_join(task, NULL);
 		free(thread_tbl[i].start_args);
 	}
 
