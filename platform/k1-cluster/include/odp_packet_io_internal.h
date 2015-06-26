@@ -143,11 +143,13 @@ struct pktio_if_operation {
 
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
+struct pktio_if_operation cluster_pktio_operation;
 
 __attribute__ ((unused))
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
+	[ODP_PKTIO_TYPE_CLUSTER] = &cluster_pktio_operation,
 };
 
 #ifdef __cplusplus
