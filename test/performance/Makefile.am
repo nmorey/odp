@@ -2,20 +2,23 @@ include $(top_srcdir)/test/Makefile.inc
 
 bindir      = $(datarootdir)/tests/performance
 
+
+COMPILE_ONLY = odp_l2fwd$(EXEEXT) \
+	       odp_scheduling$(EXEEXT)
+
 if TARGET_IS_K1_JTAG
 EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
 TESTSCRIPTS = odp_scheduling_run # \
  odp_l2fwd_run
 else
 if TARGET_IS_K1_CLUSTER
+COMPILE_ONLY += odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
 else
 EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
 TESTSCRIPTS = odp_scheduling_run odp_l2fwd_run
 endif
 endif
 
-COMPILE_ONLY = odp_l2fwd$(EXEEXT) \
-	       odp_scheduling$(EXEEXT)
 
 if test_perf
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
