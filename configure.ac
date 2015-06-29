@@ -75,8 +75,7 @@ CPPFLAGS=$OLD_CPPFLAGS
 # Which architecture optimizations will we use
 ##########################################################################
 k1_core=k1a
-k1_cluster=no
-k1_jtag=no
+k1_hw=na
 OS=linux
 
 AS_CASE([$host],
@@ -108,16 +107,17 @@ AS_CASE([$host],
 )
 AS_CASE([$host],
   [k1*magic], [AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory"
-  			   k1_cluster=yes],
-  [k1*os],    [k1_jtag=yes],
+  			   k1_hw=no],
+  [k1*os],    [k1_hw=yes],
   [*]
 )
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
 
 AC_SUBST([ARCH])
 AC_SUBST([OS])
-AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
-AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
+AM_CONDITIONAL([TARGET_IS_HW], [test "x${k1_hw}" = "xyes"])
+AM_CONDITIONAL([TARGET_IS_SIMU], [test "x${k1_hw}" = "xno"])
+AM_CONDITIONAL([TARGET_OS_MOS], [test "x${OS}" = "xmos"])
 AC_SUBST([EXEEXT])
 ##########################################################################
 # Set correct platform library version
@@ -408,14 +408,15 @@ AC_MSG_RESULT([
 	Library version:	${ODP_LIBSO_VERSION}
 
 	host:			${host}
+	OS:			${OS}
 	arch:			${ARCH}
-	with_platform:	${with_platform}
+	with_platform:		${with_platform}
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
 	libdir:			${libdir}
 	includedir:		${includedir}
 
-	cc:			${CC}
+	cc:		    	${CC}
 	cppflags:		${CPPFLAGS}
 	am_cppflags:		${AM_CPPFLAGS}
 	am_cxxflags:		${AM_CXXFLAGS}
@@ -430,4 +431,5 @@ AC_MSG_RESULT([
 	test_perf:		${test_perf}
 	test_cpp:		${test_cpp}
 	test_helper:		${test_helper}
+	k1_hw:			${k1_hw}
 ])

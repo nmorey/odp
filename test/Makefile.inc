@@ -24,10 +24,10 @@ valgrind_tools = memcheck drd sgcheck
 TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR="${builddir}" TARGET_RUNNER="$(KELF_LOG_COMPILER)" TOP_SRCDIR=$(top_srcdir)
 TEST_EXTENSIONS = .kelf
 
-if TARGET_IS_K1_JTAG
+if TARGET_IS_HW
 TESTS_ENVIRONMENT += RUN_TARGET="k1-jtag"
 endif
-if TARGET_IS_K1_CLUSTER
+if TARGET_IS_SIMU
 TESTS_ENVIRONMENT += RUN_TARGET="k1-cluster"
 endif
 
