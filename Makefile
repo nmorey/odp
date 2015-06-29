@@ -8,10 +8,11 @@ TOP_DIR := $(shell readlink -f $$(pwd))
 ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
+MAKE_AMS:= $(shell find . -name Makefile.am)
 
 include platforms.inc
 
-$(TOP_DIR)/configure: $(TOP_DIR)/bootstrap $(TOP_DIR)/configure.ac
+$(TOP_DIR)/configure: $(TOP_DIR)/bootstrap $(TOP_DIR)/configure.ac $(MAKE_AMS)
 	cd $(TOP_DIR) && ./bootstrap
 	@touch $@
 
