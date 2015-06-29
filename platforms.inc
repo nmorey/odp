@@ -45,7 +45,7 @@ k1a-kalray-mos_INC_DIR    := k1a-elf
 k1a-kalray-mos_MAKE_VALID  := -j1
 k1a-kalray-mos_BUILD_TESTS := true
 k1a-kalray-mos_INSTALL     := true
-_CONFIGS += k1a-kalray-mos
+CONFIGS += k1a-kalray-mos
 
 k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mosmagic_CONF_OPTS   :=
@@ -54,7 +54,7 @@ k1a-kalray-mosmagic_INC_DIR    := k1a-elf
 k1a-kalray-mosmagic_MAKE_VALID  :=
 k1a-kalray-mosmagic_BUILD_TESTS := true
 k1a-kalray-mosmagic_INSTALL     := true
-_CONFIGS += k1a-kalray-mosmagic
+CONFIGS += k1a-kalray-mosmagic
 
 k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mos_CONF_OPTS   :=
@@ -63,7 +63,7 @@ k1b-kalray-mos_INC_DIR    := k1b-elf
 k1b-kalray-mos_MAKE_VALID  := -j1
 k1b-kalray-mos_BUILD_TESTS := true
 k1b-kalray-mos_INSTALL     := true
-_CONFIGS += k1b-kalray-mos
+CONFIGS += k1b-kalray-mos
 
 k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mosmagic_CONF_OPTS   :=
