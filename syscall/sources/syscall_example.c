@@ -45,7 +45,8 @@
 #include "common.h"
 
 #define MAX_IFS     1024
-#define PKT_SIZE	1600
+#define PKT_SIZE    15000
+#define MAX_IOVECS  10
 #define PORTNAME	"odp%d"
 
 struct iface {
@@ -143,19 +144,40 @@ errcode_t do_eth_get_mac(debug_agent_interface_t *interface, int *sys_ret){
 	return RET_OK;
 }
 
+typedef struct _odp_pkt_iovec {
+	uint32_t iov_base;
+	uint32_t iov_len;
+} odp_pkt_iovec_t;
+
 errcode_t do_eth_recv_packet(debug_agent_interface_t *interface, int *sys_ret){
 
-	uint32_t packet;
 	unsigned int fd;
 
-	ARG(0, fd);
-	ARG(1, packet);
-
+	uint32_t smem_addr;
+	odp_pkt_iovec_t iovecs[MAX_IOVECS];
+	uint32_t iov_count;
+	uint32_t len;
 	static char buf[PKT_SIZE];
-
 
 	struct sockaddr_ll sll;
 	socklen_t addrlen = sizeof(sll);
+
+
+	ARG(0, fd);
+	ARG(1, smem_addr);
+	ARG(2, iov_count);
+
+
+	if (iov_count > MAX_IOVECS) {
+		interface->set_return(interface->self, 0, -1);
+		return RET_OK;
+	}
+
+	if( interface->read_dcache(interface->self, 0,  smem_addr, iovecs, iov_count * sizeof(odp_pkt_iovec_t)) == RET_FAIL) {
+		fprintf(stderr, "Error, unable to write into simulator memory \n");
+		exit(1);
+	}
+
 
 	ssize_t rz = recvfrom(fd, buf, PKT_SIZE, MSG_DONTWAIT,
 						  (struct sockaddr *)&sll, &addrlen);
@@ -171,12 +193,20 @@ errcode_t do_eth_recv_packet(debug_agent_interface_t *interface, int *sys_ret){
 			exit(1);
 		}
 	}
-	
-	if( interface->write_memory(interface->self, 0, packet, buf, PKT_SIZE) == RET_FAIL) {
-		fprintf(stderr, "Error, unable to write into simulator memory \n");
-		return RET_FAIL;
+
+	uint32_t i;
+	for ( i = 0, len = 0; i < iov_count && len < rz; ++i) {
+		uint32_t seg_len = iovecs[i].iov_len;
+		uint32_t qty = rz > seg_len ? seg_len : rz;
+
+		if( interface->write_memory(interface->self, 0, iovecs[i].iov_base, buf + len, qty) == RET_FAIL) {
+			fprintf(stderr, "Error, unable to write into simulator memory \n");
+			return RET_FAIL;
+		}
+		len += qty;
 	}
-	interface->set_return(interface->self, 0, rz);
+
+	interface->set_return(interface->self, 0, len);
 	return RET_OK;
 }
 
@@ -185,16 +215,35 @@ errcode_t do_eth_send_packet(debug_agent_interface_t *interface, int *sys_ret)
 	unsigned char packet[PKT_SIZE];
 	unsigned int packet_size;
 	uint32_t smem_addr;
+
+	odp_pkt_iovec_t iovecs[MAX_IOVECS];
+	uint32_t iov_count;
 	unsigned int fd;
 
 	ARG(0, fd);
 	ARG(1, smem_addr);
-	ARG(2, packet_size);
+	ARG(2, iov_count);
 
-	if( interface->read_dcache(interface->self, 0,  smem_addr, packet, packet_size) == RET_FAIL) {
+	if (iov_count > MAX_IOVECS) {
+		interface->set_return(interface->self, 0, -1);
+		return RET_OK;
+	}
+
+	if( interface->read_dcache(interface->self, 0,  smem_addr, iovecs, iov_count * sizeof(odp_pkt_iovec_t)) == RET_FAIL) {
 		fprintf(stderr, "Error, unable to write into simulator memory \n");
 		exit(1);
 	}
+
+	uint32_t i;
+	for( i = 0, packet_size = 0; i < iov_count; ++i){
+		if( interface->read_dcache(interface->self, 0,  iovecs[i].iov_base,
+					   packet + packet_size, iovecs[i].iov_len) == RET_FAIL) {
+			fprintf(stderr, "Error, unable to write into simulator memory \n");
+			exit(1);
+		}
+		packet_size += iovecs[i].iov_len;
+	}
+
 	ssize_t wz;
 	do {
 		wz = send(fd, packet, packet_size, 0);
@@ -277,7 +326,7 @@ syscall_info_ syscall_table[] = {
 	{MAGIC_SCALL_ETH_INIT, 0, 0, (syscall_helper_fct) do_eth_init},
 	{MAGIC_SCALL_ETH_OPEN, 2, 0, (syscall_helper_fct) do_eth_open},
 	{MAGIC_SCALL_ETH_GETMAC, 2, 0, (syscall_helper_fct) do_eth_get_mac},
-	{MAGIC_SCALL_ETH_RECV, 2, 0, (syscall_helper_fct) do_eth_recv_packet},
+	{MAGIC_SCALL_ETH_RECV, 3, 0, (syscall_helper_fct) do_eth_recv_packet},
 	{MAGIC_SCALL_ETH_SEND, 3, 0, (syscall_helper_fct) do_eth_send_packet},
 	{MAGIC_SCALL_ETH_PROM_SET, 2, 0, (syscall_helper_fct) do_eth_promisc_set},
 	{MAGIC_SCALL_ETH_PROM_GET, 1, 0, (syscall_helper_fct) do_eth_promisc_get},

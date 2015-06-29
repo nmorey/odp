@@ -139,6 +139,82 @@ struct pktio_if_operation {
 	int (* mtu_get)(pktio_entry_t * const /* pktio_entry */);
 };
 
+
+typedef struct _odp_pkt_iovec {
+	void    *iov_base;
+	uint32_t iov_len;
+} odp_pkt_iovec_t;
+
+static inline
+uint32_t _tx_pkt_to_iovec(odp_packet_t pkt,
+			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+{
+	uint32_t pkt_len = odp_packet_len(pkt);
+	uint32_t offset = odp_packet_l2_offset(pkt);
+	uint32_t iov_count = 0;
+
+	while (offset < pkt_len) {
+		uint32_t seglen;
+
+		iovecs[iov_count].iov_base = odp_packet_offset(pkt, offset,
+							       &seglen, NULL);
+		iovecs[iov_count].iov_len = seglen;
+		iov_count++;
+		offset += seglen;
+	}
+
+	return iov_count;
+}
+
+static inline
+uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
+			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+{
+	odp_packet_seg_t seg = odp_packet_first_seg(pkt);
+	uint32_t seg_count = odp_packet_num_segs(pkt);
+	uint32_t seg_id = 0;
+	uint32_t iov_count = 0;
+	uint32_t headroom = odp_packet_headroom(pkt);
+	uint32_t tailroom = odp_packet_tailroom(pkt);
+
+	for (seg_id = 0; seg_id < seg_count; ++seg_id) {
+		uint32_t seglen = odp_packet_seg_buf_len(pkt, seg);
+		uint8_t *ptr = odp_packet_seg_buf_addr(pkt, seg);
+
+		if (headroom) {
+			uint32_t headlen = headroom > seglen ?
+				seglen : headroom;
+
+			headroom -= headlen;
+			seglen -= headlen;
+			ptr += headlen;
+		}
+		if (odp_likely(seglen != 0)) {
+			iovecs[iov_count].iov_base = ptr;
+			iovecs[iov_count].iov_len = seglen;
+			iov_count++;
+		}
+		seg = odp_packet_next_seg(pkt, seg);
+	}
+	/* Now remove the tail room */
+	while (tailroom > 0) {
+		uint32_t iov_len = iovecs[iov_count].iov_len;
+
+		if (iov_len > tailroom) {
+			/* All the remaining tailroom is in this segment */
+			iovecs[iov_count].iov_len -= tailroom;
+			tailroom = 0;
+		} else {
+			/* Tailroom is larger than the last segment.
+			 * Remove this iovec and check the previous one */
+			iov_count--;
+			tailroom -= iov_len;
+		}
+	}
+
+	return iov_count;
+}
+
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
 

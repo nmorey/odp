@@ -18,8 +18,8 @@ static int _magic_scall_open(char * name, size_t len){
 static int _magic_scall_mac_get(int id, void * mac){
 	return __k1_syscall2(MAGIC_SCALL_ETH_GETMAC, id, (uint32_t)mac);
 }
-static int _magic_scall_recv(int id, void* packet){
-	return __k1_syscall2(MAGIC_SCALL_ETH_RECV, id, (uint32_t)packet);
+static int _magic_scall_recv(int id, void* buf, unsigned len){
+	return __k1_syscall3(MAGIC_SCALL_ETH_RECV, id, (uint32_t)buf, len);
 }
 static int _magic_scall_send(int id, void * buf, unsigned len){
 	return __k1_syscall3(MAGIC_SCALL_ETH_SEND, id, (uint32_t)buf, len);
@@ -55,7 +55,7 @@ int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 
 	pkt_magic->pool = pool;
 	/* pkt buffer size */
-	pkt_magic->buf_size = odp_buffer_pool_segment_size(pool);
+	pkt_magic->buf_size = odp_buffer_pool_segment_size(pool) * ODP_BUFFER_MAX_SEG;
 	/* max frame len taking into account the l2-offset */
 	pkt_magic->max_frame_len = pkt_magic->buf_size -
 		odp_buffer_pool_headroom(pool) -
@@ -91,8 +91,9 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 	ssize_t recv_bytes;
 	int i;
 	odp_packet_t pkt = ODP_PACKET_INVALID;
-	uint8_t *pkt_buf;
 	int nb_rx = 0;
+	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
+	uint32_t iov_count;
 
 	for (i = 0; i < len; i++) {
 		if (odp_likely(pkt == ODP_PACKET_INVALID)) {
@@ -100,10 +101,9 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 			if (odp_unlikely(pkt == ODP_PACKET_INVALID))
 				break;
 		}
+		iov_count = _rx_pkt_to_iovec(pkt, iovecs);
 
-		pkt_buf = odp_packet_data(pkt);
-
-		recv_bytes = _magic_scall_recv(pktio_entry->s.magic.fd, pkt_buf);
+		recv_bytes = _magic_scall_recv(pktio_entry->s.magic.fd, iovecs, iov_count);
 
 		/* no data or error: free recv buf and break out of loop */
 		if (odp_unlikely(recv_bytes < 1))
@@ -130,19 +130,18 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
 {
 	odp_packet_t pkt;
-	uint8_t *frame;
-	uint32_t frame_len;
 	unsigned i;
 	int nb_tx;
 	int ret;
+	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
+	uint32_t iov_count;
 
 	i = 0;
 	while (i < len) {
 		pkt = pkt_table[i];
+		iov_count = _tx_pkt_to_iovec(pkt, iovecs);
 
-		frame = odp_packet_l2_ptr(pkt, &frame_len);
-
-		ret = _magic_scall_send(pktio_entry->s.magic.fd, frame, frame_len);
+		ret = _magic_scall_send(pktio_entry->s.magic.fd, iovecs, iov_count);
 		if (odp_unlikely(ret == -1)) {
 			break;
 		}
