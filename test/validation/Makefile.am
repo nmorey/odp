@@ -5,7 +5,7 @@ bindir      = $(datarootdir)/tests/validation/
 AM_CFLAGS  += -I$(srcdir)/common
 AM_LDFLAGS += -static
 
-EXECUTABLES =  odp_buffer$(EXEEXT) \
+EXECUTABLES = odp_buffer$(EXEEXT) \
 	      odp_classification$(EXEEXT) \
 	      odp_cpumask$(EXEEXT) \
 	      odp_init$(EXEEXT) \
@@ -23,8 +23,6 @@ EXECUTABLES =  odp_buffer$(EXEEXT) \
 	      odp_ver_abt_log_dbg$(EXEEXT)
 
 COMPILE_ONLY =
-
-
 
 bin_PROGRAMS = $(EXECUTABLES) $(COMPILE_ONLY)
 

@@ -2,7 +2,6 @@ include $(top_srcdir)/test/Makefile.inc
 
 bindir      = $(datarootdir)/tests/performance
 
-
 COMPILE_ONLY = odp_l2fwd$(EXEEXT)
 TESTSCRIPTS  =
 
@@ -26,7 +25,6 @@ TESTSCRIPTS += odp_scheduling_run
 endif
 endif
 endif
-
 
 if test_perf
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)
