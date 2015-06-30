@@ -23,6 +23,7 @@ extern "C" {
 #include <odp_classification_datamodel.h>
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
+#include <odp_buffer_inlines.h>
 
 #include <odp/config.h>
 #include <odp/hints.h>
@@ -174,47 +175,25 @@ uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
 	uint32_t seg_count = odp_packet_num_segs(pkt);
 	uint32_t seg_id = 0;
 	uint32_t iov_count = 0;
-	uint32_t headroom = odp_packet_headroom(pkt);
-	uint32_t tailroom = odp_packet_tailroom(pkt);
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	uint8_t *ptr;
+	uint32_t seglen;
 
 	for (seg_id = 0; seg_id < seg_count; ++seg_id) {
-		uint32_t seglen = odp_packet_seg_buf_len(pkt, seg);
-		uint8_t *ptr = odp_packet_seg_buf_addr(pkt, seg);
+		ptr = segment_map(&pkt_hdr->buf_hdr, (odp_buffer_seg_t)seg,
+				  &seglen, pkt_hdr->frame_len,
+				  pkt_hdr->headroom);
 
-		if (headroom) {
-			uint32_t headlen = headroom > seglen ?
-				seglen : headroom;
-
-			headroom -= headlen;
-			seglen -= headlen;
-			ptr += headlen;
-		}
-		if (odp_likely(seglen != 0)) {
+		if (ptr) {
 			iovecs[iov_count].iov_base = ptr;
 			iovecs[iov_count].iov_len = seglen;
 			iov_count++;
 		}
 		seg = odp_packet_next_seg(pkt, seg);
 	}
-	/* Now remove the tail room */
-	while (tailroom > 0) {
-		uint32_t iov_len = iovecs[iov_count].iov_len;
-
-		if (iov_len > tailroom) {
-			/* All the remaining tailroom is in this segment */
-			iovecs[iov_count].iov_len -= tailroom;
-			tailroom = 0;
-		} else {
-			/* Tailroom is larger than the last segment.
-			 * Remove this iovec and check the previous one */
-			iov_count--;
-			tailroom -= iov_len;
-		}
-	}
 
 	return iov_count;
 }
-
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
 
