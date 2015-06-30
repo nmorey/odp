@@ -392,7 +392,7 @@ AC_SEARCH_LIBS([timer_create],[rt posix4])
 
 ##########################################################################
 # distribute the changed variables among the Makefiles
-
+AC_SUBST([host])
 AC_SUBST([LIBS])
 AC_SUBST([AM_CPPFLAGS])
 AC_SUBST([CPPFLAGS])
