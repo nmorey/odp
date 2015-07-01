@@ -57,7 +57,7 @@ run_test()
 		if [ "$disabletype" != "SKIP" ]; then
 			export ODP_PKTIO_DISABLE_SOCKET_${distype}=y
 		fi
-		pktio_main${EXEEXT}
+		${TARGET_RUNNER} $(which pktio_main${EXEEXT})
 		if [ $? -ne 0 ]; then
 			ret=1
 		fi
@@ -75,7 +75,7 @@ run()
 	#need to be root to set the interface: if not, run with default loopback.
 	if [ "$(id -u)" != "0" ]; then
 		echo "pktio: using 'loop' device"
-		pktio_main${EXEEXT}
+		${TARGET_RUNNER} $(which pktio_main${EXEEXT})
 		exit $?
 	fi
 
