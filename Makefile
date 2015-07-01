@@ -26,7 +26,7 @@ $(1)-cunit-configure: $(TOP_DIR)/cunit/build/$(1)/Makefile
 
 $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
-	$($(1)_CONF_ENV) CFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS)" \
+	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS)" \
 	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(TOP_DIR)/cunit/install/$(1) \
 	--enable-debug --enable-automated --enable-basic --enable-console \
 	--enable-examples --enable-test --host=$(1)
@@ -46,7 +46,7 @@ $(1)-cunit-clean:
 $(1)-odp-configure: $(ARCH_DIR)/$(1)/Makefile
 $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
-	$($(1)_CONF_ENV) CFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS)" \
+	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS)" \
 	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
 	--with-cunit-path=$(TOP_DIR)/cunit/install/$(1)/ --enable-test-vald \
 	--prefix=$(K1ST_DIR) \
