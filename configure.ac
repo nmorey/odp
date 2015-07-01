@@ -357,9 +357,17 @@ AC_CONFIG_FILES([Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
 		 test/validation/Makefile
+		 test/validation/buffer/Makefile
+		 test/validation/classification/Makefile
 		 test/validation/common/Makefile
 		 test/validation/crypto/Makefile
+		 test/validation/init/Makefile
+		 test/validation/packet/Makefile
 		 test/validation/pktio/Makefile
+		 test/validation/pool/Makefile
+		 test/validation/queue/Makefile
+		 test/validation/random/Makefile
+		 test/validation/system/Makefile
 		 test/miscellaneous/Makefile
 		 ])
 
