@@ -40,10 +40,10 @@ typedef enum {
 	ODP_PKTIO_TYPE_START = 0x1,
 	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
 	ODP_PKTIO_TYPE_MAGIC,
+	ODP_PKTIO_TYPE_ETH,
 	ODP_PKTIO_TYPE_COUNT,
 	//~ ODP_PKTIO_TYPE_CLUSTER,
 	//~ ODP_PKTIO_TYPE_IOCLUS,
-	//~ ODP_PKTIO_TYPE_ETH,
 	//~ ODP_PKTIO_TYPE_ETH40G,
 } odp_pktio_type_t;
 
@@ -71,6 +71,13 @@ typedef struct {
 	odp_queue_t loopq;		/**< loopback queue for "loop" device */
 } pktio_loopback_t;
 
+typedef struct {
+	char name[MAX_PKTIO_NAMESIZE];	/**< True name of pktio */
+	int slot_id;                    /**< IO Eth Id */
+	int port_id;                    /**< Eth Port id. -1 for 40G */
+	odp_pool_t pool; 		/**< pool to alloc packets from */
+} pktio_eth_t;
+
 struct pktio_entry {
 	odp_rwlock_t lock;		/**< entry RW lock */
 	int taken;			/**< is entry taken(1) or free(0) */
@@ -88,6 +95,7 @@ struct pktio_entry {
 		pktio_magic_t magic;
 		pktio_loopback_t loop;
 		pktio_cluster_t cluster;
+		pktio_eth_t eth;
 	};
 };
 
@@ -201,6 +209,7 @@ __attribute__ ((unused))
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
+	[ODP_PKTIO_TYPE_ETH] = &magic_pktio_operation,
 };
 
 #ifdef __cplusplus
