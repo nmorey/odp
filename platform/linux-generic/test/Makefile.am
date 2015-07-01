@@ -1,4 +1,5 @@
-TESTS_ENVIRONMENT = TEST_DIR=${top_builddir}/test/validation
+include $(top_srcdir)/test/Makefile.inc
+TESTS_ENVIRONMENT += TEST_DIR=${top_builddir}/test/validation
 
 ODP_MODULES = pktio
 
@@ -6,7 +7,7 @@ if test_vald
 TESTS = pktio/pktio_run \
 	${top_builddir}/test/validation/buffer/buffer_main$(EXEEXT) \
 	${top_builddir}/test/validation/classification/classification_main$(EXEEXT) \
-	${top_builddir}/test/validation/crypto/crypto_main \
+	${top_builddir}/test/validation/crypto/crypto_main$(EXEEXT) \
 	${top_builddir}/test/validation/init/init_main_ok$(EXEEXT) \
 	${top_builddir}/test/validation/init/init_main_abort$(EXEEXT) \
 	${top_builddir}/test/validation/init/init_main_log$(EXEEXT) \

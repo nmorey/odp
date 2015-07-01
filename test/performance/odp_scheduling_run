@@ -16,7 +16,7 @@ run()
 	echo odp_scheduling_run starts with $1 worker threads
 	echo ===============================================
 
-	${TARGET_RUNNER} $TEST_DIR/odp_scheduling.kelf -c $1 || ret=1
+	${TARGET_RUNNER} $TEST_DIR/odp_scheduling${EXEEXT} -c $1 || ret=1
 }
 
 run 1

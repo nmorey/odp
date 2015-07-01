@@ -1,6 +1,7 @@
 include $(top_srcdir)/test/Makefile.inc
 
 bindir      = $(datarootdir)/tests/performance
+TESTS_ENVIRONMENT += TEST_DIR=${builddir}
 
 COMPILE_ONLY = odp_l2fwd$(EXEEXT)
 TESTSCRIPTS  =
