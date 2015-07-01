@@ -28,8 +28,7 @@ $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS)" \
 	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(TOP_DIR)/cunit/install/$(1) \
-	--enable-debug --enable-automated --enable-basic --enable-console \
-	--enable-examples --enable-test --host=$(1)
+	--enable-debug --enable-automated --enable-basic --host=$(1)
 
 $(1)-cunit-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/Makefile
