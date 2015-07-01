@@ -2,6 +2,8 @@ CONFIGS :=
 
 k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1a-kalray-nodeos_CONF_OPTS   :=
+k1a-kalray-nodeos_CFLAGS      := -march=k1a -DK1_NODEOS
+k1a-kalray-nodeos_LDFLAGS     :=
 k1a-kalray-nodeos_PLATFORM    := k1-cluster
 k1a-kalray-nodeos_INC_DIR     := k1a-nodeos
 k1a-kalray-nodeos_MAKE_VALID  := -j1
@@ -12,6 +14,8 @@ CONFIGS += k1a-kalray-nodeos
 
 k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1a-kalray-nodeosmagic_CONF_OPTS   :=
+k1a-kalray-nodeosmagic_CFLAGS      := -march=k1a -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
+k1a-kalray-nodeosmagic_LDFLAGS     :=
 k1a-kalray-nodeosmagic_PLATFORM    := k1-cluster
 k1a-kalray-nodeosmagic_INC_DIR     := k1a-nodeos
 k1a-kalray-nodeosmagic_MAKE_VALID  :=
@@ -21,6 +25,8 @@ CONFIGS += k1a-kalray-nodeosmagic
 
 k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1b-kalray-nodeos_CONF_OPTS   :=
+k1b-kalray-nodeos_CFLAGS      := -march=k1b -DK1_NODEOS -mboard=explorer
+k1b-kalray-nodeos_LDFLAGS     :=
 k1b-kalray-nodeos_PLATFORM    := k1-cluster
 k1b-kalray-nodeos_INC_DIR     := k1b-nodeos
 k1b-kalray-nodeos_MAKE_VALID  := -j1
@@ -30,6 +36,8 @@ CONFIGS += k1b-kalray-nodeos
 
 k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1b-kalray-nodeosmagic_CONF_OPTS   :=
+k1b-kalray-nodeosmagic_CFLAGS      := -march=k1b -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
+k1b-kalray-nodeosmagic_LDFLAGS     :=
 k1b-kalray-nodeosmagic_PLATFORM    := k1-cluster
 k1b-kalray-nodeosmagic_INC_DIR     := k1b-nodeos
 k1b-kalray-nodeosmagic_MAKE_VALID  :=
@@ -40,6 +48,8 @@ _CONFIGS += k1b-kalray-nodeosmagic
 
 k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mos_CONF_OPTS   :=
+k1a-kalray-mos_CFLAGS      := -march=k1a -mhypervisor -DK1_MOS
+k1a-kalray-mos_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
 k1a-kalray-mos_PLATFORM    := k1-cluster
 k1a-kalray-mos_INC_DIR     := k1a-elf
 k1a-kalray-mos_MAKE_VALID  := -j1
@@ -49,6 +59,8 @@ CONFIGS += k1a-kalray-mos
 
 k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mosmagic_CONF_OPTS   :=
+k1a-kalray-mosmagic_CFLAGS      := -march=k1a -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
+k1a-kalray-mosmagic_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
 k1a-kalray-mosmagic_PLATFORM    := k1-cluster
 k1a-kalray-mosmagic_INC_DIR     := k1a-elf
 k1a-kalray-mosmagic_MAKE_VALID  :=
@@ -58,6 +70,8 @@ CONFIGS += k1a-kalray-mosmagic
 
 k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mos_CONF_OPTS   :=
+k1b-kalray-mos_CFLAGS      := -march=k1b -mhypervisor -DK1_MOS -mboard=explorer
+k1b-kalray-mos_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
 k1b-kalray-mos_PLATFORM    := k1-cluster
 k1b-kalray-mos_INC_DIR     := k1b-elf
 k1b-kalray-mos_MAKE_VALID  := -j1
@@ -67,6 +81,8 @@ CONFIGS += k1b-kalray-mos
 
 k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1b-kalray-mosmagic_CONF_OPTS   :=
+k1b-kalray-mosmagic_CFLAGS      := -march=k1b -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
+k1b-kalray-mosmagic_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
 k1b-kalray-mosmagic_PLATFORM    := k1-cluster
 k1b-kalray-mosmagic_INC_DIR     := k1b-elf
 k1b-kalray-mosmagic_MAKE_VALID  :=
@@ -76,8 +92,10 @@ _CONFIGS += k1b-kalray-mosmagic
 
 x86_64-unknown-linux-gnu_CONF_ENV    :=
 x86_64-unknown-linux-gnu_CONF_OPTS   :=
+x86_64-unknown-linux-gnu_CFLAGS      :=
+x86_64-unknown-linux-gnu_LDFLAGS     :=
 x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
-x86_64-unknown-linux-gnu_INC_DIR     := 
+x86_64-unknown-linux-gnu_INC_DIR     :=
 x86_64-unknown-linux-gnu_MAKE_VALID  :=
 x86_64-unknown-linux-gnu_BUILD_TESTS := true
 x86_64-unknown-linux-gnu_INSTALL     := false
