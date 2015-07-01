@@ -31,22 +31,12 @@ static int _magic_scall_prom_get(int id){
 	return __k1_syscall1(MAGIC_SCALL_ETH_PROM_GET, id);
 }
 
-int magic_global_init(void);
-int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool);
-void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr);
-int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len);
-int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len);
-int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable);
-int magic_promisc_mode(pktio_entry_t *const pktio_entry);
-int magic_open(pktio_entry_t * const pktio_entry, const char * devname);
-int magic_mtu_get(pktio_entry_t *const pktio_entry);
-
-int magic_global_init(void)
+static int magic_global_init(void)
 {
 	return _magic_scall_init();
 }
 
-int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
+static int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 {
 	pktio_magic_t * pkt_magic = &pktio_entry->s.magic;
 	pkt_magic->fd = _magic_scall_open(pkt_magic->name, strlen(pkt_magic->name));
@@ -63,7 +53,7 @@ int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
-int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
+static int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if(!strncmp("magic-", devname, strlen("magic-"))){
 #ifndef MAGIC_SCALL
@@ -81,12 +71,12 @@ int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 	return -1;
 }
 
-void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
+static void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
 {
 	_magic_scall_mac_get(pktio_entry->s.magic.fd, mac_addr);
 }
 
-int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
+static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
 {
 	ssize_t recv_bytes;
 	int i;
@@ -127,7 +117,7 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 	return nb_rx;
 }
 
-int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
+static int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
 {
 	odp_packet_t pkt;
 	unsigned i;
@@ -156,15 +146,15 @@ int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsig
 	return nb_tx;
 }
 
-int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable){
+static int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable){
 	return _magic_scall_prom_set(pktio_entry->s.magic.fd, enable);
 }
 
-int magic_promisc_mode(pktio_entry_t *const pktio_entry){
+static int magic_promisc_mode(pktio_entry_t *const pktio_entry){
 	return _magic_scall_prom_get(pktio_entry->s.magic.fd);
 }
 
-int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_entry) {
+static int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_entry) {
 	return -1;
 }
 
