@@ -40,9 +40,10 @@ clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
 long = ParallelTarget.new("long", repo, [])
-package = Target.new("package", repo, [build])
+install = Target.new("install", repo, [build])
+package = Target.new("package", repo, [install])
 
-b = Builder.new("odp", options, [clean, build, valid, long, package])
+b = Builder.new("odp", options, [clean, build, valid, long, package, install])
 
 b.logsession = "odp"
 
@@ -81,11 +82,18 @@ b.target("long") do
     b.valid(:cmd => "make -Clong all CONFIGS='#{valid_configs.join(" ")}'")
 end
 
-b.target("package") do
-    b.logtitle = "Report for odp tests."
+b.target("install") do
+
+    b.logtitle = "Report for odp install."
     cd odp_path
+
     b.run(:cmd => "rm -Rf install/")
     b.run(:cmd => "make install CONFIGS='#{configs.join(" ")}'")
+end
+
+b.target("package") do
+    b.logtitle = "Report for odp package."
+    cd odp_path
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     b.run(:cmd => "cd install/; tar cf ../odp-tests.tar local/k1tools/share/odp/*/tests", :env => env)
