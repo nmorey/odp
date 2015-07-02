@@ -318,7 +318,7 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet
 }
 #endif
 
-int cluster_recv(__attribute__((unused)) pktio_entry_t *const pktio_entry, __attribute__((unused))odp_packet_t pkt_table[], __attribute__((unused))int len)
+int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_packet_t pkt_table[] ODP_UNUSED, int len ODP_UNUSED)
 {
 	unsigned int nb_rx = 0;
 #ifdef __k1a__
@@ -343,7 +343,7 @@ int cluster_recv(__attribute__((unused)) pktio_entry_t *const pktio_entry, __att
 }
 
 static inline int
-cluster_send_single_packet(pktio_cluster_t *pktio_clus,  __attribute__((unused)) void *frame, uint32_t frame_len)
+cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t frame_len)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
 	mppa_dnoc_channel_config_t config = { 0 };
@@ -449,17 +449,17 @@ int cluster_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], uns
 	return nb_tx;
 }
 
-int cluster_promisc_mode_set(__attribute__((unused))pktio_entry_t *const pktio_entry, __attribute__((unused))odp_bool_t enable)
+int cluster_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_bool_t enable ODP_UNUSED)
 {
 	return 0;
 }
 
-int cluster_promisc_mode(__attribute__((unused))pktio_entry_t *const pktio_entry)
+int cluster_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED)
 {
 	return 0;
 }
 
-int cluster_mtu_get(__attribute__((unused)) pktio_entry_t *const pktio_entry)
+int cluster_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED)
 {
 	return ODP_PKTIO_MAX_PKT_SIZE;
 }

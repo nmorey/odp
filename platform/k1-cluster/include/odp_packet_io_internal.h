@@ -209,7 +209,7 @@ struct pktio_if_operation loop_pktio_operation;
 struct pktio_if_operation cluster_pktio_operation;
 struct pktio_if_operation eth_pktio_operation;
 
-__attribute__ ((unused))
+ODP_UNUSED
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
