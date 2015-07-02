@@ -2,7 +2,7 @@ O ?= ./output
 
 project-name := odp
 
-ODP_SRC_DIR ?= $(CURDIR)/../
+ODP_SRC_DIR ?= $(CURDIR)/..
 ODP_PLATFORM ?= k1-cluster
 ODP_ARCH ?= k1a-kalray-nodeos
 
@@ -18,7 +18,7 @@ cluster-cflags := -I$(ODP_INSTALL_DIR)/$(SYSTEM_NAME)/include  -I$(ODP_SRC_DIR)/
 cluster-cflags += -I$(CUNIT_INSTALL_DIR)/include
 
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -lodp
-cluster-lflags += -L$(CUNIT_INSTALL_DIR)/lib/ -lcunit
+cluster-lflags += -L$(CUNIT_INSTALL_DIR)/lib/ -lcunit -lmppanoc -lmpparouting
 
 # Empty direct assignement to allows += to work in included Makefiles
 cluster-bin :=
