@@ -64,17 +64,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
 ##########################################################################
 CPPFLAGS=$OLD_CPPFLAGS
 
-AS_CASE([$host],
-  [k1a-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual $K1A_ARCH_FLAG"],
-  [k1b-kalray-nodeos], [ CFLAGS=" -Wno-cast-qual -march=k1b"],
-  [k1a-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual $K1A_ARCH_FLAG"],
-  [k1b-kalray-nodeosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1b"],
-  [k1a-kalray-mos], [ CFLAGS=" -Wno-cast-qual $K1A_ARCH_FLAG -mhypervisor"],
-  [k1b-kalray-mos], [ CFLAGS=" -Wno-cast-qual -march=k1b -mhypervisor"],
-  [k1a-kalray-mosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual $K1A_ARCH_FLAG -mhypervisor"],
-  [k1b-kalray-mosmagic], [ CFLAGS=" -mboard=large_memory -Wno-cast-qual -march=k1b -mhypervisor"]
-)
-
 CFLAGS+=" $CFLAGS -DRELEASE=@RELEASE@ -Wall -W -pedantic -Wshadow -ansi -I${srcdir}/CUnit/Headers -I${PWD}/CUnit/Headers -std=c99"
 LDFLAGS="$LDFLAGS -L${PWD}/CUnit/Sources"
 

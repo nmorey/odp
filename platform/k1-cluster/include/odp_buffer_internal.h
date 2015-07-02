@@ -133,6 +133,11 @@ typedef struct odp_buffer_hdr_t {
 	void                    *addr[ODP_BUFFER_MAX_SEG]; /* block addrs */
 } odp_buffer_hdr_t;
 
+/** @internal Compile time assert that the
+ * allocator field can handle any allocator id*/
+_ODP_STATIC_ASSERT(INT16_MAX >= ODP_CONFIG_MAX_THREADS,
+		   "ODP_BUFFER_HDR_T__ALLOCATOR__SIZE_ERROR");
+
 typedef struct odp_buffer_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_buffer_hdr_t))];
 } odp_buffer_hdr_stride;

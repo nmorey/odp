@@ -3,9 +3,9 @@ include $(top_srcdir)/test/Makefile.inc
 AM_CFLAGS += -I$(srcdir)/common
 AM_LDFLAGS += -static
 
-EXECUTABLES = odp_chksum \
-              odp_thread \
-              odp_process
+EXECUTABLES = odp_chksum$(EXEEXT) \
+              odp_thread$(EXEEXT) \
+              odp_process$(EXEEXT)
 
 COMPILE_ONLY =
 

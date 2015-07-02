@@ -1,21 +1,31 @@
 include $(top_srcdir)/test/Makefile.inc
 
 bindir      = $(datarootdir)/tests/performance
+TESTS_ENVIRONMENT += TEST_DIR=${builddir}
 
-if TARGET_IS_K1_JTAG
-EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
-TESTSCRIPTS = odp_scheduling_run # \
- odp_l2fwd_run
-else
-if TARGET_IS_K1_CLUSTER
-else
-EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
-TESTSCRIPTS = odp_scheduling_run odp_l2fwd_run
-endif
+COMPILE_ONLY = odp_l2fwd$(EXEEXT)
+TESTSCRIPTS  =
+
+if !TARGET_OS_MOS
+COMPILE_ONLY += odp_scheduling$(EXEEXT)
 endif
 
-COMPILE_ONLY = odp_l2fwd$(EXEEXT) \
-	       odp_scheduling$(EXEEXT)
+if TARGET_IS_HW
+EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
+if ! TARGET_OS_MOS
+TESTSCRIPTS += odp_scheduling_run
+endif
+else
+if TARGET_IS_SIMU
+COMPILE_ONLY += odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
+else
+EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)
+TESTSCRIPTS += odp_l2fwd_run
+if ! TARGET_OS_MOS
+TESTSCRIPTS += odp_scheduling_run
+endif
+endif
+endif
 
 if test_perf
 TESTS = $(EXECUTABLES) $(TESTSCRIPTS)

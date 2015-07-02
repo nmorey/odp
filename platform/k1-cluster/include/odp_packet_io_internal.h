@@ -23,6 +23,7 @@ extern "C" {
 #include <odp_classification_datamodel.h>
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
+#include <odp_buffer_inlines.h>
 
 #include <odp/config.h>
 #include <odp/hints.h>
@@ -40,9 +41,9 @@ typedef enum {
 	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
 	ODP_PKTIO_TYPE_MAGIC,
 	ODP_PKTIO_TYPE_CLUSTER,
+	ODP_PKTIO_TYPE_ETH,
 	ODP_PKTIO_TYPE_COUNT,
 	//~ ODP_PKTIO_TYPE_IOCLUS,
-	//~ ODP_PKTIO_TYPE_ETH,
 	//~ ODP_PKTIO_TYPE_ETH40G,
 } odp_pktio_type_t;
 
@@ -72,6 +73,13 @@ typedef struct {
 	odp_queue_t loopq;		/**< loopback queue for "loop" device */
 } pktio_loopback_t;
 
+typedef struct {
+	char name[MAX_PKTIO_NAMESIZE];	/**< True name of pktio */
+	int slot_id;                    /**< IO Eth Id */
+	int port_id;                    /**< Eth Port id. -1 for 40G */
+	odp_pool_t pool; 		/**< pool to alloc packets from */
+} pktio_eth_t;
+
 struct pktio_entry {
 	odp_rwlock_t lock;		/**< entry RW lock */
 	int taken;			/**< is entry taken(1) or free(0) */
@@ -89,6 +97,7 @@ struct pktio_entry {
 		pktio_magic_t magic;
 		pktio_loopback_t loop;
 		pktio_cluster_t cluster;
+		pktio_eth_t eth;
 	};
 };
 
@@ -141,15 +150,71 @@ struct pktio_if_operation {
 	int (* mtu_get)(pktio_entry_t * const /* pktio_entry */);
 };
 
+
+typedef struct _odp_pkt_iovec {
+	void    *iov_base;
+	uint32_t iov_len;
+} odp_pkt_iovec_t;
+
+static inline
+uint32_t _tx_pkt_to_iovec(odp_packet_t pkt,
+			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+{
+	uint32_t pkt_len = odp_packet_len(pkt);
+	uint32_t offset = odp_packet_l2_offset(pkt);
+	uint32_t iov_count = 0;
+
+	while (offset < pkt_len) {
+		uint32_t seglen;
+
+		iovecs[iov_count].iov_base = odp_packet_offset(pkt, offset,
+							       &seglen, NULL);
+		iovecs[iov_count].iov_len = seglen;
+		iov_count++;
+		offset += seglen;
+	}
+
+	return iov_count;
+}
+
+static inline
+uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
+			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+{
+	odp_packet_seg_t seg = odp_packet_first_seg(pkt);
+	uint32_t seg_count = odp_packet_num_segs(pkt);
+	uint32_t seg_id = 0;
+	uint32_t iov_count = 0;
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	uint8_t *ptr;
+	uint32_t seglen;
+
+	for (seg_id = 0; seg_id < seg_count; ++seg_id) {
+		ptr = segment_map(&pkt_hdr->buf_hdr, (odp_buffer_seg_t)seg,
+				  &seglen, pkt_hdr->frame_len,
+				  pkt_hdr->headroom);
+
+		if (ptr) {
+			iovecs[iov_count].iov_base = ptr;
+			iovecs[iov_count].iov_len = seglen;
+			iov_count++;
+		}
+		seg = odp_packet_next_seg(pkt, seg);
+	}
+
+	return iov_count;
+}
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
 struct pktio_if_operation cluster_pktio_operation;
+struct pktio_if_operation eth_pktio_operation;
 
 __attribute__ ((unused))
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
 	[ODP_PKTIO_TYPE_CLUSTER] = &cluster_pktio_operation,
+	[ODP_PKTIO_TYPE_ETH] = &eth_pktio_operation,
 };
 
 #ifdef __cplusplus

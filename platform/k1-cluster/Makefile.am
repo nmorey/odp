@@ -151,6 +151,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_init.c \
 			   odp_impl.c \
 			   odp_packet.c \
+			   odp_packet_eth.c \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \
 			   odp_packet_cluster.c \

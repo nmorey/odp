@@ -21,16 +21,10 @@ AM_LDFLAGS += -L$(LIB)
 @VALGRIND_CHECK_RULES@
 valgrind_tools = memcheck drd sgcheck
 
-TESTS_ENVIRONMENT = ODP_PLATFORM=${with_platform} TEST_DIR="${builddir}" TARGET_RUNNER="$(KELF_LOG_COMPILER)" TOP_SRCDIR=$(top_srcdir)
-TEST_EXTENSIONS = .kelf
 
-if TARGET_IS_K1_JTAG
-TESTS_ENVIRONMENT += RUN_TARGET="k1-jtag"
-endif
-if TARGET_IS_K1_CLUSTER
-TESTS_ENVIRONMENT += RUN_TARGET="k1-cluster"
-endif
+TEST_EXTENSIONS = .kelf
 
 KELF_LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
 LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
 
+TESTS_ENVIRONMENT= ODP_PLATFORM=${with_platform} EXEEXT=${EXEEXT} TARGET_RUNNER="$(KELF_LOG_COMPILER)" TOP_SRCDIR=$(top_srcdir) RUN_TARGET=${RUN_TARGET}

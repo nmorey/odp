@@ -6,15 +6,16 @@
 
 #include <odp.h>
 #include <odp_cunit_common.h>
+#include "queue.h"
 
 #define MAX_BUFFER_QUEUE        (8)
-#define MSG_POOL_SIZE           (4*1024*1024)
+#define MSG_POOL_SIZE           (4 * 1024 * 1024)
 #define CONFIG_MAX_ITERATION    (100)
 
 static int queue_contest = 0xff;
 static odp_pool_t pool;
 
-static int init_queue_suite(void)
+static int queue_suite_init(void)
 {
 	odp_pool_param_t params;
 
@@ -32,12 +33,12 @@ static int init_queue_suite(void)
 	return 0;
 }
 
-static int init_queue_finalize(void)
+static int queue_suite_term(void)
 {
 	return odp_pool_destroy(pool);
 }
 
-static void test_odp_queue_sunnyday(void)
+static void queue_test_sunnydays(void)
 {
 	odp_queue_t queue_creat_id, queue_id;
 	odp_event_t enev[MAX_BUFFER_QUEUE];
@@ -104,16 +105,20 @@ static void test_odp_queue_sunnyday(void)
 	}
 
 	CU_ASSERT(odp_queue_destroy(queue_id) == 0);
-	return;
 }
 
-CU_TestInfo test_odp_queue[] = {
-	{"queue sunnyday",  test_odp_queue_sunnyday},
+static CU_TestInfo queue_suite[] = {
+	{"queue sunnyday",  queue_test_sunnydays},
 	CU_TEST_INFO_NULL,
 };
 
-CU_SuiteInfo odp_testsuites[] = {
-	{"Queue", init_queue_suite, init_queue_finalize,
-			NULL, NULL, test_odp_queue},
+static CU_SuiteInfo queue_suites[] = {
+	{"Queue", queue_suite_init, queue_suite_term,
+			NULL, NULL, queue_suite},
 	CU_SUITE_INFO_NULL,
 };
+
+int queue_main(void)
+{
+	return odp_cunit_run(queue_suites);
+}

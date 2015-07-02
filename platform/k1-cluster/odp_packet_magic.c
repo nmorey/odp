@@ -18,8 +18,8 @@ static int _magic_scall_open(char * name, size_t len){
 static int _magic_scall_mac_get(int id, void * mac){
 	return __k1_syscall2(MAGIC_SCALL_ETH_GETMAC, id, (uint32_t)mac);
 }
-static int _magic_scall_recv(int id, void* packet){
-	return __k1_syscall2(MAGIC_SCALL_ETH_RECV, id, (uint32_t)packet);
+static int _magic_scall_recv(int id, void* buf, unsigned len){
+	return __k1_syscall3(MAGIC_SCALL_ETH_RECV, id, (uint32_t)buf, len);
 }
 static int _magic_scall_send(int id, void * buf, unsigned len){
 	return __k1_syscall3(MAGIC_SCALL_ETH_SEND, id, (uint32_t)buf, len);
@@ -31,22 +31,12 @@ static int _magic_scall_prom_get(int id){
 	return __k1_syscall1(MAGIC_SCALL_ETH_PROM_GET, id);
 }
 
-int magic_global_init(void);
-int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool);
-void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr);
-int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len);
-int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len);
-int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable);
-int magic_promisc_mode(pktio_entry_t *const pktio_entry);
-int magic_open(pktio_entry_t * const pktio_entry, const char * devname);
-int magic_mtu_get(pktio_entry_t *const pktio_entry);
-
-int magic_global_init(void)
+static int magic_global_init(void)
 {
 	return _magic_scall_init();
 }
 
-int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
+static int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 {
 	pktio_magic_t * pkt_magic = &pktio_entry->s.magic;
 	pkt_magic->fd = _magic_scall_open(pkt_magic->name, strlen(pkt_magic->name));
@@ -55,7 +45,7 @@ int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 
 	pkt_magic->pool = pool;
 	/* pkt buffer size */
-	pkt_magic->buf_size = odp_buffer_pool_segment_size(pool);
+	pkt_magic->buf_size = odp_buffer_pool_segment_size(pool) * ODP_BUFFER_MAX_SEG;
 	/* max frame len taking into account the l2-offset */
 	pkt_magic->max_frame_len = pkt_magic->buf_size -
 		odp_buffer_pool_headroom(pool) -
@@ -63,7 +53,7 @@ int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
-int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
+static int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if(!strncmp("magic-", devname, strlen("magic-"))){
 #ifndef MAGIC_SCALL
@@ -81,18 +71,19 @@ int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 	return -1;
 }
 
-void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
+static void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
 {
 	_magic_scall_mac_get(pktio_entry->s.magic.fd, mac_addr);
 }
 
-int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
+static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
 {
 	ssize_t recv_bytes;
 	int i;
 	odp_packet_t pkt = ODP_PACKET_INVALID;
-	uint8_t *pkt_buf;
 	int nb_rx = 0;
+	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
+	uint32_t iov_count;
 
 	for (i = 0; i < len; i++) {
 		if (odp_likely(pkt == ODP_PACKET_INVALID)) {
@@ -100,10 +91,9 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 			if (odp_unlikely(pkt == ODP_PACKET_INVALID))
 				break;
 		}
+		iov_count = _rx_pkt_to_iovec(pkt, iovecs);
 
-		pkt_buf = odp_packet_data(pkt);
-
-		recv_bytes = _magic_scall_recv(pktio_entry->s.magic.fd, pkt_buf);
+		recv_bytes = _magic_scall_recv(pktio_entry->s.magic.fd, iovecs, iov_count);
 
 		/* no data or error: free recv buf and break out of loop */
 		if (odp_unlikely(recv_bytes < 1))
@@ -127,22 +117,21 @@ int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int l
 	return nb_rx;
 }
 
-int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
+static int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
 {
 	odp_packet_t pkt;
-	uint8_t *frame;
-	uint32_t frame_len;
 	unsigned i;
 	int nb_tx;
 	int ret;
+	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
+	uint32_t iov_count;
 
 	i = 0;
 	while (i < len) {
 		pkt = pkt_table[i];
+		iov_count = _tx_pkt_to_iovec(pkt, iovecs);
 
-		frame = odp_packet_l2_ptr(pkt, &frame_len);
-
-		ret = _magic_scall_send(pktio_entry->s.magic.fd, frame, frame_len);
+		ret = _magic_scall_send(pktio_entry->s.magic.fd, iovecs, iov_count);
 		if (odp_unlikely(ret == -1)) {
 			break;
 		}
@@ -157,15 +146,15 @@ int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsig
 	return nb_tx;
 }
 
-int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable){
+static int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable){
 	return _magic_scall_prom_set(pktio_entry->s.magic.fd, enable);
 }
 
-int magic_promisc_mode(pktio_entry_t *const pktio_entry){
+static int magic_promisc_mode(pktio_entry_t *const pktio_entry){
 	return _magic_scall_prom_get(pktio_entry->s.magic.fd);
 }
 
-int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_entry) {
+static int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_entry) {
 	return -1;
 }
 

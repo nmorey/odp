@@ -8,92 +8,11 @@ TOP_DIR := $(shell readlink -f $$(pwd))
 ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
-CONFIGS :=
+MAKE_AMS:= $(shell find . -name Makefile.am)
 
-k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1a-kalray-nodeos_CONF_OPTS   :=
-k1a-kalray-nodeos_PLATFORM    := k1-cluster
-k1a-kalray-nodeos_INC_DIR     := k1a-nodeos
-k1a-kalray-nodeos_MAKE_VALID  := -j1
-k1a-kalray-nodeos_BUILD_TESTS := true
-k1a-kalray-nodeos_INSTALL     := true
-k1a-kalray-nodeos_INSTALL_DOC := true
-CONFIGS += k1a-kalray-nodeos
+include platforms.inc
 
-k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1a-kalray-nodeosmagic_CONF_OPTS   :=
-k1a-kalray-nodeosmagic_PLATFORM    := k1-cluster
-k1a-kalray-nodeosmagic_INC_DIR     := k1a-nodeos
-k1a-kalray-nodeosmagic_MAKE_VALID  :=
-k1a-kalray-nodeosmagic_BUILD_TESTS := true
-k1a-kalray-nodeosmagic_INSTALL     := true
-CONFIGS += k1a-kalray-nodeosmagic
-
-k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1b-kalray-nodeos_CONF_OPTS   :=
-k1b-kalray-nodeos_PLATFORM    := k1-cluster
-k1b-kalray-nodeos_INC_DIR     := k1b-nodeos
-k1b-kalray-nodeos_MAKE_VALID  := -j1
-k1b-kalray-nodeos_BUILD_TESTS := true
-k1b-kalray-nodeos_INSTALL     := true
-CONFIGS += k1b-kalray-nodeos
-
-k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1b-kalray-nodeosmagic_CONF_OPTS   :=
-k1b-kalray-nodeosmagic_PLATFORM    := k1-cluster
-k1b-kalray-nodeosmagic_INC_DIR     := k1b-nodeos
-k1b-kalray-nodeosmagic_MAKE_VALID  :=
-k1b-kalray-nodeosmagic_BUILD_TESTS := true
-k1b-kalray-nodeosmagic_INSTALL     := true
-_CONFIGS += k1b-kalray-nodeosmagic
-
-
-k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1a-kalray-mos_CONF_OPTS   :=
-k1a-kalray-mos_PLATFORM    := k1-cluster
-k1a-kalray-mos_INC_DIR    := k1a-elf
-k1a-kalray-mos_MAKE_VALID  := -j1
-k1a-kalray-mos_BUILD_TESTS := true
-k1a-kalray-mos_INSTALL     := true
-_CONFIGS += k1a-kalray-mos
-
-k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1a-kalray-mosmagic_CONF_OPTS   :=
-k1a-kalray-mosmagic_PLATFORM    := k1-cluster
-k1a-kalray-mosmagic_INC_DIR    := k1a-elf
-k1a-kalray-mosmagic_MAKE_VALID  :=
-k1a-kalray-mosmagic_BUILD_TESTS := true
-k1a-kalray-mosmagic_INSTALL     := true
-_CONFIGS += k1a-kalray-mosmagic
-
-k1b-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1b-kalray-mos_CONF_OPTS   :=
-k1b-kalray-mos_PLATFORM    := k1-cluster
-k1b-kalray-mos_INC_DIR    := k1b-elf
-k1b-kalray-mos_MAKE_VALID  := -j1
-k1b-kalray-mos_BUILD_TESTS := true
-k1b-kalray-mos_INSTALL     := true
-_CONFIGS += k1b-kalray-mos
-
-k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1b-kalray-mosmagic_CONF_OPTS   :=
-k1b-kalray-mosmagic_PLATFORM    := k1-cluster
-k1b-kalray-mosmagic_INC_DIR    := k1b-elf
-k1b-kalray-mosmagic_MAKE_VALID  :=
-k1b-kalray-mosmagic_BUILD_TESTS := true
-k1b-kalray-mosmagic_INSTALL     := true
-_CONFIGS += k1b-kalray-mosmagic
-
-x86_64-unknown-linux-gnu_CONF_ENV    :=
-x86_64-unknown-linux-gnu_CONF_OPTS   :=
-x86_64-unknown-linux-gnu_PLATFORM    := linux-generic
-x86_64-unknown-linux-gnu_INC_DIR     := 
-x86_64-unknown-linux-gnu_MAKE_VALID  :=
-x86_64-unknown-linux-gnu_BUILD_TESTS := true
-x86_64-unknown-linux-gnu_INSTALL     := false
-CONFIGS += x86_64-unknown-linux-gnu
-
-$(TOP_DIR)/configure: $(TOP_DIR)/bootstrap $(TOP_DIR)/configure.ac
+$(TOP_DIR)/configure: $(TOP_DIR)/bootstrap $(TOP_DIR)/configure.ac $(MAKE_AMS)
 	cd $(TOP_DIR) && ./bootstrap
 	@touch $@
 
@@ -107,9 +26,9 @@ $(1)-cunit-configure: $(TOP_DIR)/cunit/build/$(1)/Makefile
 
 $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
-	$($(1)_CONF_ENV) $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(TOP_DIR)/cunit/install/$(1) \
-	--enable-debug --enable-automated --enable-basic --enable-console \
-	--enable-examples --enable-test --host=$(1)
+	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
+	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(TOP_DIR)/cunit/install/$(1) \
+	--enable-debug --enable-automated --enable-basic --host=$(1)
 
 $(1)-cunit-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/Makefile
@@ -126,7 +45,8 @@ $(1)-cunit-clean:
 $(1)-odp-configure: $(ARCH_DIR)/$(1)/Makefile
 $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
-	$($(1)_CONF_ENV) $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
+	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
+	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
 	--with-cunit-path=$(TOP_DIR)/cunit/install/$(1)/ --enable-test-vald \
 	--prefix=$(K1ST_DIR) \
 	--datarootdir=$(K1ST_DIR)share/odp/$(1)/ \
@@ -157,6 +77,7 @@ $(1)-odp-install: $(1)-odp-build
 $(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
 	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check && \
+		$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM)/test/ check && \
 		$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check; \
 	else true; fi
 
@@ -179,7 +100,7 @@ doc-install:
 	$(MAKE) -C$(TOP_DIR)/doc-kalray install DOCDIR=$(K1ST_DIR)/doc/ODP/
 
 extra-clean:
-	rm -Rf $(TOP_DIR)/build $(INST_DIR) $(TOP_DIR)/configure $(TOP_DIR)/cunit/build/  $(TOP_DIR)/cunit/install $(TOP_DIR)/cunit/configure
+	rm -Rf $(TOP_DIR)/build $(INST_DIR) $(TOP_DIR)/configure $(TOP_DIR)/cunit/build/  $(TOP_DIR)/cunit/install $(TOP_DIR)/cunit/configure syscall/build_x86_64/
 extra-configure:
 extra-build: $(INST_DIR)/lib64/libodp_syscall.so
 extra-valid:

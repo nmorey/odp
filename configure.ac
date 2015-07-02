@@ -50,74 +50,50 @@ AC_TYPE_UINT64_T
 AX_VALGRIND_CHECK
 
 ##########################################################################
-# Save and set temporary compilation flags
-##########################################################################
-OLD_LDFLAGS=$LDFLAGS
-OLD_CPPFLAGS=$CPPFLAGS
-LDFLAGS="$AM_LDFLAGS $LDFLAGS -march=k1a"
-CPPFLAGS="$AM_CFLAGS $CFLAGS -march=k1a"
-
-AC_MSG_CHECKING([whether CC supports -march=k1a])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
-	[ AC_MSG_RESULT([yes])
-	  K1A_ARCH_FLAG="-march=k1a"],
-	[ AC_MSG_RESULT([no])
-	  K1A_ARCH_FLAG=""])
-
-
-##########################################################################
-# Restore old saved variables
-##########################################################################
-LDFLAGS=$OLD_LDFLAGS
-CPPFLAGS=$OLD_CPPFLAGS
-
-##########################################################################
 # Which architecture optimizations will we use
 ##########################################################################
 k1_core=k1a
-k1_cluster=no
-k1_jtag=no
+k1_hw=na
 OS=linux
+RUN_TARGET=NA
 
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
   [k1a-kalray-*], [ARCH=k1a
 				   k1_core=k1a
-  				   AM_CFLAGS="-Wno-cast-qual $K1A_ARCH_FLAG"
+  				   AM_CFLAGS="-Wno-cast-qual"
 				   EXEEXT=.kelf
 				  ],
   [k1b-kalray-*], [ARCH=k1b
 				   k1_core=k1b
- 				   AM_CFLAGS="-Wno-cast-qual -march=k1b -mboard=explorer"
+ 				   AM_CFLAGS="-Wno-cast-qual"
 				   EXEEXT=.kelf
 				  ],
   [*]
 )
 AS_CASE([$host],
-  [k1*-nodeos*], [AM_CFLAGS="$AM_CFLAGS -DK1_NODEOS"
-				  AM_LDFLAGS=""
-				  ARCH=${ARCH}-nodeos,
-				  OS=nodeos],
-  [k1*-mos*],    [AM_CFLAGS="$AM_CFLAGS -mhypervisor -DK1_MOS"
-				  AM_LDFLAGS="$AM_LDFLAGS  -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096"
-				  ARCH=${ARCH}-mos
+  [k1*-nodeos*], [ARCH=${ARCH}-nodeos
+  				 OS=nodeos],
+  [k1*-mos*],    [ARCH=${ARCH}-mos
 				  OS=mos],
-  [*],           [AM_CFLAGS="$AM_CFLAGS"
-				  AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
+  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
 )
 AS_CASE([$host],
-  [k1*magic], [AM_CFLAGS="$AM_CFLAGS -DMAGIC_SCALL -mboard=large_memory"
-  			   k1_cluster=yes],
-  [k1*os],    [k1_jtag=yes],
+  [k1*magic], [k1_hw=no
+			   RUN_TARGET=k1-cluster],
+  [k1*os],    [k1_hw=yes
+  			   RUN_TARGET=k1-jtag],
   [*]
 )
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
 
 AC_SUBST([ARCH])
 AC_SUBST([OS])
-AM_CONDITIONAL([TARGET_IS_K1_CLUSTER], [test "x${k1_cluster}" = "xyes"])
-AM_CONDITIONAL([TARGET_IS_K1_JTAG], [test "x${k1_jtag}" = "xyes"])
+AC_SUBST([RUN_TARGET])
+AM_CONDITIONAL([TARGET_IS_HW], [test "x${k1_hw}" = "xyes"])
+AM_CONDITIONAL([TARGET_IS_SIMU], [test "x${k1_hw}" = "xno"])
+AM_CONDITIONAL([TARGET_OS_MOS], [test "x${OS}" = "xmos"])
 AC_SUBST([EXEEXT])
 ##########################################################################
 # Set correct platform library version
@@ -382,9 +358,18 @@ AC_CONFIG_FILES([Makefile
 		 test/api_test/Makefile
 		 test/performance/Makefile
 		 test/validation/Makefile
+		 test/validation/buffer/Makefile
+		 test/validation/classification/Makefile
 		 test/validation/common/Makefile
 		 test/validation/crypto/Makefile
+		 test/validation/init/Makefile
+		 test/validation/packet/Makefile
 		 test/validation/pktio/Makefile
+		 test/validation/pool/Makefile
+		 test/validation/queue/Makefile
+		 test/validation/random/Makefile
+		 test/validation/scheduler/Makefile
+		 test/validation/system/Makefile
 		 test/miscellaneous/Makefile
 		 ])
 
@@ -392,7 +377,7 @@ AC_SEARCH_LIBS([timer_create],[rt posix4])
 
 ##########################################################################
 # distribute the changed variables among the Makefiles
-
+AC_SUBST([host])
 AC_SUBST([LIBS])
 AC_SUBST([AM_CPPFLAGS])
 AC_SUBST([CPPFLAGS])
@@ -400,6 +385,7 @@ AC_SUBST([AM_CFLAGS])
 AC_SUBST([CFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_SUBST([LDFLAGS])
+AC_SUBST([EXEEXT])
 
 AC_OUTPUT
 AC_MSG_RESULT([
@@ -408,14 +394,15 @@ AC_MSG_RESULT([
 	Library version:	${ODP_LIBSO_VERSION}
 
 	host:			${host}
+	OS:			${OS}
 	arch:			${ARCH}
-	with_platform:	${with_platform}
+	with_platform:		${with_platform}
 	prefix:			${prefix}
 	sysconfdir:		${sysconfdir}
 	libdir:			${libdir}
 	includedir:		${includedir}
 
-	cc:			${CC}
+	cc:		    	${CC}
 	cppflags:		${CPPFLAGS}
 	am_cppflags:		${AM_CPPFLAGS}
 	am_cxxflags:		${AM_CXXFLAGS}
@@ -430,4 +417,5 @@ AC_MSG_RESULT([
 	test_perf:		${test_perf}
 	test_cpp:		${test_cpp}
 	test_helper:		${test_helper}
+	k1_hw:			${k1_hw}
 ])
