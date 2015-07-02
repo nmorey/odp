@@ -204,12 +204,13 @@ uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
 }
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
+struct pktio_if_operation eth_pktio_operation;
 
 __attribute__ ((unused))
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
-	[ODP_PKTIO_TYPE_ETH] = &magic_pktio_operation,
+	[ODP_PKTIO_TYPE_ETH] = &eth_pktio_operation,
 };
 
 #ifdef __cplusplus
