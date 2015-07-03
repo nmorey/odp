@@ -9,7 +9,7 @@
 #include "queue.h"
 
 #define MAX_BUFFER_QUEUE        (8)
-#define MSG_POOL_SIZE           (4 * 1024 * 1024)
+#define MSG_POOL_SIZE           (2 * 1024 * 1024)
 #define CONFIG_MAX_ITERATION    (100)
 
 static int queue_contest = 0xff;
@@ -21,7 +21,7 @@ static int queue_suite_init(void)
 
 	params.buf.size  = 0;
 	params.buf.align = ODP_CACHE_LINE_SIZE;
-	params.buf.num   = 1024 * 10;
+	params.buf.num   = 1024 * 2;
 	params.type      = ODP_POOL_BUFFER;
 
 	pool = odp_pool_create("msg_pool", ODP_SHM_NULL, &params);
