@@ -11,6 +11,10 @@ CUNIT_INSTALL_DIR=$(ODP_SRC_DIR)/cunit/install/$(ODP_ARCH)/
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
 
+ifeq ($(MAKELEVEL),0)
+$(info --- Building for arch $(ODP_ARCH), platform $(ODP_PLATFORM) ---)
+endif
+
 CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
 
 # Assign all flasg for test build

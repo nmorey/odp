@@ -214,12 +214,12 @@ int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	pkt_cluster->recv_pkt_count = 0;
 
 	/* pkt buffer size */
-	pkt_cluster->buf_size = odp_buffer_pool_segment_size(pool);
+	pkt_cluster->buf_size = (pool);
 	/* max frame len taking into account the l2-offset */
 	pkt_cluster->max_frame_len = pkt_cluster->buf_size -
 		odp_buffer_pool_headroom(pool) -
 		odp_buffer_pool_tailroom(pool);
-	printf("cluster packet max length: %d\n", pktio_entry->s.cluster.max_frame_len);
+
 	return 0;
 }
 
@@ -232,10 +232,9 @@ int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
 		pktio_clus->clus_id = atoi(dev+strlen("cluster-"));
 
 		if (pktio_clus->clus_id < 0 || pktio_clus->clus_id > 15) {
-			ODP_ERR("Invalid cluster id '%d'", pktio_clus->clus_id);
+			ODP_ERR("Invalid cluster id '%d'\n", pktio_clus->clus_id);
 			return 1;
 		}
-		printf("Opening cluster %d\n", pktio_clus->clus_id);
 		return 0;
 	}
 
