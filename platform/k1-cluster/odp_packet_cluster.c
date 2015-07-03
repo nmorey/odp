@@ -214,7 +214,7 @@ int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	pkt_cluster->recv_pkt_count = 0;
 
 	/* pkt buffer size */
-	pkt_cluster->buf_size = (pool);
+	pkt_cluster->buf_size = odp_buffer_pool_segment_size(pool);
 	/* max frame len taking into account the l2-offset */
 	pkt_cluster->max_frame_len = pkt_cluster->buf_size -
 		odp_buffer_pool_headroom(pool) -
@@ -231,10 +231,9 @@ int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
 		pktio_entry->s.type = ODP_PKTIO_TYPE_CLUSTER;
 		pktio_clus->clus_id = atoi(dev+strlen("cluster-"));
 
-		if (pktio_clus->clus_id < 0 || pktio_clus->clus_id > 15) {
-			ODP_ERR("Invalid cluster id '%d'\n", pktio_clus->clus_id);
+		if (pktio_clus->clus_id < 0 || pktio_clus->clus_id > 15)
 			return 1;
-		}
+
 		return 0;
 	}
 
