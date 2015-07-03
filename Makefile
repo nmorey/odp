@@ -39,6 +39,7 @@ $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/CUnit/
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1 install
 
 $(1)-cunit-valid:
+$(1)-cunit-long:
 $(1)-cunit-clean:
 	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(TOP_DIR)/cunit/install/$(1)
 
@@ -83,6 +84,10 @@ $(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
 
 $(1)-odp-clean:
 	rm -Rf $(ARCH_DIR)/$(1)
+
+$(1)-odp-long:
+	$(error) 
+	$(MAKE) -C$(TOP_DIR)/long O=$(ARCH_DIR)/long_$(1)/
 endef
 
 $(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
@@ -95,6 +100,7 @@ doc-clean:
 	$(MAKE) -C$(TOP_DIR)/doc-kalray clean
 doc-configure:
 doc-build:
+doc-long:
 doc-valid:
 doc-install:
 	$(MAKE) -C$(TOP_DIR)/doc-kalray install DOCDIR=$(K1ST_DIR)/doc/ODP/
@@ -105,6 +111,7 @@ extra-configure:
 extra-build: $(INST_DIR)/lib64/libodp_syscall.so
 extra-valid:
 extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
+extra-long:
 
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
@@ -116,7 +123,7 @@ example-install: x86_64-unknown-linux-gnu-odp-build
 $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
 	+$< $(INST_DIR)/local/k1tools/
 
-RULE_LIST := clean configure build install valid
+RULE_LIST := clean configure build install valid long
 ARCH_COMPONENTS := odp cunit
 $(foreach RULE, $(RULE_LIST), \
 	$(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \

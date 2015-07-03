@@ -40,9 +40,9 @@ typedef enum {
 	ODP_PKTIO_TYPE_START = 0x1,
 	ODP_PKTIO_TYPE_LOOPBACK = 0x1,
 	ODP_PKTIO_TYPE_MAGIC,
+	ODP_PKTIO_TYPE_CLUSTER,
 	ODP_PKTIO_TYPE_ETH,
 	ODP_PKTIO_TYPE_COUNT,
-	//~ ODP_PKTIO_TYPE_CLUSTER,
 	//~ ODP_PKTIO_TYPE_IOCLUS,
 	//~ ODP_PKTIO_TYPE_ETH40G,
 } odp_pktio_type_t;
@@ -52,6 +52,8 @@ typedef struct {
 	odp_pool_t pool; 		/**< pool to alloc packets from */
 	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
 	size_t buf_size; 		/**< size of buffer payload in 'pool' */
+	uint64_t sent_pkt_count;	/**< Count of packet sent to the clusters */
+	uint64_t recv_pkt_count;	/**< Count of packet received */
 } pktio_cluster_t;
 
 typedef struct {
@@ -204,12 +206,14 @@ uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
 }
 struct pktio_if_operation magic_pktio_operation;
 struct pktio_if_operation loop_pktio_operation;
+struct pktio_if_operation cluster_pktio_operation;
 struct pktio_if_operation eth_pktio_operation;
 
-__attribute__ ((unused))
+ODP_UNUSED
 static const struct pktio_if_operation *pktio_if_ops[ODP_PKTIO_TYPE_COUNT] = {
 	[ODP_PKTIO_TYPE_LOOPBACK] = &loop_pktio_operation,
 	[ODP_PKTIO_TYPE_MAGIC] = &magic_pktio_operation,
+	[ODP_PKTIO_TYPE_CLUSTER] = &cluster_pktio_operation,
 	[ODP_PKTIO_TYPE_ETH] = &eth_pktio_operation,
 };
 
