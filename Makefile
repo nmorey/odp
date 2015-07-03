@@ -39,6 +39,7 @@ $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/CUnit/
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1 install
 
 $(1)-cunit-valid:
+$(1)-cunit-long:
 $(1)-cunit-clean:
 	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(TOP_DIR)/cunit/install/$(1)
 
