@@ -9,6 +9,8 @@
 #include <CUnit/Basic.h>
 #include <odp_cunit_common.h>
 #include <unistd.h>
+#include "synchronizers.h"
+
 #define VERBOSE			0
 #ifdef MAGIC_SCALL
 #define MAX_ITERATIONS		100
@@ -127,7 +129,7 @@ static per_thread_mem_t *thread_init(void)
 
 	global_shm = odp_shm_lookup(GLOBAL_SHM_NAME);
 	global_mem = odp_shm_addr(global_shm);
-	CU_ASSERT(global_mem != NULL);
+	CU_ASSERT_PTR_NOT_NULL(global_mem);
 
 	per_thread_mem->global_mem = global_mem;
 
@@ -186,8 +188,8 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 		barrier_cnt2 = LOAD_U32(global_mem->barrier_cnt2);
 
 		if ((barrier_cnt1 != cnt) || (barrier_cnt2 != cnt)) {
-			printf("thread_num=%"PRIu32" barrier_cnts of %"PRIu32
-				   " %"PRIu32" cnt=%"PRIu32"\n",
+			printf("thread_num=%" PRIu32 " barrier_cnts of %" PRIu32
+				   " %" PRIu32 " cnt=%" PRIu32 "\n",
 			       thread_num, barrier_cnt1, barrier_cnt2, cnt);
 			barrier_errs++;
 		}
@@ -239,10 +241,10 @@ static uint32_t barrier_test(per_thread_mem_t *per_thread_mem,
 	}
 
 	if ((global_mem->g_verbose) && (barrier_errs != 0))
-		printf("\nThread %"PRIu32" (id=%d core=%d) had %"PRIu32
-			   " barrier_errs in %"PRIu32" iterations\n", thread_num,
-			per_thread_mem->thread_id,
-			per_thread_mem->thread_core, barrier_errs, iterations);
+		printf("\nThread %" PRIu32 " (id=%d core=%d) had %" PRIu32
+		       " barrier_errs in %" PRIu32 " iterations\n", thread_num,
+		       per_thread_mem->thread_id,
+		       per_thread_mem->thread_core, barrier_errs, iterations);
 
 	return barrier_errs;
 }
@@ -443,8 +445,9 @@ static void *no_lock_functional_test(void *arg UNUSED)
 	}
 
 	if (global_mem->g_verbose)
-		printf("\nThread %"PRIu32" (id=%d core=%d) had %"PRIu32" sync_failures"
-		       " in %"PRIu32" iterations\n", thread_num,
+		printf("\nThread %" PRIu32 " (id=%d core=%d) had %" PRIu32
+		       " sync_failures in %" PRIu32 " iterations\n",
+		       thread_num,
 		       per_thread_mem->thread_id,
 		       per_thread_mem->thread_core,
 		       sync_failures, iterations);
@@ -531,8 +534,10 @@ static void *spinlock_functional_test(void *arg UNUSED)
 
 	if ((global_mem->g_verbose) &&
 	    ((sync_failures != 0) || (is_locked_errs != 0)))
-		printf("\nThread %"PRIu32" (id=%d core=%d) had %"PRIu32" sync_failures"
-		       " and %"PRIu32" is_locked_errs in %"PRIu32" iterations\n", thread_num,
+		printf("\nThread %" PRIu32 " (id=%d core=%d) had %" PRIu32
+		       " sync_failures and %" PRIu32
+		       " is_locked_errs in %" PRIu32
+		       " iterations\n", thread_num,
 		       per_thread_mem->thread_id, per_thread_mem->thread_core,
 		       sync_failures, is_locked_errs, iterations);
 
@@ -616,8 +621,10 @@ static void *ticketlock_functional_test(void *arg UNUSED)
 
 	if ((global_mem->g_verbose) &&
 	    ((sync_failures != 0) || (is_locked_errs != 0)))
-		printf("\nThread %"PRIu32" (id=%d core=%d) had %"PRIu32" sync_failures"
-		       " and %"PRIu32" is_locked_errs in %"PRIu32" iterations\n", thread_num,
+		printf("\nThread %" PRIu32 " (id=%d core=%d) had %" PRIu32
+		       " sync_failures and %" PRIu32
+		       " is_locked_errs in %" PRIu32 " iterations\n",
+		       thread_num,
 		       per_thread_mem->thread_id, per_thread_mem->thread_core,
 		       sync_failures, is_locked_errs, iterations);
 
@@ -694,8 +701,8 @@ static void *rwlock_functional_test(void *arg UNUSED)
 	}
 
 	if ((global_mem->g_verbose) && (sync_failures != 0))
-		printf("\nThread %"PRIu32" (id=%d core=%d) had %"PRIu32" sync_failures"
-		       " in %"PRIu32" iterations\n", thread_num,
+		printf("\nThread %" PRIu32 " (id=%d core=%d) had %" PRIu32
+		       " sync_failures in %" PRIu32 " iterations\n", thread_num,
 		       per_thread_mem->thread_id,
 		       per_thread_mem->thread_core,
 		       sync_failures, iterations);
@@ -885,7 +892,6 @@ static void test_atomic_add_sub_32(void)
 	test_atomic_sub_32();
 }
 
-
 static void test_atomic_add_sub_64(void)
 {
 	test_atomic_add_64();
@@ -923,86 +929,87 @@ static void test_atomic_validate(void)
 }
 
 /* Barrier tests */
-static void test_no_barrier_functional(void)
+static void synchronizers_test_no_barrier_functional(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	barrier_test_init();
 	odp_cunit_thread_create(no_barrier_functional_test, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static void test_barrier_functional(void)
+static void synchronizers_test_barrier_functional(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	barrier_test_init();
 	odp_cunit_thread_create(barrier_functional_test, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static CU_TestInfo test_odp_barrier[] = {
-	{"no_barrier_functional", test_no_barrier_functional},
-	{"barrier_functional", test_barrier_functional},
+static CU_TestInfo synchronizers_suite_barrier[] = {
+	{"no_barrier_functional", synchronizers_test_no_barrier_functional},
+	{"barrier_functional", synchronizers_test_barrier_functional},
 	CU_TEST_INFO_NULL
 };
 
 /* Thread-unsafe tests */
-static void test_no_lock_functional(void)
+static void synchronizers_test_no_lock_functional(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_cunit_thread_create(no_lock_functional_test, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static CU_TestInfo test_no_locking[] = {
-	{"no_lock_functional", test_no_lock_functional},
+static CU_TestInfo synchronizers_suite_no_locking[] = {
+	{"no_lock_functional", synchronizers_test_no_lock_functional},
 	CU_TEST_INFO_NULL
 };
 
 /* Spin lock tests */
-static void test_spinlock_api(void)
+static void synchronizers_test_spinlock_api(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_cunit_thread_create(spinlock_api_tests, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static void test_spinlock_functional(void)
+static void synchronizers_test_spinlock_functional(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_spinlock_init(&global_mem->global_spinlock);
 	odp_cunit_thread_create(spinlock_functional_test, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static CU_TestInfo test_odp_spinlock[] = {
-	{"spinlock_api", test_spinlock_api},
-	{"spinlock_functional", test_spinlock_functional},
+static CU_TestInfo synchronizers_suite_spinlock[] = {
+	{"spinlock_api", synchronizers_test_spinlock_api},
+	{"spinlock_functional", synchronizers_test_spinlock_functional},
 	CU_TEST_INFO_NULL
 };
 
 /* Ticket lock tests */
-static void test_ticketlock_api(void)
+static void synchronizers_test_ticketlock_api(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_cunit_thread_create(ticketlock_api_tests, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static void test_ticketlock_functional(void)
+static void synchronizers_test_ticketlock_functional(void)
 {
 	pthrd_arg arg;
+
 	arg.numthrds = global_mem->g_num_threads;
 	odp_ticketlock_init(&global_mem->global_ticketlock);
 
@@ -1010,40 +1017,39 @@ static void test_ticketlock_functional(void)
 	odp_cunit_thread_exit(&arg);
 }
 
-static CU_TestInfo test_odp_ticketlock[] = {
-	{"ticketlock_api", test_ticketlock_api},
-	{"ticketlock_functional", test_ticketlock_functional},
+static CU_TestInfo synchronizers_suite_ticketlock[] = {
+	{"ticketlock_api", synchronizers_test_ticketlock_api},
+	{"ticketlock_functional", synchronizers_test_ticketlock_functional},
 	CU_TEST_INFO_NULL
 };
 
 /* RW lock tests */
-static void test_rwlock_api(void)
+static void synchronizers_test_rwlock_api(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_cunit_thread_create(rwlock_api_tests, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static void test_rwlock_functional(void)
+static void synchronizers_test_rwlock_functional(void)
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	odp_rwlock_init(&global_mem->global_rwlock);
 	odp_cunit_thread_create(rwlock_functional_test, &arg);
 	odp_cunit_thread_exit(&arg);
 }
 
-static CU_TestInfo test_odp_rwlock[] = {
-	{"rwlock_api", test_rwlock_api},
-	{"rwlock_functional", test_rwlock_functional},
+static CU_TestInfo synchronizers_suite_rwlock[] = {
+	{"rwlock_api", synchronizers_test_rwlock_api},
+	{"rwlock_functional", synchronizers_test_rwlock_functional},
 	CU_TEST_INFO_NULL
 };
 
-
-static int init_locks(void)
+static int synchronizers_suite_init(void)
 {
 	uint32_t num_threads, idx;
 
@@ -1090,12 +1096,14 @@ int tests_global_init(void)
 
 	if (max_threads < global_mem->g_num_threads) {
 		printf("Requested num of threads is too large\n");
-		printf("reducing from %"PRIu32" to %"PRIu32"\n", global_mem->g_num_threads,
+		printf("reducing from %" PRIu32 " to %" PRIu32 "\n",
+		       global_mem->g_num_threads,
 		       max_threads);
 		global_mem->g_num_threads = max_threads;
 	}
 
-	printf("Num of threads used = %"PRIu32"\n", global_mem->g_num_threads);
+	printf("Num of threads used = %" PRIu32 "\n",
+	       global_mem->g_num_threads);
 
 	return ret;
 }
@@ -1156,8 +1164,8 @@ static void *test_atomic_fetch_add_sub_thread(void *arg UNUSED)
 static void test_atomic_functional(void *func_ptr(void *))
 {
 	pthrd_arg arg;
-	arg.numthrds = global_mem->g_num_threads;
 
+	arg.numthrds = global_mem->g_num_threads;
 	test_atomic_init();
 	test_atomic_store();
 	odp_cunit_thread_create(func_ptr, &arg);
@@ -1165,40 +1173,51 @@ static void test_atomic_functional(void *func_ptr(void *))
 	test_atomic_validate();
 }
 
-static void test_atomic_inc_dec(void)
+static void synchronizers_test_atomic_inc_dec(void)
 {
 	test_atomic_functional(test_atomic_inc_dec_thread);
 }
 
-static void test_atomic_add_sub(void)
+static void synchronizers_test_atomic_add_sub(void)
 {
 	test_atomic_functional(test_atomic_add_sub_thread);
 }
 
-static void test_atomic_fetch_inc_dec(void)
+static void synchronizers_test_atomic_fetch_inc_dec(void)
 {
 	test_atomic_functional(test_atomic_fetch_inc_dec_thread);
 }
 
-static void test_atomic_fetch_add_sub(void)
+static void synchronizers_test_atomic_fetch_add_sub(void)
 {
 	test_atomic_functional(test_atomic_fetch_add_sub_thread);
 }
 
-CU_TestInfo test_odp_atomic[] = {
-	{"atomic_inc_dec", test_atomic_inc_dec},
-	{"atomic_add_sub", test_atomic_add_sub},
-	{"atomic_fetch_inc_dec", test_atomic_fetch_inc_dec},
-	{"atomic_fetch_add_sub", test_atomic_fetch_add_sub},
+static CU_TestInfo synchronizers_suite_atomic[] = {
+	{"atomic_inc_dec", synchronizers_test_atomic_inc_dec},
+	{"atomic_add_sub", synchronizers_test_atomic_add_sub},
+	{"atomic_fetch_inc_dec", synchronizers_test_atomic_fetch_inc_dec},
+	{"atomic_fetch_add_sub", synchronizers_test_atomic_fetch_add_sub},
 	CU_TEST_INFO_NULL,
 };
 
-CU_SuiteInfo odp_testsuites[] = {
-	{"barrier", NULL, NULL, NULL, NULL, test_odp_barrier},
-	{"nolocking", init_locks, NULL, NULL, NULL, test_no_locking},
-	{"spinlock", init_locks, NULL, NULL, NULL, test_odp_spinlock},
-	{"ticketlock", init_locks, NULL, NULL, NULL, test_odp_ticketlock},
-	{"rwlock", init_locks, NULL, NULL, NULL, test_odp_rwlock},
-	{"atomic", NULL, NULL, NULL, NULL, test_odp_atomic},
+static CU_SuiteInfo synchronizers_suites[] = {
+	{"barrier", NULL,
+	 NULL, NULL, NULL, synchronizers_suite_barrier},
+	{"nolocking", synchronizers_suite_init,
+	 NULL, NULL, NULL, synchronizers_suite_no_locking},
+	{"spinlock", synchronizers_suite_init,
+	 NULL, NULL, NULL, synchronizers_suite_spinlock},
+	{"ticketlock", synchronizers_suite_init,
+	 NULL, NULL, NULL, synchronizers_suite_ticketlock},
+	{"rwlock", synchronizers_suite_init,
+	 NULL, NULL, NULL, synchronizers_suite_rwlock},
+	{"atomic", NULL, NULL, NULL, NULL,
+	 synchronizers_suite_atomic},
 	CU_SUITE_INFO_NULL
 };
+
+int synchronizers_main(void)
+{
+	return odp_cunit_run(synchronizers_suites);
+}
