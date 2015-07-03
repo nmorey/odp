@@ -79,7 +79,7 @@ b.target("long") do
     b.logtitle = "Report for odp tests."
     cd odp_path
 
-    b.valid(:cmd => "make -Clong all CONFIGS='#{valid_configs.join(" ")}'")
+    b.valid(:cmd => "make long CONFIGS='#{valid_configs.join(" ")}'")
 end
 
 b.target("install") do
