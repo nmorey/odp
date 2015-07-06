@@ -15,7 +15,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <utask.h>
 
 #include <odp/helper/linux.h>
 #include <odp_internal.h>
