@@ -21,6 +21,17 @@ k1a-kalray-nodeosmagic_MAKE_VALID  :=
 k1a-kalray-nodeosmagic_INSTALL     := true
 CONFIGS += k1a-kalray-nodeosmagic
 
+k1a-kalray-rtems_CONF_ENV    := CC=k1-rtems-gcc  CXX=k1-rtems-g++ STRIP=k1-strip
+k1a-kalray-rtems_CONF_OPTS   :=
+k1a-kalray-rtems_CFLAGS      := -march=k1a -DK1_RTEMS
+k1a-kalray-rtems_LDFLAGS     :=
+k1a-kalray-rtems_PLATFORM    := k1-cluster
+k1a-kalray-rtems_INC_DIR     := k1a-rtems
+k1a-kalray-rtems_MAKE_VALID  := -j1
+k1a-kalray-rtems_INSTALL     := true
+k1a-kalray-rtems_INSTALL_DOC := true
+_CONFIGS += k1a-kalray-rtems
+
 k1b-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1b-kalray-nodeos_CONF_OPTS   :=
 k1b-kalray-nodeos_CFLAGS      := -march=k1b -DK1_NODEOS -mboard=explorer
@@ -41,6 +52,15 @@ k1b-kalray-nodeosmagic_MAKE_VALID  :=
 k1b-kalray-nodeosmagic_INSTALL     := true
 _CONFIGS += k1b-kalray-nodeosmagic
 
+k1b-kalray-rtems_CONF_ENV    := CC=k1-rtems-gcc  CXX=k1-rtems-g++ STRIP=k1-strip
+k1b-kalray-rtems_CONF_OPTS   :=
+k1b-kalray-rtems_CFLAGS      := -march=k1b -DK1_RTEMS -mboard=explorer
+k1b-kalray-rtems_LDFLAGS     :=
+k1b-kalray-rtems_PLATFORM    := k1-cluster
+k1b-kalray-rtems_INC_DIR     := k1b-rtems
+k1b-kalray-rtems_MAKE_VALID  := -j1
+k1b-kalray-rtems_INSTALL     := true
+_CONFIGS += k1b-kalray-rtems
 
 k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
 k1a-kalray-mos_CONF_OPTS   :=
