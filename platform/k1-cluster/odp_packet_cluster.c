@@ -31,16 +31,6 @@ struct cluster_pkt_header {
 	uint32_t pkt_size;
 };
 
-int cluster_global_init(void);
-void cluster_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr);
-int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool);
-int cluster_open(pktio_entry_t * pktio_entry, const char *dev);
-int cluster_recv(pktio_entry_t *const entry, odp_packet_t pkt_table[], int len);
-int cluster_send(pktio_entry_t *const entry, odp_packet_t pkt_table[], unsigned len);
-int cluster_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable);
-int cluster_promisc_mode(pktio_entry_t *const pktio_entry);
-int cluster_mtu_get(pktio_entry_t *const pktio_entry);
-
 /** \brief odp_ucode_linear
  * linear transfer
  * arg0: number of 64 bits elements
@@ -75,7 +65,8 @@ mppacl_init_available_clusters(void)
 	for (i = 0; i < BSP_NB_CLUSTER_MAX + BSP_NB_IOCLUSTER_MAX; i++) {
 		if ( __bsp_platform[i].available) {
 			if (__bsp_platform[i].cluster == node){
-				g_available_clus[g_available_clus_count++] = __bsp_platform[i].node_id;
+				g_available_clus[g_available_clus_count++] =
+					__bsp_platform[i].node_id;
 			}
 		}
 	}
@@ -91,7 +82,8 @@ static int cluster_init_dnoc_rx(int clus_id)
 		return 1;
 
 	/* DNoC */
-	ret = mppa_noc_dnoc_rx_alloc(NOC_CLUS_IFACE_ID,  DNOC_CLUS_BASE_RX + clus_id);
+	ret = mppa_noc_dnoc_rx_alloc(NOC_CLUS_IFACE_ID,
+				     DNOC_CLUS_BASE_RX + clus_id);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -100,7 +92,8 @@ static int cluster_init_dnoc_rx(int clus_id)
 	conf.activation = MPPA_NOC_ACTIVATED;
 	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
 
-	ret = mppa_noc_dnoc_rx_configure(NOC_CLUS_IFACE_ID,  DNOC_CLUS_BASE_RX + clus_id, conf);
+	ret = mppa_noc_dnoc_rx_configure(NOC_CLUS_IFACE_ID,
+					 DNOC_CLUS_BASE_RX + clus_id, conf);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -179,7 +172,8 @@ static int cluster_init_noc_tx(void)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID, DNOC_CLUS_TX_ID, uc_conf);
+	ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
+				    DNOC_CLUS_TX_ID, uc_conf);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -191,7 +185,7 @@ static int cluster_init_noc_tx(void)
 	return 0;
 }
 
-int cluster_global_init(void)
+static int cluster_global_init(void)
 {
 	mppacl_init_available_clusters();
 
@@ -205,7 +199,7 @@ int cluster_global_init(void)
 }
 
 
-int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
+static int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
 {
 	pktio_cluster_t * pkt_cluster = &pktio_entry->s.cluster;
 
@@ -223,7 +217,7 @@ int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
-int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
+static int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
 {
 	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
 	if(!strncmp("cluster-", dev, strlen("cluster-"))) {
@@ -240,7 +234,8 @@ int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
 	return -1;
 }
 
-void cluster_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
+static void cluster_mac_get(const pktio_entry_t *const pktio_entry,
+			    void * mac_addr)
 {
 	const pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
 	uint8_t *mac_addr_u = mac_addr;
@@ -258,24 +253,29 @@ static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
 	mppa_cnoc_config_t config;
 	mppa_cnoc_header_t header;
 
-	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(), pktio_clus->clus_id, &config, &header);
+	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(),
+						   pktio_clus->clus_id,
+						   &config, &header);
 	if (rret != MPPA_ROUTING_RET_SUCCESS)
 		return 1;
 
 	header._.tag = CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id;
 
-	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, config, header);
+	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+					  config, header);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, pktio_clus->recv_pkt_count);
+	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+			      pktio_clus->recv_pkt_count);
 
 	return 0;
 }
 #endif
 
 #ifdef __k1a__
-static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet_t *pkt)
+static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus,
+					 odp_packet_t *pkt)
 {
 	uint8_t *pkt_buf;
 	ssize_t recv_bytes;
@@ -290,9 +290,11 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet
 
 	pkt_header = (struct cluster_pkt_header *) g_pkt_recv_buf[pkt_slot];
 	recv_bytes = pkt_header->pkt_size;
-	printf("Received packet of %zd bytes in slot %d\n", recv_bytes, pkt_slot);
+	printf("Received packet of %zd bytes in slot %d\n",
+	       recv_bytes, pkt_slot);
 
-	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] + sizeof(struct cluster_pkt_header), recv_bytes);
+	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] +
+	       sizeof(struct cluster_pkt_header), recv_bytes);
 
 	/* no data or error: free recv buf and break out of loop */
 	if (odp_unlikely(recv_bytes < 1)) {
@@ -316,7 +318,8 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus, odp_packet
 }
 #endif
 
-int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_packet_t pkt_table[] ODP_UNUSED, int len ODP_UNUSED)
+static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
+			odp_packet_t pkt_table[] ODP_UNUSED, int len ODP_UNUSED)
 {
 	unsigned int nb_rx = 0;
 #ifdef __k1a__
@@ -325,7 +328,9 @@ int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_packet_t pkt_t
 	odp_packet_t pkt;
 
 	/* Check if we received some packets */
-	counter = mppa_noc_dnoc_rx_lac_item_event_counter(NOC_CLUS_IFACE_ID, DNOC_CLUS_BASE_RX + pktio_clus->clus_id);
+	counter = mppa_noc_dnoc_rx_lac_item_event_counter(NOC_CLUS_IFACE_ID,
+							  DNOC_CLUS_BASE_RX +
+							  pktio_clus->clus_id);
 	if (counter.event_counter == 0)
 		return 0;
 
@@ -341,7 +346,8 @@ int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_packet_t pkt_t
 }
 
 static inline int
-cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t frame_len)
+cluster_send_single_packet(pktio_cluster_t *pktio_clus,
+			   void *frame, uint32_t frame_len)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
 	mppa_dnoc_channel_config_t config = { 0 };
@@ -365,10 +371,13 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t f
 	uc_conf.event_counter = 0;
 
 	/* Get credits first */
-	remote_pkt_count = mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id);
+	remote_pkt_count = mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID,
+						      CNOC_CLUS_BASE_RX_ID +
+						      pktio_clus->clus_id);
 
 	/* Is there enough room to send a packet ? */
-	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >= ODP_PKTIO_MAX_PKT_COUNT)
+	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >=
+	    ODP_PKTIO_MAX_PKT_COUNT)
 		return 1;
 
 
@@ -380,11 +389,14 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t f
 
 	header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
 
-	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), pktio_clus->clus_id, &config, &header);
+	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
+						   pktio_clus->clus_id,
+						   &config, &header);
 	if (rret != MPPA_ROUTING_RET_SUCCESS) 
 		return 1;
 
-	tmp_pkt = malloc(ODP_PKTIO_MAX_PKT_SIZE + sizeof(struct cluster_pkt_header));
+	tmp_pkt = malloc(ODP_PKTIO_MAX_PKT_SIZE +
+			 sizeof(struct cluster_pkt_header));
 	if (!tmp_pkt)
 		return 1;
 
@@ -392,13 +404,15 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t f
 	memcpy(tmp_pkt, &pkt_header, sizeof(struct cluster_pkt_header));
 	memcpy(tmp_pkt + sizeof(struct cluster_pkt_header), frame, frame_len);
 
-	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) * ODP_PKTIO_MAX_PKT_SIZE;
+	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
+		ODP_PKTIO_MAX_PKT_SIZE;
 
 	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, frame_len, remote_offset);
 	/* We added a local offset to our ucode */
 	uc_conf.parameters[3] = (uintptr_t) tmp_pkt - (uintptr_t) &_heap_start;
 
-	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID, uc_conf, header, config
+	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
+					  uc_conf, header, config
 #ifdef __k1a__
 		, event_line
 #endif
@@ -409,10 +423,13 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t f
 	program_run.activation = 1;
 	program_run.semaphore = 1;
 
-	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID, program_run);
+	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
+					 program_run);
 
 	/* FIXME asynchronous */
-	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_DNOC_TX, DNOC_CLUS_TX_ID);
+	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID,
+				  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
+				  DNOC_CLUS_TX_ID);
 
 	/* Modify offset for next package */
 	pktio_clus->sent_pkt_count++;
@@ -422,7 +439,8 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,  void *frame, uint32_t f
 	return 0;
 }
 
-int cluster_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
+static int cluster_send(pktio_entry_t *const pktio_entry,
+			odp_packet_t pkt_table[], unsigned len)
 {
 	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
 	odp_packet_t pkt;
@@ -447,17 +465,18 @@ int cluster_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], uns
 	return nb_tx;
 }
 
-int cluster_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED, odp_bool_t enable ODP_UNUSED)
+static int cluster_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
+				    odp_bool_t enable ODP_UNUSED)
 {
 	return 0;
 }
 
-int cluster_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED)
+static int cluster_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED)
 {
 	return 0;
 }
 
-int cluster_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED)
+static int cluster_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED)
 {
 	return ODP_PKTIO_MAX_PKT_SIZE;
 }
