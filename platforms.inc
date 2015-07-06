@@ -1,4 +1,8 @@
 CONFIGS :=
+_CONFIGS :=
+
+boot_CONFIGS  :=
+ioeth_CONFIGS :=
 
 k1a-kalray-nodeos_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
 k1a-kalray-nodeos_CONF_OPTS   :=
@@ -111,3 +115,27 @@ x86_64-unknown-linux-gnu_INC_DIR     :=
 x86_64-unknown-linux-gnu_MAKE_VALID  :=
 x86_64-unknown-linux-gnu_INSTALL     := false
 CONFIGS += x86_64-unknown-linux-gnu
+
+k1a-kalray-ioddr_CC          := k1-gcc
+k1a-kalray-ioddr_CFLAGS      := -march=k1a -DK1_RTEMS -mos=rtems -mcore=k1io -mcluster=ioddr -mprocessing=single
+k1a-kalray-ioddr_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1a-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1a
+boot_CONFIGS += k1a-kalray-ioddr
+
+k1b-kalray-ioddr_CC          := k1-gcc
+k1b-kalray-ioddr_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1io -mcluster=ioddr -mprocessing=single
+k1b-kalray-ioddr_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1b-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+boot_CONFIGS += k1b-kalray-ioddr
+
+k1a-kalray-ioeth_CC          := k1-gcc
+k1a-kalray-ioeth_CFLAGS      := -march=k1a -DK1_BARE -mcore=k1io -mcluster=ioeth
+k1a-kalray-ioeth_LDFLAGS     :=
+k1a-kalray-ioeth_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1a
+ioeth_CONFIGS += k1a-kalray-ioeth
+
+k1b-kalray-ioeth_CC          := k1-gcc
+k1b-kalray-ioeth_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1io -mcluster=ioeth
+k1b-kalray-ioeth_LDFLAGS     :=
+k1b-kalray-ioeth_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+ioeth_CONFIGS += k1b-kalray-ioeth

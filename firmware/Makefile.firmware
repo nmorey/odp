@@ -1,0 +1,4 @@
+SRCDIR   := $(shell dirname $(MAKEFILE_LIST))
+FIRMDIR  := $(shell basename $(SRCDIR))
+
+include $(shell dirname $(SRCDIR))/Makefile

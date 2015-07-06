@@ -9,6 +9,10 @@ ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 MAKE_AMS:= $(shell find . -name Makefile.am)
+FIRMWARES := boot ioeth
+RULE_LIST := clean configure build install valid long
+ARCH_COMPONENTS := odp cunit
+COMPONENTS := extra doc $(ARCH_COMPONENTS) $(FIRMWARES)
 
 include platforms.inc
 
@@ -89,6 +93,29 @@ endef
 $(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
 	$(eval $(call CONFIG_RULE,$(CONFIG))))
 
+
+define FIRMWARE_RULE
+#$(1) CONFIG
+#$(2) Firmware type
+$(eval $(1)-$(2)-ENV := CC="$($(1)_CC)" CFLAGS="$($(1)_CFLAGS)" \
+	 LDFLAGS="$($(1)_LDFLAGS)" INSTDIR="$($(1)_INSTDIR)")
+$(1)-$(2)-configure: firmware/$(2)/Makefile
+$(1)-$(2)-build: firmware/$(2)/Makefile
+	mkdir -p $(ARCH_DIR)/$(2)/$(1)
+	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile all $($(1)-$(2)-ENV)
+
+$(1)-$(2)-install: $(1)-$(2)-build
+	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
+$(1)-$(2)-valid: $(1)-$(2)-build
+	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
+$(1)-$(2)-clean:
+	rm -Rf $(ARCH_DIR)/$(2)/$(1)
+endef
+
+$(foreach FIRMWARE, $(FIRMWARES), \
+	$(foreach CONFIG, $($(FIRMWARE)_CONFIGS), \
+		$(eval $(call FIRMWARE_RULE,$(CONFIG),$(FIRMWARE)))))
+
 list-configs:
 	@echo $(CONFIGS)
 
@@ -119,13 +146,17 @@ example-install: x86_64-unknown-linux-gnu-odp-build
 $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
 	+$< $(INST_DIR)/local/k1tools/
 
-RULE_LIST := clean configure build install valid long
-ARCH_COMPONENTS := odp cunit
+# Generate per config rules (clean/build/etc) for each firmware type
+$(foreach RULE, $(RULE_LIST), \
+	$(foreach FIRMWARE, $(FIRMWARES), \
+		$(eval $(FIRMWARE)-$(RULE): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE)))))
+
+# Generate per config rules (clean/build/etc) for each arch specific component
 $(foreach RULE, $(RULE_LIST), \
 	$(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \
 		$(eval $(ARCH_COMPONENT)-$(RULE): $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(RULE)))))
 
-COMPONENTS := extra doc $(ARCH_COMPONENTS)
+# Generate global rules (clean/build/etc) calling all subcomponents
 $(foreach RULE, $(RULE_LIST), \
 		$(eval $(RULE): $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(RULE))))
 
