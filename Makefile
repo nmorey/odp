@@ -56,11 +56,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
-	$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM) V=1 all
-	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/test V=1 all; \
-	else true; fi
-		$(MAKE) -C$(ARCH_DIR)/$(1)/example/generator V=1 all; \
+	$(MAKE) -C$(ARCH_DIR)/$(1)/ V=1 all
 
 $(1)-odp-install: $(1)-odp-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
