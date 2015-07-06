@@ -34,10 +34,7 @@ extern "C" {
 /**
  * Pointer atomic type
  */
-typedef struct {
-	void *v; /**< Actual storage for the atomic variable */
-} _odp_atomic_ptr_t
-ODP_ALIGNED(sizeof(void *)); /* Enforce alignement! */
+typedef odp_atomic_u32_t  _odp_atomic_ptr_t;
 
 /**
  * Atomic flag (boolean) type
