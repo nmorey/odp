@@ -76,11 +76,9 @@ $(1)-odp-install: $(1)-odp-build
 	else true; fi
 
 $(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
-	if [ "$($(1)_BUILD_TESTS)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check && \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM)/test/ check && \
-		$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check; \
-	else true; fi
+	$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check
+	$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM)/test/ check
+	$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check
 
 $(1)-odp-clean:
 	rm -Rf $(ARCH_DIR)/$(1)
