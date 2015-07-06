@@ -42,3 +42,4 @@ install/
 *.tar
 *.rpm
 artifacts/
+.#*
