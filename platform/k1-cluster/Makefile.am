@@ -151,12 +151,12 @@ __LIB__libodp_la_SOURCES = \
 			   odp_init.c \
 			   odp_impl.c \
 			   odp_packet.c \
-			   odp_packet_eth.c \
 			   odp_packet_flags.c \
 			   odp_packet_io.c \
-			   odp_packet_cluster.c \
-			   odp_packet_magic.c \
-			   odp_pktio_loop.c \
+			   pktio/eth.c \
+			   pktio/cluster.c \
+			   pktio/magic.c \
+			   pktio/loop.c \
 			   odp_pool.c \
 			   odp_queue.c \
 			   ../../helper/ring.c \
