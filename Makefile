@@ -106,6 +106,8 @@ $(1)-$(2)-install: $(1)-$(2)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
 $(1)-$(2)-valid: $(1)-$(2)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
+$(1)-$(2)-long: $(1)-$(2)-build
+	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile long $($(1)-$(2)-ENV)
 $(1)-$(2)-clean:
 	rm -Rf $(ARCH_DIR)/$(2)/$(1)
 endef

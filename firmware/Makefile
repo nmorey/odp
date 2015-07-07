@@ -22,3 +22,4 @@ $(INSTBIN): $(BIN)
 	install -D $< $@
 
 valid:
+long:
