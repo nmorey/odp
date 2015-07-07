@@ -79,7 +79,7 @@ b.target("long") do
     b.logtitle = "Report for odp tests."
     cd odp_path
 
-    b.valid(:cmd => "make long CONFIGS='#{valid_configs.join(" ")}'")
+    b.valid(:cmd => "make long USE_PACKAGES=1 CONFIGS='#{valid_configs.join(" ")}'")
 end
 
 b.target("install") do
@@ -97,6 +97,7 @@ b.target("package") do
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     b.run(:cmd => "cd install/; tar cf ../odp-tests.tar local/k1tools/share/odp/*/tests", :env => env)
+    b.run(:cmd => "cd cunit/install/; tar cf ../../odp-cunit.tar local/k1tools/kalray_internal", :env => env)
 
     (version,releaseID,sha1) = repo.describe()
     release_info = b.release_info(version,releaseID,sha1)
@@ -122,16 +123,26 @@ b.target("package") do
                            workspace, depends)
     b.create_package(tar_package, pinfo)
 
+    #K1 ODP Tests
+    tar_package = File.expand_path("odp-cunit.tar")
+    depends = []
+    depends.push b.depends_info_struct.new("k1-odp-cunit","=", release_info.full_version)
+    package_description = "K1 ODP CUnit (k1-odp-cunit-#{version}-#{releaseID} sha1 #{sha1})."
+    pinfo = b.package_info("k1-odp-cunit", release_info,
+                           package_description, "/usr",
+                           workspace, depends)
+    b.create_package(tar_package, pinfo)
 
-  # Generates k1r_parameters.sh
+
+    # Generates k1r_parameters.sh
     output_parameters = File.join(artifacts,"k1odp_parameters.sh")
-  b.run("rm -f #{output_parameters}")
-  b.run("echo 'K1ODP_VERSION=#{$version}-#{$buildID}' >> #{output_parameters}")
-  b.run("echo 'K1ODP_RELEASE=#{$version}' >> #{output_parameters}")
-  b.run("echo 'COMMITER_EMAIL=#{options["email"]}' >> #{output_parameters}")
-  b.run("echo 'INTEGRATION_BRANCH=#{ENV.fetch("INTEGRATION_BRANCH",options["branch"])}' >> #{output_parameters}")
-  b.run("echo 'REVISION=#{repo.long_sha1()}' >> #{output_parameters}")
-  b.run("#{workspace}/metabuild/bin/packages.rb --tar=#{File.join(artifacts,"package.tar")} tar")
+    b.run("rm -f #{output_parameters}")
+    b.run("echo 'K1ODP_VERSION=#{$version}-#{$buildID}' >> #{output_parameters}")
+    b.run("echo 'K1ODP_RELEASE=#{$version}' >> #{output_parameters}")
+    b.run("echo 'COMMITER_EMAIL=#{options["email"]}' >> #{output_parameters}")
+    b.run("echo 'INTEGRATION_BRANCH=#{ENV.fetch("INTEGRATION_BRANCH",options["branch"])}' >> #{output_parameters}")
+    b.run("echo 'REVISION=#{repo.long_sha1()}' >> #{output_parameters}")
+    b.run("#{workspace}/metabuild/bin/packages.rb --tar=#{File.join(artifacts,"package.tar")} tar")
 
 end
 
