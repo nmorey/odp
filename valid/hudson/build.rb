@@ -72,6 +72,11 @@ b.target("valid") do
     cd odp_path
 
     b.valid(:cmd => "make valid CONFIGS='#{valid_configs.join(" ")}'")
+
+    if options['logtype'] == :junit then
+        fName=File.dirname(options['logfile']) + "/" + "automake-tests.xml"
+        b.valid(:cmd => "make junits CONFIGS='#{valid_configs.join(" ")}' JUNIT_FILE=#{fName}")
+    end
 end
 
 
