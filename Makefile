@@ -197,7 +197,7 @@ junits:
 		FNAME=$${file%.trs} && \
 		echo -e "\t<testcase classname=\"cunit.tests\" name=\"cunit.tests.$${TNAME}\">" &&\
 		status=$$(grep :test-result: $$file | awk '{ print $$NF}') && \
-		if [ "$$status" == "FAIL" ]; then \
+		if [ "$$status" == "FAIL" || "$$status" == "XFAIL" ]; then \
 			echo -e "\t\t<error message=\"cunit.tests failure\" type=\"Error\">";\
 		else \
 			echo -e "\t\t<system-out>"; \
