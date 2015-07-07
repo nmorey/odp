@@ -182,3 +182,36 @@ check-rules:
 	done; \
 	[ $$MISSING -eq 0 ]
 	@echo "check-rules OK"
+
+junits:
+	@[ "$(JUNIT_FILE)" != "" ] || { echo "JUNIT_FILE not set"; exit 1; }
+	@(FLIST=$$(find . -name "*.trs") && \
+	echo -e "<testsuite errors=\"0\" skipped=\"0\" failures=\"0\" time=\"0\" tests=\"0\" name=\"cunit\""\
+	" hostname=\"$$(hostname)\">\n\t<properties>\n" \
+	"\t\t<property value=\"$$(hostname)\" name=\"host.name\" />\n" \
+	"\t\t<property value=\"$$(uname -m)\" name=\"host.kernel.arch\" />\n" \
+	"\t\t<property value=\"$$(uname -r)\" name=\"host.kernel.release\" />\n" \
+	"\t</properties>\n" && \
+	for file in $$FLIST; do \
+		TNAME=$$(echo $$file | sed -e 's/.trs//' -e 's@/@_@g' -e 's/^[._]*//' ) && \
+		FNAME=$${file%.trs} && \
+		echo -e "\t<testcase classname=\"cunit.tests\" name=\"cunit.tests.$${TNAME}\">" &&\
+		status=$$(grep :test-result: $$file | awk '{ print $$NF}') && \
+		if [ "$$status" == "FAIL" ]; then \
+			echo -e "\t\t<error message=\"cunit.tests failure\" type=\"Error\">";\
+		else \
+			echo -e "\t\t<system-out>"; \
+		fi; \
+		if [ -f $$FNAME.log ]; then \
+			echo -e "\t\t\t<![CDATA[" && \
+			cat $$FNAME.log && \
+			echo -e "\t\t\t]]>"; \
+		fi; \
+		if [ "$$status" == "FAIL" ]; then \
+			echo -e "\t\t</error>";\
+		else \
+			echo -e "\t\t</system-out>"; \
+		fi; \
+		echo -e "\t</testcase>" ;\
+	done && \
+	echo "</testsuite>") > $(JUNIT_FILE)
