@@ -8,6 +8,7 @@ TOP_DIR := $(shell readlink -f $$(pwd))
 ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
+CUNIT_INST_DIR:= $(TOP_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/
 MAKE_AMS:= $(shell find . -name Makefile.am)
 
 FIRMWARES := boot ioeth
@@ -33,7 +34,7 @@ $(1)-cunit-configure: $(TOP_DIR)/cunit/build/$(1)/Makefile
 $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
-	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(TOP_DIR)/cunit/install/$(1) \
+	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(CUNIT_INST_DIR)/$(1) \
 	--enable-debug --enable-automated --enable-basic --host=$(1)
 
 $(1)-cunit-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
@@ -54,7 +55,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/li
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
 	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
-	--with-cunit-path=$(TOP_DIR)/cunit/install/$(1)/ --enable-test-vald \
+	--with-cunit-path=$(CUNIT_INST_DIR)/$(1)/ --enable-test-vald \
 	--prefix=$(K1ST_DIR) \
 	--datarootdir=$(K1ST_DIR)share/odp/$(1)/ \
 	--libdir=$(K1ST_DIR)lib/$(1) \

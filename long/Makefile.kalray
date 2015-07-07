@@ -1,0 +1,935 @@
+##  -*- mode: makefile -*-
+######################################
+# Copyright (C) 2008-2014 Kalray SA. #
+#                                    #
+# All rights reserved.               #
+######################################
+SHELL = /bin/bash
+
+native 		?= false
+
+__K1_COMPILER_PREFIX := $(if $(findstring $(native),false),$(K1_TOOLCHAIN_DIR)/bin/k1-,$(K1NSIM_TOOLCHAIN_DIR)/bin/k1nsim-)
+
+# Compilers
+K1CC		?= $(__K1_COMPILER_PREFIX)gcc
+K1CXX		?= $(__K1_COMPILER_PREFIX)g++
+K1FC		?= $(__K1_COMPILER_PREFIX)gfortran
+K1AR		?= $(__K1_COMPILER_PREFIX)ar
+HOSTCC		?= gcc
+HOSTCXX		?= g++
+HOSTFC		?= gfortran
+HOSTAR		?= ar
+CREATE_MULTIBIN	?= $(K1_TOOLCHAIN_DIR)/bin/k1-create-multibinary
+K1_READELF	?= $(K1_TOOLCHAIN_DIR)/bin/k1-readelf
+K1_CLUSTER	?= k1-cluster
+K1_MPPA		?= k1-mppa
+K1_JTAG_RUNNER	?= k1-jtag-runner
+
+# Flags
+DEFAULT_CFLAGS		:= 
+DEFAULT_CPPFLAGS	:= 
+DEFAULT_DYN_LFLAGS      := -shared -nostdlib -Wl,--hash-style=sysv -Wl,-Bsymbolic
+
+DEFAULT_DYN_CFLAGS      := -fPIC -fno-builtin -fno-stack-check
+DEFAULT_DYN_CPPFLAGS      := -fPIC -fno-builtin -fno-stack-check
+
+################################################################################
+#			    Binary and path checking
+################################################################################
+
+ifeq ($(strip $(K1_TOOLCHAIN_DIR)),)
+  $(error K1_TOOLCHAIN_DIR is not set)
+endif
+
+ifneq ($(NO_TOOLS_CHECK),1)
+  ifeq ($(wildcard $(K1CC)),)
+	$(error Can not find K1CC: $(K1CC))
+  endif
+  ifeq ($(wildcard $(K1CXX)),)
+	$(error Can not find K1CXX: $(K1CXX))
+  endif
+  ifeq ($(wildcard $(K1FC)),)
+	$(error Can not find K1FC: $(K1FC))
+  endif
+  ifeq ($(wildcard $(CREATE_MULTIBIN)),)
+	$(error Can not find CREATE_MULTIBIN: $(CREATE_MULTIBIN))
+  endif
+endif
+
+PHONY += all
+all: __k1_all FORCE
+
+################################################################################
+#			Compilation-dependent variables
+################################################################################
+
+# Default values
+board ?= developer
+system-name ?= os
+arch ?= k1a
+
+ifeq ($(V),2)
+ifeq ($(MAKELEVEL),0)
+  $(info ========= Settings =========)
+  $(info board:          $(board))
+  $(info system-name:    $(system-name))
+  $(info arch:	         $(arch))
+  $(info platforms:      $(platforms))
+  $(info traces:         $(traces))
+  $(info mppa-bin:       $(mppa-bin))
+  $(info host-bin:       $(host-bin))
+  $(info cluster-bin:    $(cluster-bin))
+  $(info io-bin:         $(io-bin))
+  $(info cluster-dynbin: $(cluster-dynbin))
+  $(info io-dynbin:      $(io-dynbin))
+  $(info )
+  $(info cflags:         $(cflags))
+  $(info cppflags:       $(cppflags))
+  $(info lflags:         $(lflags))
+  $(info fcflags: 	 $(fcflags))
+  $(info k1-cflags:      $(k1-cflags))
+  $(info k1-fcflags:	 $(k1-fcflags))
+  $(info k1-cppflags:    $(k1-cppflags))
+  $(info k1-lflags:      $(k1-lflags))
+  $(info io-arch:        $(io-arch))
+  $(info io-cflags:      $(io-cflags))
+  $(info io-fcflags:	 $(io-fcflags))
+  $(info io-cppflags:    $(io-cppflags))
+  $(info io-lflags:      $(io-lflags))
+  $(info io-dyn-cflags:      $(io-dyn-cflags))
+  $(info io-dyn-lflags:      $(io-dyn-lflags))  
+  $(info io-dyn-fcflags:      $(io-dyn-fcflags))
+  $(info io-dyn-cflags:  $(io-dyn-cflags))
+  $(info io-dyn-lflags:  $(io-dyn-lflags))
+  $(info io-dyn-cppflags:  $(io-dyn-cppflags))
+  $(info io-dyn-lflags:  $(io-dyn-lflags))
+  $(info cluster-arch:        $(cluster-arch))
+  $(info cluster-cflags: $(cluster-cflags))
+  $(info cluster-lflags: $(cluster-lflags))  
+  $(info cluster-fcflags: $(cluster-fcflags))
+  $(info cluster-cppflags: $(cluster-cppflags))
+  $(info cluster-dyn-cflags: $(cluster-dyn-cflags))
+  $(info cluster-dyn-lflags: $(cluster-dyn-lflags))  
+  $(info cluster-dyn-fcflags: $(cluster-dyn-fcflags))
+  $(info cluster-dyn-cppflags: $(cluster-dyn-cppflags))
+  $(info host-cflags:    $(host-cflags))
+  $(info host-cppflags:  $(host-cppflags))
+  $(info host-lflags:    $(host-lflags))
+  $(info host-fcflags:    $(host-fcflags))
+  $(info ============================)
+endif
+endif
+
+################################################################################
+#				Directories
+################################################################################
+
+ifeq ($(V),)
+  quiet=quiet_
+  Q = @
+  MAKEFLAGS += --no-print-directory
+else
+  quiet =
+  Q =
+endif
+
+# Get rid of all make builtin rules
+.SUFFIXES:
+
+O ?= output
+
+# Default output directory
+BUILD_DIR := $(O)/build
+BIN_DIR := $(O)/bin
+LIB_OUTPUT_DIR := $(O)/lib
+LIB_REAL_OUTPUT_DIR = $(abspath $(LIB_OUTPUT_DIR))
+
+################################################################################
+#                              Generic Stuff
+################################################################################
+
+build_prefix := _build
+
+# Convenient variables
+comma   := ,
+squote  := '
+empty   :=
+space   := $(empty) $(empty)
+
+###
+# Name of target with a '.' as filename prefix. foo/bar.o => foo/.bar.o
+dot-target = $(dir $@).$(notdir $@)
+
+###
+# The temporary file to save gcc -MD generated dependencies must not
+# contain a comma
+depfile = $(subst $(comma),_,$(dot-target).d)
+
+###
+# Escape single quote for use in echo statements
+escsq = $(subst $(squote),'\$(squote)',$1)
+
+# >'< substitution is for echo to work,
+# >$< substitution to preserve $ when reloading .cmd file
+# note: when using inline perl scripts [perl -e '...$$t=1;...']
+# in $(cmd_xxx) double $$ your perl vars
+make-cmd = $(subst \#,\\\#,$(subst $$,$$$$,$(call escsq,$(cmd_$(1)))))
+
+# Short version is used, if $(quiet) equals `quiet_', otherwise full one.
+echo-cmd = $(if $($(quiet)cmd_$(1)),\
+	echo -e '  $(call escsq,$($(quiet)cmd_$(1)))$(echo-why)';)
+
+# Find any prerequisites that is newer than target or that does not exist.
+# PHONY targets skipped in both cases.
+any-prereq = $(filter-out $(PHONY),$?) $(filter-out $(PHONY) $(wildcard $^),$^)
+
+# Check if both arguments has same arguments. Result is empty string if equal.
+arg-check = $(strip $(filter-out $(cmd_$(1)), $(cmd_$@)) \
+                    $(filter-out $(cmd_$@),   $(cmd_$(1))) )	
+
+# This is the tricky part.
+# We check if the current command is different from the last one or if a prereq
+# which is not phony has changed. if so, the command will be executed.
+# if not, the rule will reduce to an empty rule and thus will not be executed.
+build_if_changed = $(if $(strip $(any-prereq) $(arg-check)), \
+			@set -e; \
+			$(echo-cmd) $(cmd_$(1)); \
+			echo 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd )
+
+# Execute a build command unconditionnaly
+build_cmd = @$(echo-cmd) $(cmd_$(1))
+
+# Display an error message
+error_msg = $(error $(1))
+
+quiet_cmd_copy	= COPY\t\t$< -> $@
+      cmd_copy	= mkdir -p $(dir $@); \
+			cp $< $@
+
+###
+# why - tell why a a target got build
+#       enabled by make V=2
+#       Output (listed in the order they are checked):
+#          (1) - due to target is PHONY
+#          (2) - due to target missing
+#          (3) - due to: file1.h file2.h
+#          (4) - due to command line change
+#          (5) - due to missing .cmd file
+#          (6) - due to target not in $(targets)
+# (1) PHONY targets are always build
+# (2) No target, so we better build it
+# (3) Prerequisite is newer than target
+# (4) The command line stored in the file named dir/.target.cmd
+#     differed from actual command line. This happens when compiler
+#     options changes
+# (5) No dir/.target.cmd file (used to store command line)
+# (6) No dir/.target.cmd file and target not listed in $(targets)
+#     This is a good hint that there is a bug in the kbuild file
+ifeq ($(V),2)
+why =                                                                        \
+    $(if $(filter $@, $(PHONY)),- due to target is PHONY,                    \
+        $(if $(wildcard $@),                                                 \
+            $(if $(strip $(any-prereq)),- due to: $(any-prereq),             \
+                $(if $(arg-check),                                           \
+                    $(if $(cmd_$@),- due to command line change,             \
+                        $(if $(filter $@, $(targets)),                       \
+                            - due to missing .cmd file,                      \
+                            - due to $(notdir $@) not in $$(targets)         \
+                         )                                                   \
+                     )                                                       \
+                 )                                                           \
+             ),                                                              \
+             - due to target missing                                         \
+         )                                                                   \
+     )
+
+echo-why = $(call escsq, $(strip $(why)))
+endif
+
+# Argument for gcc to  pass to cpreprocessor in order to generate
+# dependency files.
+# -MT is given to bypass a problem with gcc dependency generation name
+depgencmd = -Wp,-MD,$(depfile) -Wp,-MT,$@
+
+# Check if a file exists
+check_file = 								\
+	dummy := $(if $(wildcard $(1)),,				\
+		    $(error file $(1) does not exists)			\
+		)
+
+cpp_subst = $(patsubst %.cpp,%.cpp.o,$($(1)-srcs)) 	\
+		$(patsubst %.C,%.C.o,$($(1)-srcs)) 	\
+		$(patsubst %.cxx,%.cxx.o,$($(1)-srcs)) 	\
+		$(patsubst %.CPP,%.CPP.o,$($(1)-srcs)) 	\
+		$(patsubst %.cc,%.cc.o,$($(1)-srcs)) 	\
+		$(patsubst %.c++,%.c++.o,$($(1)-srcs))
+
+f_subst = $(patsubst %.f90,%.f90.o,$($(1)-srcs)) 	\
+		$(patsubst %.F90,%.F90.o,$($(1)-srcs)) 	\
+		$(patsubst %.f,%.f.o,$($(1)-srcs)) 	\
+		$(patsubst %.F,%.F.o,$($(1)-srcs)) 	\
+		$(patsubst %.for,%.for.o,$($(1)-srcs)) 	
+
+
+_gen_build_dir = $(BUILD_DIR)/$(1)$(build_prefix)
+
+src2build = $(subst ..,__,$(1))
+build2src = $(subst __,..,$(1))
+
+obj_build_dir = $(call src2build,$(addprefix $$($(1)_build_dir)/, $(2)))
+
+.SECONDEXPANSION:
+
+################################################################################
+#				Host Part
+################################################################################
+
+# List of unique host-bin
+__host_bin = $(sort $(host-bin))
+__host_lib = $(sort $(host-lib))
+
+lib_prefix := lib
+
+# We do not support cross bitness compilation
+LBITS := $(shell getconf LONG_BIT)
+ifeq ($(LBITS),64)
+	__K1_LIB_OUTPUT_DIR := lib$(if $(wildcard $(K1_TOOLCHAIN_DIR)/lib64),64,)
+else
+	__K1_LIB_OUTPUT_DIR := lib$(if $(wildcard $(K1_TOOLCHAIN_DIR)/lib32),32,)
+endif
+
+__HOST_COMMON_FLAGS = $(depgencmd) -I$(K1_TOOLCHAIN_DIR)/include
+__K1_HOST_LFLAGS = $(lflags) $(host-lflags) -L$(K1_TOOLCHAIN_DIR)/$(__K1_LIB_OUTPUT_DIR) -L$(LIB_REAL_OUTPUT_DIR)/host/ -Wl,-rpath=$(K1_TOOLCHAIN_DIR)/$(__K1_LIB_OUTPUT_DIR)
+__K1_HOST_CFLAGS = $(__HOST_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(cflags) $(host-cflags)
+__K1_HOST_CPPFLAGS = $(__HOST_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cppflags) $(host-cppflags)
+
+__K1_HOST_FCFLAGS = $(depgencmd) -I$(K1_TOOLCHAIN_DIR)/include $(DEFAULT_FCFLAGS) $(fcflags) $(host-fcflags)
+
+__host_lib_static := .a
+__host_lib_shared := .so
+__host_lib_cmd_static := $(HOSTAR) rcs
+__host_lib_cmd_shared := $(HOSTCC) -shared -o 
+__host_lib_flags_static := 
+__host_lib_flags_shared := -fPIC
+#-Wl,-soname, 
+
+
+# C executables linked based on several .o files
+host_cmulti	= $(foreach m,$(__host_bin),\
+		   $(if $($(m)-srcs),$(m)))
+
+# target made of previously compiled objects (only target specific link flags
+host_useobjs	= $(foreach l,$(__host_bin),\
+		   $(if $($(l)-use-objs),$(l)))
+
+# List of libraries
+host_clibs	= $(foreach l,$(__host_lib),\
+		   $(if $($(l)-srcs),$(l)))
+
+# target made of multiple c files
+
+quiet_cmd_host_cmulti	= $($(2)_linker_msg)\t$@
+      cmd_host_cmulti	= $($(2)_linker) -o $@ $($(2)-objs) $($(2)_cobjs) $($(2)_cppobjs) $($(2)_fobjs) \
+				$(__K1_HOST_LFLAGS) $($(2)-lflags)
+
+# target made of previously compiled objects
+quiet_cmd_host_useobjs	= $($(3)_linker_msg)\t$@
+      cmd_host_useobjs	= $($(3)_linker) -o $@ $($(3)-objs) $($(3)_cobjs) $($(3)_cppobjs) $($(3)_fobjs) \
+				$(__K1_HOST_LFLAGS) $($(2)-lflags)
+
+# Libraries made of c files
+quiet_cmd_host_clibs	= HOSTLIB\t$@
+      cmd_host_clibs	= $(__host_lib_cmd_$($(2)_type)) $@ $($(2)-objs) $($(2)_cobjs) $($(2)_cppobjs) \
+				$($(2)-lflags)
+
+# Single .o for c files rule
+quiet_cmd_host-gcc-objs	= HOSTCC\t$@
+      cmd_host-gcc-objs	= $(HOSTCC) $(__K1_HOST_CFLAGS) $($(2)-cflags) $($(<)-cflags) \
+				-c -o $@ $<
+
+# Single .o for c++ files rule
+quiet_cmd_host-gpp-objs	= HOSTCXX\t$@
+      cmd_host-gpp-objs	= $(HOSTCXX) $(__K1_HOST_CPPFLAGS) $($(2)-cppflags) $($(<)-cppflags)\
+				-c -o $@ $<
+
+# Single .o for fortran files rule
+quiet_cmd_host-gfc-objs	= HOSTFC\t$@
+      cmd_host-gfc-objs	= $(HOSTFC) $(__K1_HOST_FCFLAGS) $($(2)-fcflags) $($(<)-fcflags)\
+				-c -o $@ $<
+
+
+define host_multi_var
+# default name will be target name
+$(1)-name ?= $(1)
+endef
+
+
+#####################################################
+# Generates variables for a library
+# $(1) = target name
+#####################################################
+define host_lib_var
+# Output name, default to $(1) if no -name rule supplied
+$(1)_type := $(if $($(1)-type),$($(1)-type),shared)
+$(1)-name := $$(if $($(1)-name),lib$($(1)-name)$$(__host_lib_$$($(1)_type)),lib$(1)$$(__host_lib_$$($(1)_type)))
+$(1)-cflags += $$(__host_lib_flags_$$($(1)_type))
+$(1)-cppflags += $$(__host_lib_flags_$$($(1)_type))
+endef
+
+
+#####################################################
+# Defines rules for a target using multiple c files
+# $(1) = target name
+# $(2) = rule name to link objects (host_cmulti or host_clibs)
+# $(3) = Output directory
+#####################################################
+define host_generic_rules
+# build directory for this binary
+$(1)_build_dir := $(_gen_build_dir)
+# List of objects for c and c++ files
+
+$(1)_cobjs := $(call obj_build_dir,$(1),$(filter %.o, $(patsubst %.c,%.c.o,$($(1)-srcs))))
+$(1)_cppobjs := $(call obj_build_dir,$(1),$(filter %.o, $(cpp_subst)))
+$(1)_fobjs := $(call obj_build_dir,$(1),$(filter %.o, $(f_subst)))
+host_objslist += $$($(1)_cobjs) $$($(1)_cppobjs) $$($(1)_fobjs) $(3)/$$($(1)-name)
+
+$(1)_linker_msg := $$(if $$($(1)_fobjs),HOSTFLD,$$(if $$($(1)_cppobjs),HOSTLDXX,HOSTLD))
+$(1)_linker := $$(if $$($(1)_fobjs), $(HOSTFC), $$(if $$($(1)_cppobjs),$(HOSTCXX),$(HOSTCC)))
+
+$(3)/$$($(1)-name): $$($(1)_cobjs) $$($(1)_cppobjs) $$($(1)_fobjs) $(3)/.dirstamp FORCE
+	$$(call build_if_changed,$(2),$(1))
+
+PHONY += $(1)
+$(1): $(3)/$$($(1)-name) FORCE
+
+# The $$$$ may seems a little WTF but allows for double-double expansion
+# this allows to handle ../ in a transparent maneer (thanks to .SECONDEXPANSION)
+$$($(1)_cobjs): $$($(1)_build_dir)/%.o: $$$$(subst __,..,%) $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$$(call build_if_changed,host-gcc-objs,$(1))
+
+$$($(1)_cppobjs): $$($(1)_build_dir)/%.o: $$$$(subst __,..,%) $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$$(call build_if_changed,host-gpp-objs,$(1))
+
+$$($(1)_fobjs): $$($(1)_build_dir)/%.o: % $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$(Q)mkdir -p $$(dir $$@)
+	$$(call build_if_changed,host-gfc-objs,$(1))
+
+endef
+
+#####################################################
+# Defines rules for a useobjs target (reuse already
+# compiled objects from another binary)
+# $(1) = target name
+#####################################################
+define host_useobjs_rules
+
+$(1)_inherited_bin := $($(1)-use-objs)
+host_objslist += $(BIN_DIR)/$$($(1)-name)
+
+$(BIN_DIR)/$$($(1)-name): $$($$($(1)_inherited_bin)_cobjs) $$($$($(1)_inherited_bin)_cppobjs) $$($$($(1)_inherited_bin)_fobjs) $$$$(@D)/.dirstamp FORCE
+	$$(call build_if_changed,host_useobjs,$(1),$$($(1)_inherited_bin))
+
+PHONY += $(1)
+$(1): $(BIN_DIR)/$$($(1)-name) FORCE
+
+endef
+
+# Invoke macros for binaries composed of multiple files
+$(foreach m,$(host_cmulti), $(eval $(call host_multi_var,$(m)) \
+					$(call host_generic_rules,$(m),host_cmulti,$(BIN_DIR))))
+# and then for librairies
+$(foreach l,$(host_clibs), $(eval $(call host_lib_var,$(l)) \
+					$(call host_generic_rules,$(l),host_clibs,$(LIB_OUTPUT_DIR)/host)))
+# and then for reuse objs
+$(foreach l,$(host_useobjs), $(eval $(call host_multi_var,$(l)) \
+					$(call host_useobjs_rules,$(l))))
+
+################################################################################
+#				K1 Part
+################################################################################
+
+# Determine which system will be used
+
+__K1_IO_OS_FLAG = $(if $(io-system),$(io-system),$(if $(findstring $(system-name),os),rtems,$(system-name)))
+__K1_DP_OS_FLAG = $(if $(cluster-system),$(cluster-system),$(if $(findstring $(system-name),os),nodeos,$(system-name)))
+
+__K1_IO_MARCH_FLAG = $(if $(io-arch),$(io-arch),$(arch))
+__K1_DP_MARCH_FLAG = $(if $(cluster-arch),$(cluster-arch),$(arch))
+
+__K1_CORES = cluster io
+
+__K1_IO_COMMON_FLAGS = -mcluster=ioddr -mboard=$(board)
+__K1_IO_COMMON_LFLAGS = -L$(LIB_REAL_OUTPUT_DIR)/io/
+
+__K1_IO_LFLAGS = $(__K1_IO_COMMON_FLAGS) $(__K1_IO_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(io-lflags) 
+__K1_IO_CFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cflags) $(k1-cflags) $(DEFAULT_CFLAGS) $(io-cflags)
+__K1_IO_CPPFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cppflags) $(k1-cppflags) $(DEFAULT_CPPFLAGS) $(io-cppflags)
+__K1_IO_FCFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(fcflags) $(k1-fcflags) $(DEFAULT_CFLAGS) $(io-fcflags)
+
+__K1_IO_DYN_LFLAGS = $(DEFAULT_DYN_LFLAGS) $(__K1_IO_COMMON_FLAGS) $(__K1_IO_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(io-dyn-lflags) 
+__K1_IO_DYN_CFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cflags) $(k1-cflags) $(DEFAULT_CFLAGS) $(io-dyn-cflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_IO_DYN_CPPFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cppflags) $(k1-cppflags) $(DEFAULT_CPPFLAGS) $(io-dyn-cppflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_IO_DYN_FCFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(fcflags) $(k1-fcflags) $(DEFAULT_CFLAGS) $(io-dyn-fcflags) $(DEFAULT_DYN_CFLAGS) -g0
+
+__K1_DP_COMMON_FLAGS = -mcluster=node -mboard=$(board)
+__K1_DP_COMMON_LFLAGS = -L$(LIB_REAL_OUTPUT_DIR)/cluster/
+
+__K1_DP_LFLAGS = $(__K1_DP_COMMON_FLAGS) $(__K1_DP_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(cluster-lflags)
+__K1_DP_CFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(cflags) $(k1-cflags) $(cluster-cflags)
+__K1_DP_CPPFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cppflags) $(k1-cppflags) $(cluster-cppflags)
+__K1_DP_FCFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(fcflags) $(k1-fcflags) $(cluster-fcflags) 
+
+__K1_DP_DYN_LFLAGS = $(DEFAULT_DYN_LFLAGS) $(__K1_DP_COMMON_FLAGS) $(__K1_DP_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(cluster-dyn-lflags)
+__K1_DP_DYN_CFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(cflags) $(k1-cflags) $(cluster-dyn-cflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_DP_DYN_CPPFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cppflags) $(k1-cppflags) $(cluster-dyn-cppflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_DP_DYN_FCFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(fcflags) $(k1-fcflags) $(cluster-dyn-fcflags) $(DEFAULT_DYN_CFLAGS) -g0
+
+
+#####################################################
+# Initialize default variables
+# $(1) = architecture type: DP/IO
+#####################################################
+define k1_init_generic
+
+__$(1)_bin = $(sort $($(1)-bin))
+__$(1)_lib = $(sort $($(1)-lib))
+__$(1)_dynbin = $(sort $($(1)-dynbin))
+
+# C executables linked based on several .o files
+$(1)_cmulti := $$(foreach m,$$(__$(1)_bin),\
+		   $$(if $$($$(m)-srcs),$$(m)))
+
+$(1)_extbin := $$(foreach m,$$(__$(1)_bin),\
+		   $$(if $$($$(m)-srcs),,$$(m)))
+
+$(1)_dyn_cmulti := $$(foreach m,$$(__$(1)_dynbin),\
+		   $$(if $$($$(m)-srcs),$$(m)))
+
+$(1)_dyn_extbin := $$(foreach m,$$(__$(1)_dynbin),\
+		   $$(if $$($$(m)-srcs),,$$(m)))
+
+$(1)_clibs := $$(foreach m,$$(__$(1)_lib),\
+		   $$(if $$($$(m)-srcs),$$(m)))
+
+$(1)_useobjs := $$(foreach m,$$(__$(1)_bin),\
+		   $$(if $$($$(m)-use-objs),$$(m)))
+
+endef
+
+$(foreach _a,$(__K1_CORES),$(eval $(call k1_init_generic,$(_a))))
+
+# target made of multiple c files
+quiet_cmd_k1_cmulti	= $(2)$($(3)_linker_msg)\t$@
+      cmd_k1_cmulti	= $($(3)_linker) -o $@ $($(3)-objs) $($(3)_cobjs) $($(3)_cppobjs) $($(3)_fobjs) $($(3)_sobjs) \
+				$(__K1_$(2)_LFLAGS) -march=$($(3)-arch) -mos=$($(3)-system) $($(3)-lflags)
+
+# target made of previously compiled objects (only target specific link flags
+quiet_cmd_k1_useobjs	= $(2)$($(4)_linker_msg)\t$@
+      cmd_k1_useobjs	= $($(4)_linker) -o $@ $($(4)-objs) $($(4)_cobjs) $($(4)_cppobjs) $($(4)_fobjs) $($(4)_sobjs) \
+				$(__K1_$(2)_LFLAGS) -march=$($(4)-arch) -mos=$($(4)-system) $($(3)-lflags)
+
+# Libraries made of c files
+quiet_cmd_k1_clibs	= $(2)_K1LIB\t$@
+      cmd_k1_clibs	= $(K1AR) rcs $@ $($(3)-objs) $($(3)_cobjs) $($(3)_cppobjs) $($(3)_sobjs)
+
+# Single .o rule
+quiet_cmd_k1-gcc-objs	= $(2)_K1CC\t$@
+      cmd_k1-gcc-objs	= $(K1CC) $(__K1_$(2)_CFLAGS) -march=$($(3)-arch) -mos=$($(3)-system) $($(3)-cflags) $($(<)-cflags) -c -o $@ $<
+
+quiet_cmd_k1-gpp-objs	= $(2)_K1CXX\t$@
+      cmd_k1-gpp-objs	= $(K1CXX) $(__K1_$(2)_CPPFLAGS) -march=$($(3)-arch) -mos=$($(3)-system) $($(3)-cppflags) $($(<)-cppflags) -c -o $@ $<
+
+quiet_cmd_k1-gfc-objs	= $(2)_K1FC\t$@
+      cmd_k1-gfc-objs	= $(K1FC) $(__K1_$(2)_FCFLAGS) $($(3)-fcflags) $($(<)-fcflags) -c -o $@ $<
+
+#####################################################
+# Defines rules for a target using multiple c files
+# $(1) = target name
+# $(2) = architecture type: DP/IO
+# $(3) = Weither the binary is a dynamic one (DYN)
+# $(4) = Target type: k1_clibs/k1_cmulti
+# $(5) = Target destination dir: bin/build
+#####################################################
+define k1_generic_rules
+$(1)-name ?= $(1)
+$(1)_build_dir := $(_gen_build_dir)
+$(1)_cobjs := $(call obj_build_dir,$(1),$(filter %.o, $(patsubst %.c,%.c.o,$($(1)-srcs))))
+$(1)_sobjs := $(call obj_build_dir,$(1),$(filter %.o, $(patsubst %.s,%.s.o,$($(1)-srcs))) \
+						$(filter %.o, $(patsubst %.S,%.S.o,$($(1)-srcs))))
+$(1)_cppobjs := $(call obj_build_dir,$(1),$(filter %.o, $(cpp_subst)))
+$(1)_fobjs := $(call obj_build_dir,$(1),$(filter %.o, $(f_subst)))
+$(1)_linker_msg := $$(if $$($(1)_fobjs),_K1FLD,$$(if $$($(1)_cppobjs),_K1LDXX,_K1LD))
+$(1)_linker := $$(if $$($(1)_fobjs),$(K1FC),$$(if $$($(1)_cppobjs),$(K1CXX),$(K1CC)))
+$(1)-system ?= $(__K1_$(2)_OS_FLAG)
+$(1)-arch ?= $(__K1_$(2)_MARCH_FLAG)
+
+k1_objslist += $$($(1)_cobjs) $$($(1)_sobjs) $$($(1)_cppobjs) $$($(1)_fobjs) $(5)/$$($(1)-name)
+
+$(5)/$$($(1)-name): $$($(1)_cobjs) $$($(1)_sobjs) $$($(1)_cppobjs) $$($(1)_fobjs) $(5)/.dirstamp FORCE
+	$$(call build_if_changed,$(4),$(2)$(if $(3),_$(3),),$(1))
+
+PHONY += $(1)
+$(1): $(5)/$$($(1)-name) FORCE
+
+$$($(1)_cobjs) $$($(1)_sobjs): $$($(1)_build_dir)/%.o: $$$$(subst __,..,%) $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$$(call build_if_changed,k1-gcc-objs,$(2)$(if $(3),_$(3),),$(1))
+
+$$($(1)_cppobjs): $$($(1)_build_dir)/%.o: $$$$(subst __,..,%) $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$$(call build_if_changed,k1-gpp-objs,$(2)$(if $(3),_$(3),),$(1))
+
+$$($(1)_fobjs): $$($(1)_build_dir)/%.o: % $($(1)-deps) $$$$(@D)/.dirstamp FORCE
+	$(Q)mkdir -p $$(dir $$@)
+	$$(call build_if_changed,k1-gfc-objs,$(2)$(if $(3),_$(3),),$(1))
+
+endef
+
+#####################################################
+# Defines rules for a useobjs target (reuse already
+# compiled objects from another binary)
+# $(1) = target name
+# $(2) = architecture type: DP/IO
+#####################################################
+define k1_useobjs_rules
+# FIXME: error when inherited binary does not exist
+$(1)_inherited_bin := $($(1)-use-objs)
+
+k1_objslist += $(BUILD_DIR)/$(1)
+
+$(BUILD_DIR)/$(1): $$($$($(1)_inherited_bin)_cobjs) $$($$($(1)_inherited_bin)_sobjs) $$($$($(1)_inherited_bin)_cppobjs) $$($$($(1)_inherited_bin)_fobjs) FORCE
+	$$(call build_if_changed,k1_useobjs,$(2),$(1),$$($(1)_inherited_bin))
+
+PHONY += $(1)
+$(1): $(BUILD_DIR)/$(1) FORCE
+
+endef
+
+define k1_lib_rules
+
+$(1)-name := $(if $($(1)-name),lib$($(1)-name).a, lib$(1).a)
+
+endef
+
+# Invoke the rules
+$(foreach m,$(io_dyn_cmulti), $(eval $(call k1_generic_rules,$(m),IO,DYN,k1_cmulti,$(BIN_DIR))))
+$(foreach m,$(io_cmulti), $(eval $(call k1_generic_rules,$(m),IO,,k1_cmulti,$(BIN_DIR))))
+
+$(foreach m,$(cluster_dyn_cmulti), $(eval $(call k1_generic_rules,$(m),DP,DYN,k1_cmulti,$(BIN_DIR))))
+$(foreach m,$(cluster_cmulti), $(eval $(call k1_generic_rules,$(m),DP,,k1_cmulti,$(BIN_DIR))))
+
+$(foreach m,$(io_clibs), $(eval $(call k1_lib_rules,$(m)) $(call k1_generic_rules,$(m),IO,,k1_clibs,$(LIB_OUTPUT_DIR)/io)))
+$(foreach m,$(cluster_clibs), $(eval $(call k1_lib_rules,$(m)) $(call k1_generic_rules,$(m),DP,,k1_clibs,$(LIB_OUTPUT_DIR)/cluster)))
+
+$(foreach m,$(io_useobjs), $(eval $(call k1_useobjs_rules,$(m),IO)))
+$(foreach m,$(cluster_useobjs), $(eval $(call k1_useobjs_rules,$(m),DP)))
+
+################################################################################
+#			    Multibinary Part
+################################################################################
+
+__mppa_multibins = $(sort $(mppa-bin))
+
+# Name of multibins which have objs
+mppa_multibins := $(foreach m,$(__mppa_multibins),$(if $($(m)-objs),$(m),))
+
+quiet_cmd_create_multibin = MULTIBIN\t$@
+      cmd_create_multibin = pushd $(BIN_DIR) > /dev/null; \
+				$(CREATE_MULTIBIN) \
+				$($(2)_multibin_clusters_flag) \
+				$($(2)_multibin_clusters_names_flags) \
+				$($(2)_multibin_ios_flag) \
+				$($(2)_multibin_ios_names_flags) \
+				$($(2)_multibin_dyn_ios_flag) \
+				$($(2)_multibin_dyn_ios_names_flags) \
+				$($(2)_multibin_dyn_clusters_flag) \
+				$($(2)_multibin_dyn_clusters_names_flags) \
+				--boot $(firstword $($(2)-objs)) \
+				$(if $($(firstword $($(2)-objs))-nameinmpk), --bootname $($(firstword $($(2)-objs))-nameinmpk),) \
+				-T $($(2)-name) \
+				-f \
+				$(if $(Q),,-v) $($(2)-flags); \
+				popd > /dev/null
+
+# Define the multibinaries rules
+define mppa_multibin_rules
+
+# check if nobody name the multibinary with the same name as 
+dummy := $(if $($(1)-srcs),$(error Your multibinary $(1) has the same name as an application, please choose a different name),)
+
+$(1)_multibin_clusters = $(subst $(space),$(comma),$(filter $(cluster_cmulti) $(cluster_extbin),$($(1)-objs)))
+$(1)_multibin_clusters_flag = $$(if $$($(1)_multibin_clusters), --clusters $$($(1)_multibin_clusters),)
+$(1)_multibin_clusters_names = $(subst $(space),$(comma),$(foreach m,$(filter $(cluster_cmulti),$($(1)-objs)),$(if $($(m)-nameinmpk),$($(m)-nameinmpk),$(m))))
+$(1)_multibin_clusters_names_flags = $$(if $$($(1)_multibin_clusters_names), --clusters-names $$($(1)_multibin_clusters_names),)
+
+$(1)_multibin_dyn_ios = $(subst $(space),$(comma),$(filter $(io_dyn_cmulti) $(io_dyn_extbin),$($(1)-objs)))
+$(1)_multibin_dyn_ios_flag = $$(if $$($(1)_multibin_dyn_ios), --ios-dyn $$($(1)_multibin_dyn_ios),)
+$(1)_multibin_dyn_ios_names = $(subst $(space),$(comma),$(foreach m,$(filter $(io_dyn_cmulti),$($(1)-objs)),$(if $($(m)-nameinmpk),$($(m)-nameinmpk),$(m))))
+$(1)_multibin_dyn_ios_names_flags = $$(if $$($(1)_multibin_dyn_ios_names), --ios-dyn-names $$($(1)_multibin_dyn_ios_names),)
+
+$(1)_multibin_dyn_clusters = $(subst $(space),$(comma),$(filter $(cluster_dyn_cmulti) $(cluster_dyn_extbin),$($(1)-objs)))
+$(1)_multibin_dyn_clusters_flag = $$(if $$($(1)_multibin_dyn_clusters), --clusters-dyn $$($(1)_multibin_dyn_clusters),)
+$(1)_multibin_dyn_clusters_names = $(subst $(space),$(comma),$(foreach m,$(filter $(cluster_dyn_cmulti),$($(1)-objs)),$(if $($(m)-nameinmpk),$($(m)-nameinmpk),$(m))))
+$(1)_multibin_dyn_clusters_names_flags = $$(if $$($(1)_multibin_dyn_clusters_names), --clusters-dyn-names $$($(1)_multibin_dyn_clusters_names),)
+
+$(1)_multibin_ios = $(subst $(space),$(comma),$(filter-out $(cluster_cmulti) $(cluster_ext) $(io_dyn_cmulti) $(io_ext_dyn) $(cluster_dyn_cmulti) $(cluster_ext_dyn) $(firstword $($(1)-objs)),$($(1)-objs)))
+$(1)_multibin_ios_flag = $$(if $$($(1)_multibin_ios), --ios $$($(1)_multibin_ios),)
+$(1)_multibin_ios_names = $(subst $(space),$(comma),$(foreach m,$(filter-out $(cluster_cmulti) $(io_dyn_cmulti) $(cluster_dyn_cmulti) $(firstword $($(1)-objs)),$($(1)-objs)),$(if $($(m)-nameinmpk),$($(m)-nameinmpk),$(m))))
+$(1)_multibin_ios_names_flags = $$(if $$($(1)_multibin_ios_names), --ios-names $$($(1)_multibin_ios_names),)
+
+$(1)-name ?= $(1).mpk
+mppa_multibins_mpk += $(BIN_DIR)/$$($(1)-name)
+
+$(BIN_DIR)/$$($(1)-name): $(addprefix $(BIN_DIR)/,$($(1)-objs)) $($(1)-deps) $(BIN_DIR)/.dirstamp FORCE
+	$$(call build_if_changed,create_multibin,$(1))
+
+PHONY += $(1)
+$(1) : $(BIN_DIR)/$$($(1)-name) FORCE
+
+endef
+
+$(foreach m,$(mppa_multibins), $(eval $(call mppa_multibin_rules,$(m))))
+
+################################################################################
+#			        Test Part
+################################################################################
+# Global test attributes
+#  host-tests := list of test name
+#
+# Current supported test attributes are:
+#  hw-cmd := Hardware command
+#  hw-timeout := Hardware timeout
+#  sim-cmd := Simulator command line
+#  sim-timeout := Simulator timeout
+#  cost := Test cost for ordered run
+#  labels := Labels applying to this test
+
+__mppa_runners := jtag sim
+__host_runners := hw sim
+
+__jtag_io_node_opt = IODDR0
+__jtag_mppa_node_opt = IODDR0
+__jtag_cluster_node_opt = Cluster0
+
+__sim_io_runner = $(K1_CLUSTER)
+__sim_cluster_runner = $(K1_CLUSTER)
+__sim_mppa_runner = $(K1_MPPA)
+
+__sim_io_clus_opt = --mcluster=ioddr
+__sim_cluster_clus_opt = --mcluster=node
+
+# Generate var for all tests list
+# $1 = core type
+define gen_all_test_list
+__all_$(1)_tests = $(sort $($(1)-tests))
+endef
+
+$(foreach test_plat,$(__K1_CORES) mppa host,$(eval $(call gen_all_test_list,$(test_plat))))
+
+# Generate var for specific list
+# $1 = core type
+define gen_plat_tests_list
+__$(1)_$(2)_tests := $$(foreach t,$$(__all_$(1)_tests),$$(if $$($$(t)-$(2)-cmd),$$(t),))
+endef
+
+$(foreach plat,$(__mppa_runners),$(foreach core,$(__K1_CORES) mppa,$(eval $(call gen_plat_tests_list,$(core),$(plat)))))
+$(foreach runner,$(__host_runners),$(eval $(call gen_plat_tests_list,host,$(runner))))
+
+CTEST_DEFAULT_SIM_TIMEOUT := 400
+CTEST_DEFAULT_HW_TIMEOUT := 30
+tests-hw-timeout ?= $(CTEST_DEFAULT_HW_TIMEOUT)
+tests-rem_hw-timeout ?= $(CTEST_DEFAULT_HW_TIMEOUT)
+tests-sim-timeout ?= $(CTEST_DEFAULT_SIM_TIMEOUT)
+
+CTEST_DEFAULT_COST := 0
+
+# Generate host ctest lines
+# $1 = test name
+# $2 = Test type (hw, sim)
+# $3 = Application runner
+# $4 = Additionnal labels
+#
+define gen_ctest_test_line
+
+$(1)-$(2)-timeout ?= $(tests-$(2)-timeout)
+$(1)-cost ?= $(CTEST_DEFAULT_COST)
+__$(1)_name := $(2)_$(1)
+__$(1)_$(2)_labels := $(subst $(space),\;,$(4) $(tests-labels) $($(1)-labels))
+
+__$(1)_$(2)_cmd := ADD_TEST\($$(__$(1)_name) $(3) $($(1)_$(2)_runner_opts) $($(1)-$(2)-cmd)\)\\n
+__$(1)_$(2)_cmd += SET_TESTS_PROPERTIES\($$(__$(1)_name) PROPERTIES TIMEOUT \"$$($(1)-$(2)-timeout)\"\)\\n
+__$(1)_$(2)_cmd += SET_TESTS_PROPERTIES\($$(__$(1)_name) PROPERTIES COST \"$$($(1)-cost)\"\)\\n
+__$(1)_$(2)_cmd += SET_TESTS_PROPERTIES\($$(__$(1)_name) PROPERTIES LABELS \"$$(__$(1)_$(2)_labels)\"\)\\n
+
+endef
+
+# Generate a remote target for a host tests
+# $1 = test name
+# $2 = platform type
+#
+define hw_test_to_remote
+
+$(1)-$(2)-remote-host-exec ?= $(firstword $($(1)-$(2)-cmd))
+
+__$(1)_rem_$(2)_exec := --host_exec $$($(1)-$(2)-remote-host-exec)
+__$(1)_rem_$(2)_remote_infile := $(if $($(1)-$(2)-remote-input-files),--upload $(subst $(space),$(comma),$($(1)-$(2)-remote-input-files)),)
+__$(1)_rem_$(2)_remote_outfile := $(if $($(1)-$(2)-remote-output-files),--download $(subst $(space),$(comma),$($(1)-$(2)-remote-output-files)),)
+__$(1)_rem_multibinary := $(if $($(1)-multibinary),--multibinary $($(1)-multibinary),--nomultibinary)
+
+$(1)_rem_$(2)_runner_opts := $$(__$(1)_rem_$(2)_remote_infile) $$(__$(1)_rem_$(2)_remote_outfile)
+$(1)-rem_$(2)_runner_opts += $$(__$(1)_rem_multibinary) $$(__$(1)_rem_$(2)_exec) --
+$(1)-rem_$(2)-timeout := $($(1)-$(2)-timeout)
+$(1)-rem_$(2)-cmd := $($(1)-$(2)-cmd)
+
+endef
+
+$(foreach t,$(__host_hw_tests), $(eval $(call gen_ctest_test_line,$(t),hw,,host hw)))
+$(foreach t,$(__host_sim_tests), $(eval $(call gen_ctest_test_line,$(t),sim,k1-pciesim-runner,host sim)))
+$(foreach t,$(__host_hw_tests), $(if $($(t)-hw-no-remote),,$(eval $(call hw_test_to_remote,$(t),hw)) \
+				$(eval $(call gen_ctest_test_line,$(t),rem_hw,k1-remote-runner,host remote hw))))
+
+# Generate jtag command line
+# $1 = Test name
+# $2 = Test platform
+# $3 = Elf name to execute
+# $4 = Default node execution
+define gen_jtag_test_cmd
+$(1)-$(2)-node-exec ?= $(4)
+
+$(1)_$(2)_runner_opts := $(if $($(1)-multibinary),--multibinary=$($(1)-multibinary))
+$(1)_$(2)_runner_opts += --exec-file=$(3):$(firstword $($(1)-$(2)-cmd)) -- 
+$(1)-$(2)-cmd = $(wordlist 2, $(words $($(1)-$(2)-cmd)), $($(1)-$(2)-cmd))
+endef
+
+# Generate simulator command line
+define gen_sim_test_cmd
+$(1)_$(2)_runner_opts += $(if $($(1)-multibinary),--multibinary=$($(1)-multibinary),$(__sim_$(3)_clus_opt)) --
+endef
+
+# Generate command lines for sim and jtag tests
+$(foreach core,$(__K1_CORES) mppa,\
+	$(foreach t,$(__$(core)_jtag_tests), $(eval $(call gen_jtag_test_cmd,$(t),jtag,$(__jtag_$(core)_node_opt))) \
+			$(eval $(call gen_ctest_test_line,$(t),jtag,$(K1_JTAG_RUNNER),$(core) jtag)))\
+	$(foreach t,$(__$(core)_sim_tests), $(eval $(call gen_sim_test_cmd,$(t),sim,$(core))) \
+			$(eval $(call gen_ctest_test_line,$(t),sim,$(__sim_$(core)_runner),$(core) sim)))\
+)
+
+project-name ?= Test
+
+PHONY += $(BIN_DIR)/DartConfiguration.tcl
+$(BIN_DIR)/DartConfiguration.tcl: $(BIN_DIR)/.dirstamp FORCE
+	$(Q)echo "Name: $(project-name)" >> $@
+	$(Q)echo "BuildName: $(project-name)" >> $@
+	$(Q)echo "Site: $(shell hostname)" >> $@
+
+PHONY += $(BIN_DIR)/CTestTestfile.cmake
+$(BIN_DIR)/CTestTestfile.cmake: $(BIN_DIR)/DartConfiguration.tcl $(firstword $(MAKEFILE_LIST)) FORCE
+	$(Q)echo "# Generated test file" > $@
+	$(Q)echo "SET(ENV{LD_LIBRARY_PATH} ../lib/host/:\$$ENV{LD_LIBRARY_PATH})" >> $@
+	$(Q)echo "SET(ENV{PATH} ./:\$$ENV{PATH})" >> $@
+	$(Q)$(foreach t,$(__host_hw_tests),echo -e ${__${t}_hw_cmd} \\n${__${t}_rem_hw_cmd} >> $@;)
+	$(Q)$(foreach t,$(__host_sim_tests),echo -e ${__${t}_sim_cmd} >> $@;)
+	$(Q)$(foreach core,$(__K1_CORES) mppa,\
+		$(foreach p,$(__mppa_runners),\
+			$(foreach t,$(__$(core)_$(p)_tests),echo -e ${__$(t)_$(p)_cmd} >> $@;)\
+		)\
+	)
+
+ifeq ($(strip $(__all_host_tests)),)
+__gen_ctest_file:
+else
+PHONY += __gen_ctest_file
+__gen_ctest_file: $(BIN_DIR)/CTestTestfile.cmake FORCE
+endif
+
+################################################################################
+#			      General Rules
+################################################################################
+__ALL_BIN_TYPES := $(__K1_CORES) host
+# All generated cobjs
+all_objslist = $(host_objslist) $(k1_objslist) $(mppa_multibins_mpk)
+all_depfiles = $(foreach o,$(all_objslist),$(dir $o).$(notdir $o).d $(dir $o).$(notdir $o).cmd)
+
+# Include the dependencies
+-include $(all_depfiles)
+
+# directory creation
+%/.dirstamp:
+	$(Q)mkdir -p $(@D)
+	$(Q)touch $@
+
+PHONY += __k1_check_basic
+# Check the basic flags
+__k1_check_basic: FORCE
+	$(foreach _a,$(__ALL_BIN_TYPES),$(if $(filter $(_a),$($(_a)-bin)), \
+		$(call error_msg,'$(_a) is a reserved identifier$(comma) please use another name for your binary'),) \
+	)
+
+# Hooks
+
+PHONY += __k1_custom_post_build_hooks
+__k1_custom_post_build_hooks: $(post-build-hooks) FORCE
+
+PHONY += __k1_post_build
+__k1_post_build: __k1_targets FORCE
+	$(Q)$(MAKE) -f $(firstword $(MAKEFILE_LIST)) --no-print-directory __k1_custom_post_build_hooks
+
+PHONY += __k1_custom_post_build_hooks
+__k1_custom_pre_build_hooks: $(pre-build-hooks) FORCE
+
+PHONY += __k1_pre_build
+# If there is a clean rule in MAKECMDGOALS, add it to the main dependencies
+# in order to work with parallel build
+__k1_pre_build: __k1_check_basic $(filter clean distclean,$(MAKECMDGOALS)) FORCE
+	$(Q)$(MAKE) -f $(firstword $(MAKEFILE_LIST)) --no-print-directory __k1_custom_pre_build_hooks
+
+PHONY += __k1_all
+__k1_all:  __k1_post_build FORCE
+
+PHONY += __k1_targets
+__k1_targets: __k1_pre_build 
+	$(Q)$(MAKE) -f $(firstword $(MAKEFILE_LIST)) --no-print-directory __k1_main_targets
+
+PHONY += __k1_main_targets
+__k1_main_targets: __gen_ctest_file $(host_cmulti) $(host_clibs) $(host_useobjs) $(io_cmulti) $(io_clibs) $(io_useobjs) $(cluster_cmulti) $(cluster_clibs) $(cluster_useobjs) $(mppa_multibins) FORCE
+
+quiet_cmd_clean	= CLEAN
+      cmd_clean	= rm -rf $(BIN_DIR) $(LIB_OUTPUT_DIR) $(BUILD_DIR) $(clean-extra-files)
+
+PHONY += clean
+clean: $(clean-hooks) FORCE
+	$(call build_cmd,clean)
+
+PHONY += distclean
+distclean: clean
+
+PHONY += __k1_makefile-help
+__k1_makefile-help: FORCE
+	@echo  ''
+	@echo  'Targets:'
+	@echo  '  all             - Generate all the objects'
+	@echo  '  clean           - Remove generated files'
+	@echo  '  help            - Display this help'
+	@echo  ''
+	@echo  'Options:'
+	@echo  '  O=dir           - Build the sources in <dir> (default: output)'
+	@echo  '  V=1             - Verbose output'
+	@echo  ''
+	$(if $(help-hooks), \
+		@echo 'Custom help:' \
+	)
+
+
+PHONY += __k1_custom_help_hooks
+__k1_custom_help_hooks: $(help-hooks) FORCE
+
+PHONY += help
+help: __k1_makefile-help
+	$(Q)$(MAKE) -f $(firstword $(MAKEFILE_LIST)) --no-print-directory __k1_custom_help_hooks
+
+
+PHONY += FORCE
+FORCE:
+	@:
+
+.PHONY: $(PHONY)
+
+.PRECIOUS: %/.dirstamp
