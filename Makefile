@@ -9,10 +9,12 @@ ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 MAKE_AMS:= $(shell find . -name Makefile.am)
+
 FIRMWARES := boot ioeth
 RULE_LIST := clean configure build install valid long
 ARCH_COMPONENTS := odp cunit
 COMPONENTS := extra doc $(ARCH_COMPONENTS) $(FIRMWARES)
+CHECK_LIST :=
 
 include platforms.inc
 
@@ -149,15 +151,30 @@ $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
 # Generate per config rules (clean/build/etc) for each firmware type
 $(foreach RULE, $(RULE_LIST), \
 	$(foreach FIRMWARE, $(FIRMWARES), \
-		$(eval $(FIRMWARE)-$(RULE): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE)))))
-
+		$(eval $(FIRMWARE)-$(RULE): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE))) \
+		$(eval CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE))) \
+))
 # Generate per config rules (clean/build/etc) for each arch specific component
 $(foreach RULE, $(RULE_LIST), \
 	$(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \
-		$(eval $(ARCH_COMPONENT)-$(RULE): $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(RULE)))))
+		$(eval $(ARCH_COMPONENT)-$(RULE): $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(RULE))) \
+		$(eval CHECK_LIST += $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(RULE))) \
+))
 
 # Generate global rules (clean/build/etc) calling all subcomponents
 $(foreach RULE, $(RULE_LIST), \
-		$(eval $(RULE): $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(RULE))))
+		$(eval $(RULE): $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(RULE))) \
+		$(eval CHECK_LIST += $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(RULE))) \
+)
 
 
+check-rules:
+	@RULES=$$(valid/gen-rules.sh); MISSING=0 && \
+	for rule in $(CHECK_LIST); do \
+		echo $${RULES} | egrep -q "( |^)$${rule}( |$$)" || \
+		{ \
+			MISSING=1;\
+			echo "Rule '$${rule}' missing"; \
+		} \
+	done; \
+	[ $$MISSING -eq 0 ]
