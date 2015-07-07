@@ -7,7 +7,6 @@
 
 int main (int argc, char *argv[])
 {
-	mppa_power_ret_t ret;
 	int i, clus_count, clus_status;
 	char clus_id[4];
 	mppa_power_pid_t clus_pid[BSP_NB_CLUSTER_MAX];
