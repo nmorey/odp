@@ -181,3 +181,4 @@ check-rules:
 		} \
 	done; \
 	[ $$MISSING -eq 0 ]
+	@echo "check-rules OK"
