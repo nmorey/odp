@@ -153,7 +153,10 @@ $(foreach RULE, $(RULE_LIST), \
 	$(foreach FIRMWARE, $(FIRMWARES), \
 		$(eval $(FIRMWARE)-$(RULE): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE))) \
 		$(eval CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(RULE))) \
-))
+	) \
+	$(eval firmware-$(RULE): $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(RULE))) \
+	$(eval CHECK_LIST += $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(RULE))) \
+)
 # Generate per config rules (clean/build/etc) for each arch specific component
 $(foreach RULE, $(RULE_LIST), \
 	$(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \
