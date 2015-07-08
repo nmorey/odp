@@ -66,7 +66,9 @@ each of the platforms available for executing ODP applications.
 In this version, two ports are available:
 \begin{itemize}
 \item[-]{\texttt{k1a-kalray-nodeos}}
-\item[-]{\texttt{k1a-kalray-nodeosmagic}}
+\item[-]{\texttt{k1a-kalray-nodeos\_simu}}
+\item[-]{\texttt{k1a-kalray-mos}}
+\item[-]{\texttt{k1a-kalray-mos\_simu}}
 \end{itemize}
 
 \subsection{k1a-kalray-nodeos}
@@ -78,7 +80,12 @@ In the current version, this port supports these interfaces:
 \item[-]{\texttt{loop}: Software loopback.}
 \end{itemize}
 
-\subsection{k1a-kalray-nodeosmagic}
+\subsection{k1a-kalray-mos}
+
+Same target as \texttt{k1a-kalray-nodeos}, but running directly on
+Kalray Hypervisor
+
+\subsection{k1a-kalray-nodeos\_simu}
 
 This ports targets one Andey MPPA cluster in simulation. It is
 compiled for the large\_memory board to remove the 2MB memory limit
@@ -94,6 +101,11 @@ In the current version, this port supports these interfaces:
   \texttt{<ifname>} interface.}
 \end{itemize}
 
+\subsection{k1a-kalray-mos\_simu}
+
+Same target as \texttt{k1a-kalray-nodeos\_simu}, but running directly on
+Kalray Hypervisor
+
 \section{Compiling}
 
 Some compiler flags must be passed to the compiler when trying to
@@ -104,7 +116,7 @@ LDFLAGS += -L$($(K1_TOOLCHAIN_DIR)/lib/<port> -lodp
 \end{lstlisting}
 where port is replaced with one of the available K1-ODP port.
 
-Note that when building with \texttt{k1a-kalray-nodeosmagic}, it is
+Note that when building with \texttt{k1a-kalray-nodeos\_simu}, it is
 required to use the
 
  \texttt{-mboard=large\_memory} flag.
@@ -114,7 +126,7 @@ required to use the
 Running K1-ODP applications is done the same way a standard K1 single
 cluster application would be run.
 
-\subsection{k1a-kalray-nodeos}
+\subsection{k1a-kalray-nodeos and k1a-kalray-mos}
 Running a \texttt{k1a-kalray-nodeos} application, can be done either
 on hardware using:
 \begin{lstlisting}
@@ -125,8 +137,8 @@ or in simulation using:
  k1-cluster -- <executable name> <args>
 \end{lstlisting}
 
-\subsection{k1a-kalray-nodeosmagic}
-Running a \texttt{k1a-kalray-nodeosmagic} application, must be done in
+\subsection{k1a-kalray-nodeos\_simu and k1a-kalray-mos\_simu}
+Running a \texttt{k1a-kalray-nodeos\_simu} application, must be done in
 simulation using this command:
 \begin{lstlisting}
 k1-cluster   --functional  --mboard=large_memory --user-syscall=/usr/local/k1tools/lib64/libodp_syscall.so -- <executable name> <args>

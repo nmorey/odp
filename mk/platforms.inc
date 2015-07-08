@@ -22,15 +22,15 @@ k1a-kalray-nodeos_INSTALL     := true
 k1a-kalray-nodeos_INSTALL_DOC := true
 CONFIGS += k1a-kalray-nodeos
 
-k1a-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1a-kalray-nodeosmagic_CONF_OPTS   :=
-k1a-kalray-nodeosmagic_CFLAGS      := -march=k1a -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
-k1a-kalray-nodeosmagic_LDFLAGS     :=
-k1a-kalray-nodeosmagic_PLATFORM    := k1-cluster
-k1a-kalray-nodeosmagic_INC_DIR     := k1a-nodeos
-k1a-kalray-nodeosmagic_MAKE_VALID  :=
-k1a-kalray-nodeosmagic_INSTALL     := true
-CONFIGS += k1a-kalray-nodeosmagic
+k1a-kalray-nodeos_simu_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
+k1a-kalray-nodeos_simu_CONF_OPTS   :=
+k1a-kalray-nodeos_simu_CFLAGS      := -march=k1a -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
+k1a-kalray-nodeos_simu_LDFLAGS     :=
+k1a-kalray-nodeos_simu_PLATFORM    := k1-cluster
+k1a-kalray-nodeos_simu_INC_DIR     := k1a-nodeos
+k1a-kalray-nodeos_simu_MAKE_VALID  :=
+k1a-kalray-nodeos_simu_INSTALL     := true
+CONFIGS += k1a-kalray-nodeos_simu
 
 k1a-kalray-rtems_CONF_ENV    := CC=k1-gcc  CXX=k1-rtems-g++ STRIP=k1-strip
 k1a-kalray-rtems_CONF_OPTS   :=
@@ -53,15 +53,15 @@ k1a-kalray-mos_MAKE_VALID  := -j1
 k1a-kalray-mos_INSTALL     := true
 CONFIGS += k1a-kalray-mos
 
-k1a-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1a-kalray-mosmagic_CONF_OPTS   :=
-k1a-kalray-mosmagic_CFLAGS      := -march=k1a -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
-k1a-kalray-mosmagic_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
-k1a-kalray-mosmagic_PLATFORM    := k1-cluster
-k1a-kalray-mosmagic_INC_DIR     := k1a-elf
-k1a-kalray-mosmagic_MAKE_VALID  :=
-k1a-kalray-mosmagic_INSTALL     := true
-CONFIGS += k1a-kalray-mosmagic
+k1a-kalray-mos_simu_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
+k1a-kalray-mos_simu_CONF_OPTS   :=
+k1a-kalray-mos_simu_CFLAGS      := -march=k1a -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
+k1a-kalray-mos_simu_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
+k1a-kalray-mos_simu_PLATFORM    := k1-cluster
+k1a-kalray-mos_simu_INC_DIR     := k1a-elf
+k1a-kalray-mos_simu_MAKE_VALID  :=
+k1a-kalray-mos_simu_INSTALL     := true
+CONFIGS += k1a-kalray-mos_simu
 
 #
 #
@@ -80,15 +80,15 @@ k1b-kalray-nodeos_MAKE_VALID  := -j1
 k1b-kalray-nodeos_INSTALL     := true
 CONFIGS += k1b-kalray-nodeos
 
-k1b-kalray-nodeosmagic_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
-k1b-kalray-nodeosmagic_CONF_OPTS   :=
-k1b-kalray-nodeosmagic_CFLAGS      := -march=k1b -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
-k1b-kalray-nodeosmagic_LDFLAGS     :=
-k1b-kalray-nodeosmagic_PLATFORM    := k1-cluster
-k1b-kalray-nodeosmagic_INC_DIR     := k1b-nodeos
-k1b-kalray-nodeosmagic_MAKE_VALID  :=
-k1b-kalray-nodeosmagic_INSTALL     := true
-_CONFIGS += k1b-kalray-nodeosmagic
+k1b-kalray-nodeos_simu_CONF_ENV    := CC=k1-nodeos-gcc  CXX=k1-nodeos-g++ STRIP=k1-strip
+k1b-kalray-nodeos_simu_CONF_OPTS   :=
+k1b-kalray-nodeos_simu_CFLAGS      := -march=k1b -DK1_NODEOS -DMAGIC_SCALL -mboard=large_memory
+k1b-kalray-nodeos_simu_LDFLAGS     :=
+k1b-kalray-nodeos_simu_PLATFORM    := k1-cluster
+k1b-kalray-nodeos_simu_INC_DIR     := k1b-nodeos
+k1b-kalray-nodeos_simu_MAKE_VALID  :=
+k1b-kalray-nodeos_simu_INSTALL     := true
+_CONFIGS += k1b-kalray-nodeos_simu
 
 k1b-kalray-rtems_CONF_ENV    := CC=k1-gcc  CXX=k1-rtems-g++ STRIP=k1-strip
 k1b-kalray-rtems_CONF_OPTS   :=
@@ -110,15 +110,15 @@ k1b-kalray-mos_MAKE_VALID  := -j1
 k1b-kalray-mos_INSTALL     := true
 CONFIGS += k1b-kalray-mos
 
-k1b-kalray-mosmagic_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
-k1b-kalray-mosmagic_CONF_OPTS   :=
-k1b-kalray-mosmagic_CFLAGS      := -march=k1b -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
-k1b-kalray-mosmagic_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
-k1b-kalray-mosmagic_PLATFORM    := k1-cluster
-k1b-kalray-mosmagic_INC_DIR     := k1b-elf
-k1b-kalray-mosmagic_MAKE_VALID  :=
-k1b-kalray-mosmagic_INSTALL     := true
-_CONFIGS += k1b-kalray-mosmagic
+k1b-kalray-mos_simu_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
+k1b-kalray-mos_simu_CONF_OPTS   :=
+k1b-kalray-mos_simu_CFLAGS      := -march=k1b -mhypervisor -DK1_MOS -DMAGIC_SCALL -mboard=large_memory
+k1b-kalray-mos_simu_LDFLAGS     := -lvbsp -lutask -Wl,--defsym=USER_STACK_SIZE=4096
+k1b-kalray-mos_simu_PLATFORM    := k1-cluster
+k1b-kalray-mos_simu_INC_DIR     := k1b-elf
+k1b-kalray-mos_simu_MAKE_VALID  :=
+k1b-kalray-mos_simu_INSTALL     := true
+_CONFIGS += k1b-kalray-mos_simu
 
 #
 #
