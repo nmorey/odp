@@ -3,6 +3,11 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <HAL/hal/hal.h>
+
+#ifndef BSP_NB_DMA_IO_MAX
+#define BSP_NB_DMA_IO_MAX 1
+#endif
+
 #include <libmppa_eth_core.h>
 #include <libmppa_eth_loadbalancer_core.h>
 #include <mppa_routing.h>
