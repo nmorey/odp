@@ -12,13 +12,13 @@
 
 #include <stdlib.h>
 
-#define PKT_BUF_NUM            32
+#define PKT_BUF_NUM            8
 #define PKT_BUF_SIZE           (9 * 1024)
 #define PKT_LEN_NORMAL         64
 #define PKT_LEN_JUMBO          (PKT_BUF_SIZE - ODPH_ETHHDR_LEN - \
 				ODPH_IPV4HDR_LEN - ODPH_UDPHDR_LEN)
 
-#define MAX_NUM_IFACES         2
+#define MAX_NUM_IFACES         8
 #define IFACE_NAME_SIZE		14
 #define TEST_SEQ_INVALID       ((uint32_t)~0)
 #define TEST_SEQ_MAGIC         0x92749451
@@ -511,25 +511,24 @@ static void pktio_test_promisc(void)
 static void pktio_test_mac(void)
 {
 	unsigned char mac_addr[ODPH_ETHADDR_LEN];
-	int mac_len;
-	int ret;
-	odp_pktio_t pktio = create_pktio(iface_name[0], 0);
+	int mac_len, i, ret;
+	odp_pktio_t pktio;
 
 	printf("testing mac for %s\n", iface_name[0]);
 
-	mac_len = odp_pktio_mac_addr(pktio, mac_addr, sizeof(mac_addr));
-	CU_ASSERT(ODPH_ETHADDR_LEN == mac_len);
-
-	printf(" %X:%X:%X:%X:%X:%X ",
-	       mac_addr[0], mac_addr[1], mac_addr[2],
-	       mac_addr[3], mac_addr[4], mac_addr[5]);
+	for (i = 0; i < MAX_NUM_IFACES; i++) {
+		pktio = create_pktio(iface_name[i], 0);
+	
+		mac_len = odp_pktio_mac_addr(pktio, mac_addr, sizeof(mac_addr));
+		CU_ASSERT(ODPH_ETHADDR_LEN == mac_len);
+		CU_ASSERT(mac_addr[0] == i);
+		
+	}
 
 	/* Fail case: wrong addr_size. Expected <0. */
 	mac_len = odp_pktio_mac_addr(pktio, mac_addr, 2);
 	CU_ASSERT(mac_len < 0);
 
-	ret = odp_pktio_close(pktio);
-	CU_ASSERT(0 == ret);
 }
 
 static void pktio_test_inq_remdef(void)
@@ -559,16 +558,16 @@ static void pktio_test_inq_remdef(void)
 static void pktio_test_open(void)
 {
 	odp_pktio_t pktio;
-	char str[20] = {0};
 	int i;
 
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
-		sprintf(str, "cluster-%d\n", i);
-		pktio = odp_pktio_open(str, default_pkt_pool);
+		printf("Opening pktio %s\n", iface_name[i]);
+		pktio = odp_pktio_open(iface_name[i], default_pkt_pool);
 		CU_ASSERT(pktio != ODP_PKTIO_INVALID);
-		//~ CU_ASSERT(odp_pktio_close(pktio) == 0);
+		CU_ASSERT(odp_pktio_close(pktio) == 0);
+		printf("Close pktio %s ok\n", iface_name[i]);
 	}
-	
+
 	pktio = odp_pktio_open("cluster-16", default_pkt_pool);
 	CU_ASSERT(pktio == ODP_PKTIO_INVALID);
 }
@@ -576,19 +575,22 @@ static void pktio_test_open(void)
 static void pktio_test_lookup(void)
 {
 	odp_pktio_t pktio, pktio_inval;
+	int i;
 
-	pktio = odp_pktio_open(iface_name[0], default_pkt_pool);
-	CU_ASSERT(pktio != ODP_PKTIO_INVALID);
+	for (i = 0; i < MAX_NUM_IFACES; i++) {
+		pktio = odp_pktio_open(iface_name[0], default_pkt_pool);
+		CU_ASSERT(pktio != ODP_PKTIO_INVALID);
 
-	CU_ASSERT(odp_pktio_lookup(iface_name[0]) == pktio);
+		CU_ASSERT(odp_pktio_lookup(iface_name[0]) == pktio);
 
-	pktio_inval = odp_pktio_open(iface_name[0], default_pkt_pool);
-	CU_ASSERT(odp_errno() != 0);
-	CU_ASSERT(pktio_inval == ODP_PKTIO_INVALID);
+		pktio_inval = odp_pktio_open(iface_name[0], default_pkt_pool);
+		CU_ASSERT(odp_errno() != 0);
+		CU_ASSERT(pktio_inval == ODP_PKTIO_INVALID);
 
-	CU_ASSERT(odp_pktio_close(pktio) == 0);
+		CU_ASSERT(odp_pktio_close(pktio) == 0);
 
-	CU_ASSERT(odp_pktio_lookup(iface_name[0]) == ODP_PKTIO_INVALID);
+		CU_ASSERT(odp_pktio_lookup(iface_name[0]) == ODP_PKTIO_INVALID);
+	}
 }
 
 static void pktio_test_inq(void)
@@ -680,16 +682,16 @@ static int pktio_suite_term(void)
 
 static CU_TestInfo pktio_suite[] = {
 	{"pktio open",		pktio_test_open},
-	//~ {"pktio lookup",	pktio_test_lookup},
+	{"pktio lookup",	pktio_test_lookup},
+	{"pktio mac",		pktio_test_mac},
+	{"pktio mtu",		pktio_test_mtu},
 	//~ {"pktio inq",		pktio_test_inq},
 	//~ {"pktio poll queues",	pktio_test_poll_queue},
 	//~ {"pktio poll multi",	pktio_test_poll_multi},
 	//~ {"pktio sched queues",	pktio_test_sched_queue},
 	//~ {"pktio sched multi",	pktio_test_sched_multi},
 	//~ {"pktio jumbo frames",	pktio_test_jumbo},
-	//~ {"pktio mtu",		pktio_test_mtu},
 	//~ {"pktio promisc mode",	pktio_test_promisc},
-	//~ {"pktio mac",		pktio_test_mac},
 	//~ {"pktio inq_remdef",	pktio_test_inq_remdef},
 	CU_TEST_INFO_NULL
 };
