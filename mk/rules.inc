@@ -25,7 +25,7 @@ $(1)-cunit-clean:
 	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(CUNIT_INST_DIR)/$(1)
 
 $(1)-odp-configure: $(ARCH_DIR)/$(1)/Makefile
-$(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a
+$(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a $(MAKE_DEPS)
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
 	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \

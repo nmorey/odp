@@ -9,7 +9,8 @@ ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 CUNIT_INST_DIR:= $(TOP_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/
-MAKE_AMS:= $(shell find . -name Makefile.am)
+MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
+MAKE_DEPS:= $(MAKE_AMS) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
 FIRMWARES := boot ioeth
 RULE_LIST_SERIAL   := valid long
