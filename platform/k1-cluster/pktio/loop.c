@@ -15,16 +15,7 @@
 /* MAC address for the "loop" interface */
 static const char pktio_loop_mac[] = {0x02, 0xe9, 0x34, 0x80, 0x73, 0x01};
 
-int loop_open(pktio_entry_t * const pktio_entry, const char * devname);
-int loop_init(pktio_entry_t *entry, odp_pool_t pool);
-void loop_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr);
-int loop_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len);
-int loop_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len);
-int loop_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable);
-int loop_promisc_mode(pktio_entry_t *const pktio_entry);
-int loop_mtu_get(pktio_entry_t *const pktio_entry);
-
-int loop_open(pktio_entry_t * const pktio_entry, const char * devname)
+static int loop_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if(!strncmp("loop", devname, strlen("loop"))){
 		pktio_entry->s.type = ODP_PKTIO_TYPE_LOOPBACK;
@@ -34,7 +25,13 @@ int loop_open(pktio_entry_t * const pktio_entry, const char * devname)
 	return -1;
 }
 
-int loop_init(pktio_entry_t *entry, __attribute__ ((unused)) odp_pool_t pool)
+static int loop_close(pktio_entry_t * const pktio_entry)
+{
+	pktio_loopback_t * pkt_loop = &pktio_entry->s.loop;
+	return odp_queue_destroy(pkt_loop->loopq);
+}
+
+static int loop_init(pktio_entry_t *entry, __attribute__ ((unused)) odp_pool_t pool)
 {
 	char loopq_name[ODP_QUEUE_NAME_LEN];
 	odp_pktio_t id = entry->s.handle;
@@ -51,12 +48,12 @@ int loop_init(pktio_entry_t *entry, __attribute__ ((unused)) odp_pool_t pool)
 }
 
 
-void loop_mac_get(__attribute__((unused)) const pktio_entry_t *const pktio_entry, void * mac_addr)
+static void loop_mac_get(__attribute__((unused)) const pktio_entry_t *const pktio_entry, void * mac_addr)
 {
 	memcpy(mac_addr, pktio_loop_mac, ETH_ALEN);
 }
 
-int loop_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
+static int loop_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
 {
 	int nbr, i;
 	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
@@ -72,7 +69,7 @@ int loop_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int le
 
 	return nbr;
 }
-int loop_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
+static int loop_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
 {
 	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
 	queue_entry_t *qentry;
@@ -85,18 +82,18 @@ int loop_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsign
 	return queue_enq_multi(qentry, hdr_tbl, len);
 }
 
-int loop_promisc_mode_set(__attribute__((unused)) pktio_entry_t *const pktio_entry,
+static int loop_promisc_mode_set(__attribute__((unused)) pktio_entry_t *const pktio_entry,
 			  __attribute__((unused)) odp_bool_t enable)
 {
 	return 0;
 }
 
-int loop_promisc_mode(pktio_entry_t *const pktio_entry)
+static int loop_promisc_mode(pktio_entry_t *const pktio_entry)
 {
 	return pktio_entry->s.promisc ? 1 : 0;
 }
 
-int loop_mtu_get(__attribute__((unused)) pktio_entry_t *const pktio_entry)
+static int loop_mtu_get(__attribute__((unused)) pktio_entry_t *const pktio_entry)
 {
 	return PKTIO_LOOP_MTU;
 }
@@ -112,4 +109,5 @@ struct pktio_if_operation loop_pktio_operation = {
 	.promisc_mode_get = loop_promisc_mode,
 	.mtu_get = loop_mtu_get,
 	.open = loop_open,
+	.close = loop_close,
 };

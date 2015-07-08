@@ -25,6 +25,11 @@ static int eth_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
+static int eth_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
+{
+	return 0;
+}
+
 static int eth_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if (devname[0] != 'p')
@@ -93,4 +98,5 @@ struct pktio_if_operation eth_pktio_operation = {
 	.promisc_mode_get = eth_promisc_mode,
 	.mtu_get = eth_mtu_get,
 	.open = eth_open,
+	.close = eth_close,
 };
