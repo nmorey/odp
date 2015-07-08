@@ -208,7 +208,7 @@ junits:
 			cat $$FNAME.log && \
 			echo -e "\t\t\t]]>"; \
 		fi; \
-		if [ "$$status" == "FAIL" ]; then \
+		if [ "$$status" == "FAIL" || "$$status" == "XFAIL" ]; then \
 			echo -e "\t\t</error>";\
 		else \
 			echo -e "\t\t</system-out>"; \
