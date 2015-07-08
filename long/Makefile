@@ -37,11 +37,6 @@ cluster-lflags += -lodp -lcunit -lmppanoc -lmpparouting
 cluster-bin :=
 cluster-tests :=
 
-spawner-srcs := spawner.c
-spawner-lflags := -lmppapower -lmppanoc -lmpparouting
-
-io-bin := spawner
-
 # Subdirectories
 SUB_DIRS := basic_cluster
 SUB_DIRS := $(addsuffix /Makefile,$(SUB_DIRS))

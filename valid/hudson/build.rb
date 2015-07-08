@@ -10,6 +10,7 @@ options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path t
                         "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
                         "list-configs"  => {"type" => "boolean", "default" => false, "help" => "List all targets" },
+                        "local-valid"   => {"type" => "boolean", "default" => false, "help" => "Valid using the local installation" },
                         "configs"       => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
                         "valid-configs" => {"type" => "string", "default" => CONFIGS.keys.join(" "), "help" => "Build configs. Default = #{CONFIGS.keys.join(" ")}" },
                         "output-dir"    => [nil, "Output directory for RPMs."],
@@ -39,8 +40,8 @@ repo = Git.new(odp_clone,workspace)
 clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
-long = ParallelTarget.new("long", repo, [])
-install = Target.new("install", repo, [build])
+long = Target.new("long", repo, [])
+install = ParallelTarget.new("install", repo, [build])
 package = Target.new("package", repo, [install])
 
 b = Builder.new("odp", options, [clean, build, valid, long, package, install])
@@ -84,7 +85,17 @@ b.target("long") do
     b.logtitle = "Report for odp tests."
     cd odp_path
 
-    b.valid(:cmd => "make long USE_PACKAGES=1 CONFIGS='#{valid_configs.join(" ")}'")
+    make_opt = ""
+    if options["local-valid"] == false then
+        make_opt = "USE_PACKAGES=1"
+    end
+
+    b.run(:cmd => "make long #{make_opt} CONFIGS='#{valid_configs.join(" ")}'")
+
+    configs.each(){|conf|
+        cd File.join(odp_path, "build", "long_" + conf, "bin")
+        b.ctest(:ctest_args => "-L sim")
+    }
 end
 
 b.target("install") do
