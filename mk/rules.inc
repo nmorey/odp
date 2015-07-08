@@ -15,17 +15,17 @@ $(1)-cunit-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/Makefile
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1
 
-$(1)-cunit-install: $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a
-$(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
+$(1)-cunit-install: $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a
+$(CUNIT_INST_DIR)/$(1)/lib/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1 install
 
 $(1)-cunit-valid:
 $(1)-cunit-long:
 $(1)-cunit-clean:
-	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(TOP_DIR)/cunit/install/$(1)
+	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(CUNIT_INST_DIR)/$(1)
 
 $(1)-odp-configure: $(ARCH_DIR)/$(1)/Makefile
-$(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(TOP_DIR)/cunit/install/$(1)/lib/libcunit.a
+$(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
 	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
