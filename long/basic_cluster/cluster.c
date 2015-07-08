@@ -17,15 +17,17 @@
 #define PKT_LEN_NORMAL         64
 #define PKT_LEN_JUMBO          (PKT_BUF_SIZE - ODPH_ETHHDR_LEN - \
 				ODPH_IPV4HDR_LEN - ODPH_UDPHDR_LEN)
+
 #define MAX_NUM_IFACES         2
+#define IFACE_NAME_SIZE		14
 #define TEST_SEQ_INVALID       ((uint32_t)~0)
 #define TEST_SEQ_MAGIC         0x92749451
 
 /** interface names used for testing */
-static const char *iface_name[MAX_NUM_IFACES];
+static char iface_name[MAX_NUM_IFACES][IFACE_NAME_SIZE];
 
 /** number of interfaces being used (1=loopback, 2=pair) */
-static int num_ifaces;
+static int num_ifaces = MAX_NUM_IFACES;
 
 /** local container for pktio attributes */
 typedef struct {
@@ -560,13 +562,13 @@ static void pktio_test_open(void)
 	char str[20] = {0};
 	int i;
 
-	for (i = 0; i < 15; i++) {
+	for (i = 0; i < MAX_NUM_IFACES; i++) {
 		sprintf(str, "cluster-%d\n", i);
 		pktio = odp_pktio_open(str, default_pkt_pool);
 		CU_ASSERT(pktio != ODP_PKTIO_INVALID);
 		//~ CU_ASSERT(odp_pktio_close(pktio) == 0);
 	}
-
+	
 	pktio = odp_pktio_open("cluster-16", default_pkt_pool);
 	CU_ASSERT(pktio == ODP_PKTIO_INVALID);
 }
@@ -616,9 +618,10 @@ static int create_pool(const char *iface, int num)
 
 	pool[num] = odp_pool_create(pool_name, ODP_SHM_NULL, &params);
 	if (ODP_POOL_INVALID == pool[num]) {
-		CU_FAIL("unable to create pool");
+		fprintf(stderr, "unable to create pool\n");
 		return -1;
 	}
+	printf("Open %s ok\n", iface);
 
 	return 0;
 }
@@ -626,23 +629,13 @@ static int create_pool(const char *iface, int num)
 static int pktio_suite_init(void)
 {
 	odp_atomic_init_u32(&ip_seq, 0);
-	iface_name[0] = getenv("ODP_PKTIO_IF0");
-	iface_name[1] = getenv("ODP_PKTIO_IF1");
-	num_ifaces = 1;
 	int i;
 
-	if (!iface_name[0]) {
-		printf("No interfaces specified, using default \"loop\".\n");
-		iface_name[0] = "loop";
-	} else if (!iface_name[1]) {
-		printf("Using loopback interface: %s\n", iface_name[0]);
-	} else {
-		num_ifaces = 2;
-		printf("Using paired interfaces: %s %s\n",
-		       iface_name[0], iface_name[1]);
-	}
+	printf("Init testsuite\n");
+	for (i = 0; i < MAX_NUM_IFACES; i++) {
+		pool[i] = ODP_POOL_INVALID;
 
-	for (i = 0; i < num_ifaces; i++) {
+		sprintf(iface_name[i], "cluster-%d", i);
 		if (create_pool(iface_name[i], i) != 0)
 			return -1;
 	}
@@ -652,6 +645,7 @@ static int pktio_suite_init(void)
 		return -1;
 	}
 
+	printf("init ok\n");
 	return 0;
 }
 

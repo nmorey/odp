@@ -288,6 +288,8 @@ obj_build_dir = $(call src2build,$(addprefix $$($(1)_build_dir)/, $(2)))
 __host_bin = $(sort $(host-bin))
 __host_lib = $(sort $(host-lib))
 
+ifneq ($(__host_bin)$(__host_lib),)
+
 lib_prefix := lib
 
 # We do not support cross bitness compilation
@@ -443,6 +445,9 @@ $(foreach l,$(host_clibs), $(eval $(call host_lib_var,$(l)) \
 # and then for reuse objs
 $(foreach l,$(host_useobjs), $(eval $(call host_multi_var,$(l)) \
 					$(call host_useobjs_rules,$(l))))
+
+# end of no host binaries
+endif
 
 ################################################################################
 #				K1 Part
@@ -628,6 +633,8 @@ $(foreach m,$(cluster_useobjs), $(eval $(call k1_useobjs_rules,$(m),DP)))
 
 __mppa_multibins = $(sort $(mppa-bin))
 
+ifneq ($(__mppa_multibins),)
+
 # Name of multibins which have objs
 mppa_multibins := $(foreach m,$(__mppa_multibins),$(if $($(m)-objs),$(m),))
 
@@ -688,6 +695,9 @@ endef
 
 $(foreach m,$(mppa_multibins), $(eval $(call mppa_multibin_rules,$(m))))
 
+# end of no multibin
+endif
+
 ################################################################################
 #			        Test Part
 ################################################################################
@@ -716,13 +726,18 @@ __sim_mppa_runner = $(K1_MPPA)
 __sim_io_clus_opt = --mcluster=ioddr
 __sim_cluster_clus_opt = --mcluster=node
 
+__all_tests :=
+
 # Generate var for all tests list
 # $1 = core type
 define gen_all_test_list
 __all_$(1)_tests = $(sort $($(1)-tests))
+__all_tests += __all_$(1)_tests
 endef
 
 $(foreach test_plat,$(__K1_CORES) mppa host,$(eval $(call gen_all_test_list,$(test_plat))))
+
+ifneq ($(strip $(__all_tests)),)
 
 # Generate var for specific list
 # $1 = core type
@@ -833,11 +848,13 @@ $(BIN_DIR)/CTestTestfile.cmake: $(BIN_DIR)/DartConfiguration.tcl $(firstword $(M
 		)\
 	)
 
-ifeq ($(strip $(__all_host_tests)),)
-__gen_ctest_file:
-else
 PHONY += __gen_ctest_file
 __gen_ctest_file: $(BIN_DIR)/CTestTestfile.cmake FORCE
+
+else
+
+__gen_ctest_file:
+
 endif
 
 ################################################################################
