@@ -147,6 +147,7 @@ struct pktio_if_operation {
 	 * Open return -1 if the devname was not handled, 0 if handled with success and 1 if handled with error
 	 */
 	int (* open)(pktio_entry_t * const /* pktio_entry */, const char * /* devname */);
+	int (* close)(pktio_entry_t * const /* pktio_entry */);
 	int (* mtu_get)(pktio_entry_t * const /* pktio_entry */);
 };
 

@@ -53,6 +53,12 @@ static int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
+
+static int magic_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
+{
+	return 0;
+}
+
 static int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 {
 	if(!strncmp("magic-", devname, strlen("magic-"))){
@@ -169,4 +175,5 @@ struct pktio_if_operation magic_pktio_operation = {
 	.promisc_mode_get = magic_promisc_mode,
 	.mtu_get = magic_mtu_get,
 	.open = magic_open,
+	.close = magic_close,
 };

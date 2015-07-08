@@ -217,7 +217,7 @@ static int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
 	return 0;
 }
 
-static int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
+static int cluster_open(pktio_entry_t * const pktio_entry, const char *dev)
 {
 	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
 	if(!strncmp("cluster-", dev, strlen("cluster-"))) {
@@ -233,6 +233,12 @@ static int cluster_open(pktio_entry_t * pktio_entry, const char *dev)
 
 	return -1;
 }
+
+static int cluster_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
+{
+	return 0;
+}
+
 
 static void cluster_mac_get(const pktio_entry_t *const pktio_entry,
 			    void * mac_addr)
@@ -492,4 +498,5 @@ struct pktio_if_operation cluster_pktio_operation = {
 	.promisc_mode_get = cluster_promisc_mode,
 	.mtu_get = cluster_mtu_get,
 	.open = cluster_open,
+	.close = cluster_close,
 };

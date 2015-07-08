@@ -277,25 +277,24 @@ int odp_pktio_close(odp_pktio_t id)
 	int res = -1;
 
 	entry = get_pktio_entry(id);
-	if (entry == NULL)
+	if (entry == NULL) {
+		printf("prout\n");
 		return -1;
+	}
 
 	lock_entry(entry);
 	if (!is_free(entry)) {
-		/* FIXME */
-		switch (entry->s.type) {
-		case ODP_PKTIO_TYPE_LOOPBACK:
-			res = odp_queue_destroy(entry->s.loop.loopq);
-			break;
-		default:
-			break;
-		}
+
+		res = pktio_if_ops[entry->s.type]->close(entry);
 		res |= free_pktio_entry(id);
+
 	}
 	unlock_entry(entry);
 
-	if (res != 0)
+	if (res != 0) {
+		printf("prat\n");
 		return -1;
+	}
 
 	return 0;
 }
