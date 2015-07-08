@@ -53,14 +53,18 @@ b.default_targets = [valid]
 debug_flags = options["debug"] == true ? "--enable-debug" : ""
 
 valid_configs = options["valid-configs"].split()
+valid_type = "sim"
 if ENV["label"].to_s() != "" then
     case ENV["label"]
     when /MPPADevelopers*/, /MPPAEthDevelopers*/
         valid_configs = [ "k1a-kalray-nodeos", "k1a-kalray-mos" ]
-   	when "fedora19-64","fedora17-64","debian6-64","centos7-64","debian7-64"
+        valid_type = "jtag"
+    when "fedora19-64","fedora17-64","debian6-64","centos7-64","debian7-64"
         valid_configs = [ "k1a-kalray-nodeos_simu" ]
+        valid_type = "sim"
     when /MPPAExplorers_k1b*/
         valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+        valid_type = "jtag"
     else
         raise("Unsupported label #{ENV["label"]}!")
     end
@@ -105,9 +109,9 @@ b.target("long") do
 
     b.run(:cmd => "make long #{make_opt} CONFIGS='#{valid_configs.join(" ")}'")
 
-    configs.each(){|conf|
+    valid_configs.each(){|conf|
         cd File.join(odp_path, "build", "long_" + conf, "bin")
-        b.ctest(:ctest_args => "-L sim")
+        b.ctest(:ctest_args => "-L #{valid_type}")
     }
 end
 
