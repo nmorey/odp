@@ -1,7 +1,7 @@
 BUILDDIR := $(shell pwd)
 
-SRCFILES := $(shell find $(SRCDIR) -name "*.c")
-HDRFILES := $(shell find $(SRCDIR) -name "*.h")
+SRCFILES := $(shell find $(SRCDIR) -name "[^.]*.c")
+HDRFILES := $(shell find $(SRCDIR) -name "[^.]*.h")
 OBJFILES := $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
 _CFLAGS  := $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99
