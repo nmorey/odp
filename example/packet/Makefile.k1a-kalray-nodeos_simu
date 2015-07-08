@@ -4,7 +4,7 @@ K1_TOOLCHAIN_DIR := $(shell echo $${K1_TOOLCHAIN_DIR:-/usr/local/k1tools})
 board := large_memory
 
 cflags := -Wall -Werror -O3 -g -I$(K1_TOOLCHAIN_DIR)/doc/ODP/example
-lflags := -L$(K1_TOOLCHAIN_DIR)/lib/k1a-kalray-nodeosmagic -lodp -lcrypto
+lflags := -L$(K1_TOOLCHAIN_DIR)/lib/k1a-kalray-nodeos_magic -lodp -lcrypto
 
 cluster-bin := odp_pktio
 odp_pktio-srcs := odp_pktio.c

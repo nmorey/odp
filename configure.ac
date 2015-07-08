@@ -82,10 +82,10 @@ AS_CASE([$host],
   [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
 )
 AS_CASE([$host],
-  [k1*magic], [k1_hw=no
-			   RUN_TARGET=k1-cluster],
-  [k1*os],    [k1_hw=yes
-  			   RUN_TARGET=k1-jtag],
+  [k1*simu], [k1_hw=no
+			  RUN_TARGET=k1-cluster],
+  [k1*],     [k1_hw=yes
+  			  RUN_TARGET=k1-jtag],
   [*]
 )
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"

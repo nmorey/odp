@@ -9,7 +9,8 @@ ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 CUNIT_INST_DIR:= $(TOP_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/
-MAKE_AMS:= $(shell find . -name Makefile.am)
+MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
+MAKE_DEPS:= $(MAKE_AMS) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
 FIRMWARES := boot ioeth
 RULE_LIST_SERIAL   := valid long
@@ -71,7 +72,7 @@ extra-long:
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
 	install example/example_debug.h platform/k1-cluster/test/pktio/pktio_env \
-		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeosmagic} \
+		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeos_simu} \
 		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
 			$(K1ST_DIR)/doc/ODP/example
 $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh

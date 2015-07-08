@@ -4,10 +4,15 @@
 #include <assert.h>
 #include <HAL/hal/hal.h>
 
+#ifndef BSP_NB_DMA_IO_MAX
+#define BSP_NB_DMA_IO_MAX 1
+#endif
+
 #include <mppa_bsp.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 #include "rpc.h"
+#include "eth.h"
 
 #define RPC_PKT_SIZE (sizeof(odp_rpc_t) + RPC_MAX_PAYLOAD)
 
@@ -26,7 +31,7 @@ static int cluster_init_dnoc_rx(int clus_id)
 		return 1;
 
 	/* DNoC */
-	ret = mppa_noc_dnoc_rx_alloc(clus_id % 4, RPC_BASE_RX + clus_id % 4);
+	ret = mppa_noc_dnoc_rx_alloc(clus_id % 4, RPC_BASE_RX + clus_id / 4);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -35,7 +40,7 @@ static int cluster_init_dnoc_rx(int clus_id)
 	conf.activation = MPPA_NOC_ACTIVATED;
 	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
 
-	ret = mppa_noc_dnoc_rx_configure(clus_id % 4, RPC_BASE_RX + clus_id % 4, conf);
+	ret = mppa_noc_dnoc_rx_configure(clus_id % 4, RPC_BASE_RX + clus_id / 4, conf);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -87,6 +92,7 @@ int main()
 			exit(EXIT_FAILURE);
 		}
 	}
+	eth_init();
 
 	while (1) {
 		for (int if_id = 0; if_id < 4; ++if_id) {
@@ -95,7 +101,7 @@ int main()
 				continue;
 
 			/* Received a message */
-			int remoteClus = if_id * 4 + (tag - RPC_BASE_RX);
+			int remoteClus = if_id + 4 * (tag - RPC_BASE_RX);
 			odp_rpc_t *msg = g_clus_priv[remoteClus].recv_buf;
 
 			rpcHandle(remoteClus, msg);
