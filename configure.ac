@@ -84,8 +84,8 @@ AS_CASE([$host],
 AS_CASE([$host],
   [k1*magic], [k1_hw=no
 			   RUN_TARGET=k1-cluster],
-  [k1*os],    [k1_hw=yes
-  			   RUN_TARGET=k1-jtag],
+  [k1*],     [k1_hw=yes
+  			  RUN_TARGET=k1-jtag],
   [*]
 )
 AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
