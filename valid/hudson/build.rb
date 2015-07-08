@@ -52,6 +52,19 @@ b.default_targets = [valid]
 debug_flags = options["debug"] == true ? "--enable-debug" : ""
 
 valid_configs = options["valid-configs"].split()
+if ENV["label"].to_s() != "" then
+    case ENV["label"]
+    when /MPPADevelopers*/, /MPPAEthDevelopers*/
+        valid_configs = [ "k1a-kalray-nodeos", "k1a-kalray-mos" ]
+   	when "fedora19-64","fedora17-64","debian6-64","centos7-64","debian7-64"
+        valid_configs = [ "k1a-kalray-nodeos_simu" ]
+    when /MPPAExplorers_k1b*/
+        valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+    else
+        raise("Unsupported label #{ENV["label"]}!")
+    end
+end
+
 
 configs = (options["configs"].split(" ")).uniq
 configs.each(){|conf|
