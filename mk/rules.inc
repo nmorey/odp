@@ -126,7 +126,7 @@ define DO_RULES_SEQ
 # $(1) = RULE
 .PHONY: $(1)
 $(1):
-	for rule in $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(1)); do $(MAKE) $$$${rule}; done
+	set -e; for rule in $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(1)); do $(MAKE) $$$${rule}; done
 
 CHECK_LIST += $(foreach COMPONENT, $(COMPONENTS),$(COMPONENT)-$(1))
 endef
