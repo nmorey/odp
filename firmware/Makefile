@@ -12,7 +12,7 @@ INSTBIN  := $(INSTDIR)/$(FIRMDIR).kelf
 all: $(BIN)
 
 $(BIN): $(OBJFILES)
-	$(CC) -o $@ $< $(_CFLAGS) $(_LDFLAGS)
+	$(CC) -o $@ $^ $(_CFLAGS) $(_LDFLAGS)
 $(OBJFILES): $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HDRFILES)
 	$(CC) -o $@ -c $< $(_CFLAGS)
 
