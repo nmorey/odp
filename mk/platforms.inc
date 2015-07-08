@@ -139,3 +139,9 @@ k1b-kalray-ioeth_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioet
 k1b-kalray-ioeth_LDFLAGS     := -lmppaeth -lmppapower -lmppanoc -lmpparouting
 k1b-kalray-ioeth_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 ioeth_CONFIGS += k1b-kalray-ioeth
+
+k1b-kalray-ioeth530_CC          := k1-gcc
+k1b-kalray-ioeth530_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioeth -mos=bare -mboard=eth_530
+k1b-kalray-ioeth530_LDFLAGS     := -lmppaeth -lmppapower -lmppanoc -lmpparouting
+k1b-kalray-ioeth530_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+ioeth_CONFIGS += k1b-kalray-ioeth530
