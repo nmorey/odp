@@ -38,12 +38,11 @@ cluster-bin :=
 cluster-tests :=
 
 # Subdirectories
-SUB_DIRS := basic_cluster
-SUB_DIRS := $(addsuffix /Makefile,$(SUB_DIRS))
+SUB_DIRS := $(wildcard */Makefile)
 
 include $(SUB_DIRS)
 
 # Inject cunit common file to all tests
 $(foreach clus_bin,$(cluster-bin),$(eval $(clus_bin)-srcs += $(CUNIT_COMMON_SRC)))
 
-include $(CURDIR)/Makefile.kalray
+include $(CURDIR)/../mk/Makefile.kalray
