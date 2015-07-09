@@ -40,7 +40,7 @@ k1a-kalray-rtems_PLATFORM    := k1-cluster
 k1a-kalray-rtems_INC_DIR     := k1a-rtems
 k1a-kalray-rtems_MAKE_VALID  := -j1
 k1a-kalray-rtems_INSTALL     := true
-k1a-kalray-rtems_INSTALL_DOC := true
+k1a-kalray-rtems_INSTALL_DOC :=
 _CONFIGS += k1a-kalray-rtems
 
 k1a-kalray-mos_CONF_ENV    := CC=k1-gcc  CXX=k1-g++ STRIP=k1-strip
