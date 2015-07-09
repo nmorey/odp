@@ -59,7 +59,8 @@ if ENV["label"].to_s() != "" then
    	when "fedora19-64","fedora17-64","debian6-64","centos7-64","debian7-64"
         valid_configs = [ "k1a-kalray-nodeos_simu" ]
     when /MPPAExplorers_k1b*/
-        valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+        #valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+        valid_configs = [ "k1b-kalray-nodeos_explorer" ]
     else
         raise("Unsupported label #{ENV["label"]}!")
     end
