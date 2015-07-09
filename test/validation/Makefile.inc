@@ -5,3 +5,5 @@ AM_LDFLAGS += -static
 
 LIBCUNIT_COMMON = $(top_builddir)/test/validation/common/libcunit_common.a
 LIBODP = $(LIB)/libodp.la
+
+bindir      = $(datarootdir)/tests/validation/
