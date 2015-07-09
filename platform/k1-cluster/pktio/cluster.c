@@ -18,10 +18,14 @@
 #define DNOC_CLUS_TX_ID		0
 #define DNOC_CLUS_UC_ID		0
 
+#define CNOC_CLUS_SYNC_RX_ID	16
 #define CNOC_CLUS_TX_ID		0
 #define CNOC_CLUS_BASE_RX_ID	0
 
 #define NOC_CLUS_IFACE_ID	0
+
+
+#define NOC_IODDR0_ID		128
 
 #define ODP_PKTIO_MAX_PKT_SIZE		(1 * 512)
 #define ODP_PKTIO_MAX_PKT_COUNT		5
@@ -131,6 +135,34 @@ static int cluster_init_cnoc_rx(int clus_id)
 	return 0;
 }
 
+static int cluster_init_io_cnoc_sync_rx(void)
+{
+#ifdef __k1b__
+	mppa_cnoc_mailbox_notif_t notif = {0};
+#endif
+	mppa_noc_ret_t ret;
+	mppa_noc_cnoc_rx_configuration_t conf = {0};
+
+	conf.mode = MPPA_NOC_CNOC_RX_BARRIER;
+	/* We only wait for a 1 value from IO */
+	conf.init_value = ~1;
+
+	/* CNoC */
+	ret = mppa_noc_cnoc_rx_alloc(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
+	if (ret != MPPA_NOC_RET_SUCCESS)
+		return 1;
+
+	ret = mppa_noc_cnoc_rx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID, conf
+#ifdef __k1b__
+		, &notif
+#endif
+	);
+	if (ret != MPPA_NOC_RET_SUCCESS)
+		return 1;
+
+	return 0;
+}
+
 static int cluster_init_noc_rx(void)
 {
 	unsigned int i;
@@ -144,6 +176,8 @@ static int cluster_init_noc_rx(void)
 		if (cluster_init_cnoc_rx(clus_id))
 			return 1;
 	}
+
+	cluster_init_io_cnoc_sync_rx();
 
 	return 0;
 }
@@ -185,6 +219,50 @@ static int cluster_init_noc_tx(void)
 	return 0;
 }
 
+static int cluster_configure_cnoc_tx(int clus_id)
+{
+	mppa_noc_ret_t nret;
+	mppa_routing_ret_t rret;
+	mppa_cnoc_config_t config;
+	mppa_cnoc_header_t header;
+
+	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(),
+						   clus_id,
+						   &config, &header);
+	if (rret != MPPA_ROUTING_RET_SUCCESS)
+		return 1;
+
+	header._.tag = CNOC_CLUS_BASE_RX_ID + clus_id;
+
+	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+					  config, header);
+	if (nret != MPPA_NOC_RET_SUCCESS)
+		return 1;
+
+	return 0;
+}
+
+static int cluster_io_sync(void)
+{
+	uint64_t value = 1 << __k1_get_cluster_id();
+	ODP_DBG("Signaling IO for sync\n");
+
+	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID) != 0)
+		return 1;
+
+	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, value);
+	ODP_DBG("Waiting for IO sync\n");
+
+	while ((volatile bool) mppa_noc_has_pending_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
+			true);
+
+	mppa_noc_cnoc_clear_rx_event(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
+
+	ODP_DBG("IO sync ok\n");
+
+	return 0;
+}
+
 static int cluster_global_init(void)
 {
 	mppacl_init_available_clusters();
@@ -194,6 +272,10 @@ static int cluster_global_init(void)
 
 	if (cluster_init_noc_tx())
 		return 1;
+
+	/* We need to sync only when spawning from another IO */
+	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
+		cluster_io_sync();
 
 	return 0;
 }
@@ -254,22 +336,7 @@ static void cluster_mac_get(const pktio_entry_t *const pktio_entry,
 #ifdef __k1a__
 static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
 {
-	mppa_noc_ret_t nret;
-	mppa_routing_ret_t rret;
-	mppa_cnoc_config_t config;
-	mppa_cnoc_header_t header;
-
-	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(),
-						   pktio_clus->clus_id,
-						   &config, &header);
-	if (rret != MPPA_ROUTING_RET_SUCCESS)
-		return 1;
-
-	header._.tag = CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id;
-
-	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
-					  config, header);
-	if (nret != MPPA_NOC_RET_SUCCESS)
+	if (cluster_configure_cnoc_tx(pktio_clus->clus_id) != 0)
 		return 1;
 
 	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
@@ -318,7 +385,8 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus,
 
 	pktio_clus->recv_pkt_count++;
 
-	cluster_send_recv_pkt_count(pktio_clus);
+	if (cluster_send_recv_pkt_count(pktio_clus) != 0)
+		return 1;
 
 	return 0;
 }
