@@ -176,6 +176,13 @@ k1b-kalray-ioddr_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
 k1b-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 boot_CONFIGS += k1b-kalray-ioddr
 
+k1b-kalray-ioddr_explorer_CC          := k1-gcc
+k1b-kalray-ioddr_explorer_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1bio -mcluster=ioddr \
+									  	 -mprocessing=single -mboard=explorer
+k1b-kalray-ioddr_explorer_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1b-kalray-ioddr_explorer_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_explorer
+boot_CONFIGS += k1b-kalray-ioddr_explorer
+
 # k1a-kalray-ioeth_CC          := k1-gcc
 # k1a-kalray-ioeth_CFLAGS      := -march=k1a -DK1_BARE -mcore=k1io -mcluster=ioeth
 # k1a-kalray-ioeth_LDFLAGS     := -lmppaeth
@@ -191,5 +198,5 @@ ioeth_CONFIGS += k1b-kalray-ioeth
 k1b-kalray-ioeth530_CC          := k1-gcc
 k1b-kalray-ioeth530_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioeth -mos=bare -mboard=eth_530
 k1b-kalray-ioeth530_LDFLAGS     := -lmppaeth -lmppapower -lmppanoc -lmpparouting
-k1b-kalray-ioeth530_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+k1b-kalray-ioeth530_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_explorer
 ioeth_CONFIGS += k1b-kalray-ioeth530
