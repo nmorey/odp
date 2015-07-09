@@ -41,7 +41,7 @@ clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
 long = Target.new("long", repo, [])
-install = ParallelTarget.new("install", repo, [build])
+install = Target.new("install", repo, [build])
 package = Target.new("package", repo, [install])
 
 b = Builder.new("odp", options, [clean, build, valid, long, package, install])
@@ -63,7 +63,8 @@ if ENV["label"].to_s() != "" then
         valid_configs = [ "k1a-kalray-nodeos_simu" ]
         valid_type = "sim"
     when /MPPAExplorers_k1b*/
-        valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+        #valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
+        valid_configs = [ "k1b-kalray-nodeos_explorer" ]
         valid_type = "jtag"
     else
         raise("Unsupported label #{ENV["label"]}!")

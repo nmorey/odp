@@ -11,3 +11,4 @@ AM_CFLAGS += \
 	-I$(top_srcdir)/helper/include
 
 AM_LDFLAGS += -L$(LIB)
+bindir      = $(datarootdir)/examples/

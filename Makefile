@@ -13,8 +13,8 @@ MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
 MAKE_DEPS:= $(MAKE_AMS) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
 FIRMWARES := boot ioeth
-RULE_LIST_SERIAL   := valid long
-RULE_LIST_PARALLEL := clean configure build install
+RULE_LIST_SERIAL   :=  install valid long
+RULE_LIST_PARALLEL := clean configure build
 RULE_LIST := $(RULE_LIST_SERIAL) $(RULE_LIST_PARALLEL)
 ARCH_COMPONENTS := odp cunit
 COMPONENTS := extra doc $(ARCH_COMPONENTS) $(FIRMWARES)
