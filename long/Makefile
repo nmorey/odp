@@ -3,7 +3,7 @@ O ?= ./output
 project-name := odp
 
 ODP_SRC_DIR ?= $(CURDIR)/..
-ODP_PLATFORM ?= k1-cluster
+ODP_PLATFORM ?= mppa
 ODP_ARCH ?= k1a-kalray-nodeos
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))

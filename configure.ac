@@ -122,9 +122,9 @@ AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 if test "${with_platform}" == "linux-generic";
 then
     m4_include([./platform/linux-generic/m4/configure.m4])
-elif test "${with_platform}" == "k1-cluster";
+elif test "${with_platform}" == "mppa";
 then
-    m4_include([./platform/k1-cluster/m4/configure.m4])
+    m4_include([./platform/mppa/m4/configure.m4])
 else
     echo "UNSUPPORTED PLATFORM: ${with_platform}"
     exit 1
@@ -354,9 +354,9 @@ AC_CONFIG_FILES([Makefile
 		 pkgconfig/libodp.pc
 		 pkgconfig/libodphelper.pc
 		 platform/linux-generic/Makefile
-		 platform/k1-cluster/Makefile
+		 platform/mppa/Makefile
 		 platform/linux-generic/test/pktio/Makefile
-		 platform/k1-cluster/test/pktio/Makefile
+		 platform/mppa/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
