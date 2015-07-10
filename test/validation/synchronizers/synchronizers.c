@@ -1061,7 +1061,7 @@ static int synchronizers_suite_init(void)
 	return 0;
 }
 
-int tests_global_init(void)
+static int synchronizers_init(void)
 {
 	uint32_t core_count, max_threads;
 	int ret = 0;
@@ -1219,5 +1219,6 @@ static CU_SuiteInfo synchronizers_suites[] = {
 
 int synchronizers_main(void)
 {
+	odp_cunit_register_global_init(synchronizers_init);
 	return odp_cunit_run(synchronizers_suites);
 }
