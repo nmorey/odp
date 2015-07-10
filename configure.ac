@@ -79,7 +79,8 @@ AS_CASE([$host],
 				  OS=mos],
   [k1*-rtems*],  [ARCH=${ARCH}-rtems
 				  OS=rtems],
-  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
+  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"
+  				  OS=linux]
 )
 AS_CASE([$host],
   [k1*simu], [k1_hw=no
