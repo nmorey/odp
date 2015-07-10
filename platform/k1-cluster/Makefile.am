@@ -172,12 +172,10 @@ __LIB__libodp_la_SOURCES = \
 			   os/@OS@/timer.c \
 			   odp_version.c \
 			   odp_weak.c \
-			   odp_linux.c \
-			   os/@OS@/linux.c \
 			   ucode_fw/odp_ucode_linear.c
 
 
 if crypto
-__LIB__libodp_la_SOURCES += odp_crypto.c 
+__LIB__libodp_la_SOURCES += odp_crypto.c
 endif
 

@@ -23,7 +23,7 @@ noinst_HEADERS = \
 		 $(srcdir)/odph_pause.h
 
 __LIB__libodphelper_la_SOURCES = \
-					linux.c \
+				    os/@OS@/linux.c \
 					ring.c
 
 lib_LTLIBRARIES = $(LIB)/libodphelper.la
