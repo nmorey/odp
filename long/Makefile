@@ -31,7 +31,7 @@ cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/l
 endif
 
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/
-cluster-lflags += -lodp -lcunit -lmppanoc -lmpparouting
+cluster-lflags += -lodphelper -lodp -lcunit -lmppanoc -lmpparouting
 
 # Empty direct assignement to allows += to work in included Makefiles
 cluster-bin :=
