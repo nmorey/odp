@@ -142,22 +142,22 @@ subdirheaders_HEADERS = \
 __LIB__libodp_la_LIBADD = -lmppanoc -lmpparouting
 
 __LIB__libodp_la_SOURCES = \
-			   odp_barrier.c \
-			   odp_buffer.c \
-			   odp_classification.c \
+			   ../linux-generic/odp_barrier.c \
+			   ../linux-generic/odp_buffer.c \
+			   ../linux-generic/odp_classification.c \
 			   odp_cpumask.c \
-			   odp_errno.c \
+			   ../linux-generic/odp_errno.c \
 			   odp_event.c \
 			   odp_init.c \
-			   odp_impl.c \
-			   odp_packet.c \
-			   odp_packet_flags.c \
+			   ../linux-generic/odp_impl.c \
+			   ../linux-generic/odp_packet.c \
+			   ../linux-generic/odp_packet_flags.c \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
 			   pktio/eth.c \
 			   pktio/cluster.c \
 			   pktio/magic.c \
-			   pktio/loop.c \
+			   ../linux-generic/pktio/loop.c \
 			   odp_pool.c \
 			   odp_queue.c \
 			   ../../helper/ring.c \
@@ -171,12 +171,12 @@ __LIB__libodp_la_SOURCES = \
 			   odp_time.c \
 			   odp_timer.c \
 			   os/@OS@/timer.c \
-			   odp_version.c \
-			   odp_weak.c \
+			   ../linux-generic/odp_version.c \
+			   ../linux-generic/odp_weak.c \
 			   ucode_fw/odp_ucode_linear.c
 
 
 if crypto
-__LIB__libodp_la_SOURCES += odp_crypto.c
+__LIB__libodp_la_SOURCES += ../linux-generic/odp_crypto.c
 endif
 

@@ -1,1 +1,10 @@
-../linux-generic/README
+1. Intro
+
+OpenDataPlane implementation for MPPA. Directory mppa contains ODP headers and implementation
+for mppa target.
+
+2. Build
+# To compile ODP
+./bootstrap
+./configure
+make
