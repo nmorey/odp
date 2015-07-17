@@ -70,9 +70,9 @@ int odp_pktio_init_global(void)
 		queue_entry->s.pktout = _odp_cast_scalar(odp_pktio_t, id);
 	}
 
-	for (pktio_if = ODP_PKTIO_TYPE_START; pktio_if < ODP_PKTIO_TYPE_COUNT; pktio_if++) {
-		if (pktio_if_ops[pktio_if]->global_init != NULL) {
-			if (pktio_if_ops[pktio_if]->global_init()) {
+	for (pktio_if = 0; pktio_if_ops[pktio_if] != NULL; pktio_if++) {
+		if (pktio_if_ops[pktio_if]->init != NULL) {
+			if (pktio_if_ops[pktio_if]->init()) {
 				return -1;
 			}
 		}
@@ -200,12 +200,13 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 {
 	odp_pktio_t id;
 	pktio_entry_t *pktio_entry;
-	int ret = 0, pktio_if;
+	int ret = -1;
+	int pktio_if;
 
-	if (strlen(dev) >= MAX_PKTIO_NAMESIZE) {
+	if (strlen(dev) >= IF_NAMESIZE) {
 		/* ioctl names limitation */
 		ODP_ERR("pktio name %s is too big, limit is %d bytes\n",
-			dev, MAX_PKTIO_NAMESIZE);
+			dev, IF_NAMESIZE);
 		return ODP_PKTIO_INVALID;
 	}
 
@@ -220,31 +221,22 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 	if (!pktio_entry)
 		return ODP_PKTIO_INVALID;
 
-	/* Set handle to allow open to use it */
-	pktio_entry->s.handle = id;
-	for (pktio_if = ODP_PKTIO_TYPE_START; pktio_if < ODP_PKTIO_TYPE_COUNT; pktio_if++) {
-		ret = pktio_if_ops[pktio_if]->open(pktio_entry, dev);
-		/* If ret is != -1 , then the open tried to handled the open */
-		if (ret != -1)
+	for (pktio_if = 0; pktio_if_ops[pktio_if]; ++pktio_if) {
+		ret = pktio_if_ops[pktio_if]->open(id, pktio_entry, dev, pool);
+
+		if (!ret) {
+			pktio_entry->s.ops = pktio_if_ops[pktio_if];
 			break;
+		}
 	}
 
-	/* No handler was found for this io type */
-	if (ret == -1) {
-		ODP_ERR("Invalid dev name '%s'", dev);
-		ret = 1;
-	}
-
-	if(ret == 0){
-		ret = pktio_if_ops[pktio_entry->s.type]->setup_pktio_entry(pktio_entry, pool);
-	}
 	if (ret != 0) {
 		unlock_entry_classifier(pktio_entry);
 		free_pktio_entry(id);
 		id = ODP_PKTIO_INVALID;
 		ODP_ERR("Unable to init any I/O type.\n");
 	} else {
-		snprintf(pktio_entry->s.name, MAX_PKTIO_NAMESIZE, "%s", dev);
+		snprintf(pktio_entry->s.name, IF_NAMESIZE, "%s", dev);
 		unlock_entry_classifier(pktio_entry);
 	}
 
@@ -277,24 +269,18 @@ int odp_pktio_close(odp_pktio_t id)
 	int res = -1;
 
 	entry = get_pktio_entry(id);
-	if (entry == NULL) {
-		printf("prout\n");
+	if (entry == NULL)
 		return -1;
-	}
 
 	lock_entry(entry);
 	if (!is_free(entry)) {
-
-		res = pktio_if_ops[entry->s.type]->close(entry);
+		res = entry->s.ops->close(entry);
 		res |= free_pktio_entry(id);
-
 	}
 	unlock_entry(entry);
 
-	if (res != 0) {
-		printf("prat\n");
+	if (res != 0)
 		return -1;
-	}
 
 	return 0;
 }
@@ -315,7 +301,7 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 		enter_entry(entry);
 
 		if (!is_free(entry) &&
-		    strncmp(entry->s.name, dev, MAX_PKTIO_NAMESIZE) == 0)
+		    strncmp(entry->s.name, dev, IF_NAMESIZE) == 0)
 			id = _odp_cast_scalar(odp_pktio_t, i);
 
 		exit_entry(entry);
@@ -338,9 +324,8 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-
 	enter_entry(pktio_entry);
-	pkts = pktio_if_ops[pktio_entry->s.type]->recv(pktio_entry, pkt_table, len);
+	pkts = pktio_entry->s.ops->recv(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
 
 	if (pkts < 0)
@@ -360,8 +345,8 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	enter_entry(pktio_entry);	
-	pkts = pktio_if_ops[pktio_entry->s.type]->send(pktio_entry, pkt_table, len);
+	enter_entry(pktio_entry);
+	pkts = pktio_entry->s.ops->send(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
 
 	return pkts;
@@ -634,8 +619,8 @@ int odp_pktio_mtu(odp_pktio_t id)
 		ODP_DBG("already freed pktio\n");
 		return -1;
 	}
+	ret = entry->s.ops->mtu_get(entry);
 
-	ret = pktio_if_ops[entry->s.type]->mtu_get(entry);
 	exit_entry(entry);
 
 	return ret;
@@ -660,11 +645,9 @@ int odp_pktio_promisc_mode_set(odp_pktio_t id, odp_bool_t enable)
 		return -1;
 	}
 
-	entry->s.promisc = enable;
+	ret = entry->s.ops->promisc_mode_set(entry, enable);
 
-	ret = pktio_if_ops[entry->s.type]->promisc_mode_set(entry, enable);
 	unlock_entry(entry);
-
 	return ret;
 }
 
@@ -687,7 +670,7 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 		return -1;
 	}
 
-	ret = pktio_if_ops[entry->s.type]->promisc_mode_get(entry);
+	ret = entry->s.ops->promisc_mode_get(entry);
 
 	exit_entry(entry);
 	return ret;
@@ -696,6 +679,7 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 {
 	pktio_entry_t *entry;
+	int ret = ETH_ALEN;
 
 	if (addr_size < ETH_ALEN) {
 		/* Output buffer too small */
@@ -716,9 +700,9 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 		return -1;
 	}
 
-	pktio_if_ops[entry->s.type]->mac_get(entry, mac_addr);
+	ret = entry->s.ops->mac_get(entry, mac_addr);
 
 	exit_entry(entry);
 
-	return ETH_ALEN;
+	return ret;
 }

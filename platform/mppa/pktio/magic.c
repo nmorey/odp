@@ -12,7 +12,7 @@
 static int _magic_scall_init(void){
 	return __k1_syscall0(MAGIC_SCALL_ETH_INIT);
 }
-static int _magic_scall_open(char * name, size_t len){
+static int ODP_UNUSED _magic_scall_open(const char * name, size_t len){
 	return __k1_syscall2(MAGIC_SCALL_ETH_OPEN, (uint32_t)name, len);
 }
 static int _magic_scall_mac_get(int id, void * mac){
@@ -31,44 +31,38 @@ static int _magic_scall_prom_get(int id){
 	return __k1_syscall1(MAGIC_SCALL_ETH_PROM_GET, id);
 }
 
-static int magic_global_init(void)
+static int magic_init(void)
 {
 	return _magic_scall_init();
 }
-
-static int magic_init(pktio_entry_t * pktio_entry, odp_pool_t pool)
-{
-	pktio_magic_t * pkt_magic = &pktio_entry->s.magic;
-	pkt_magic->fd = _magic_scall_open(pkt_magic->name, strlen(pkt_magic->name));
-	if(pkt_magic->fd < 0)
-		return pkt_magic->fd;
-
-	pkt_magic->pool = pool;
-	/* pkt buffer size */
-	pkt_magic->buf_size = odp_buffer_pool_segment_size(pool) * ODP_BUFFER_MAX_SEG;
-	/* max frame len taking into account the l2-offset */
-	pkt_magic->max_frame_len = pkt_magic->buf_size -
-		odp_buffer_pool_headroom(pool) -
-		odp_buffer_pool_tailroom(pool);
-	return 0;
-}
-
 
 static int magic_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
 {
 	return 0;
 }
 
-static int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
+static int magic_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
+		      const char *devname, odp_pool_t pool ODP_UNUSED)
 {
-	if(!strncmp("magic-", devname, strlen("magic-"))){
+	if(!strncmp("magic:", devname, strlen("magic:"))){
 #ifndef MAGIC_SCALL
 		(void)pktio_entry;
 		ODP_ERR("Trying to invoke magic interface on H/W");
 		return 1;
 #else
-		pktio_entry->s.type = ODP_PKTIO_TYPE_MAGIC;
-		snprintf(pktio_entry->s.magic.name, MAX_PKTIO_NAMESIZE, "%s", devname + strlen("magic-"));
+		pkt_magic_t * pkt_magic = &pktio_entry->s.pkt_magic;
+		pkt_magic->fd = _magic_scall_open(devname + strlen("magic:"), strlen(devname + strlen("magic:")));
+		if(pkt_magic->fd < 0)
+			return pkt_magic->fd;
+
+		pkt_magic->pool = pool;
+		/* pkt buffer size */
+		pkt_magic->buf_size = odp_buffer_pool_segment_size(pool) * ODP_BUFFER_MAX_SEG;
+		/* max frame len taking into account the l2-offset */
+		pkt_magic->max_frame_len = pkt_magic->buf_size -
+			odp_buffer_pool_headroom(pool) -
+			odp_buffer_pool_tailroom(pool);
+
 		return 0;
 #endif
 	}
@@ -77,15 +71,15 @@ static int magic_open(pktio_entry_t * const pktio_entry, const char * devname)
 	return -1;
 }
 
-static void magic_mac_get(const pktio_entry_t *const pktio_entry, void * mac_addr)
+static int magic_mac_addr_get(pktio_entry_t *pktio_entry, void * mac_addr)
 {
-	_magic_scall_mac_get(pktio_entry->s.magic.fd, mac_addr);
+	return _magic_scall_mac_get(pktio_entry->s.pkt_magic.fd, mac_addr);
 }
 
-static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], int len)
+static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[], unsigned len)
 {
 	ssize_t recv_bytes;
-	int i;
+	unsigned i;
 	odp_packet_t pkt = ODP_PACKET_INVALID;
 	int nb_rx = 0;
 	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
@@ -93,23 +87,20 @@ static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[]
 
 	for (i = 0; i < len; i++) {
 		if (odp_likely(pkt == ODP_PACKET_INVALID)) {
-			pkt = odp_packet_alloc(pktio_entry->s.magic.pool, pktio_entry->s.magic.max_frame_len);
+			pkt = odp_packet_alloc(pktio_entry->s.pkt_magic.pool, pktio_entry->s.pkt_magic.max_frame_len);
 			if (odp_unlikely(pkt == ODP_PACKET_INVALID))
 				break;
 		}
 		iov_count = _rx_pkt_to_iovec(pkt, iovecs);
 
-		recv_bytes = _magic_scall_recv(pktio_entry->s.magic.fd, iovecs, iov_count);
+		recv_bytes = _magic_scall_recv(pktio_entry->s.pkt_magic.fd, iovecs, iov_count);
 
 		/* no data or error: free recv buf and break out of loop */
 		if (odp_unlikely(recv_bytes < 1))
 			break;
-		/* /\* frame not explicitly for us, reuse pkt buf for next frame *\/ */
-		/* if (odp_unlikely(sll.sll_pkttype == PACKET_OUTGOING)) */
-		/* 	continue; */
 
 		/* Parse and set packet header data */
-		odp_packet_pull_tail(pkt, pktio_entry->s.magic.max_frame_len - recv_bytes);
+		odp_packet_pull_tail(pkt, pktio_entry->s.pkt_magic.max_frame_len - recv_bytes);
 		_odp_packet_reset_parse(pkt);
 
 		pkt_table[nb_rx] = pkt;
@@ -137,7 +128,7 @@ static int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[]
 		pkt = pkt_table[i];
 		iov_count = _tx_pkt_to_iovec(pkt, iovecs);
 
-		ret = _magic_scall_send(pktio_entry->s.magic.fd, iovecs, iov_count);
+		ret = _magic_scall_send(pktio_entry->s.pkt_magic.fd, iovecs, iov_count);
 		if (odp_unlikely(ret == -1)) {
 			break;
 		}
@@ -153,27 +144,25 @@ static int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[]
 }
 
 static int magic_promisc_mode_set(pktio_entry_t *const pktio_entry, odp_bool_t enable){
-	return _magic_scall_prom_set(pktio_entry->s.magic.fd, enable);
+	return _magic_scall_prom_set(pktio_entry->s.pkt_magic.fd, enable);
 }
 
 static int magic_promisc_mode(pktio_entry_t *const pktio_entry){
-	return _magic_scall_prom_get(pktio_entry->s.magic.fd);
+	return _magic_scall_prom_get(pktio_entry->s.pkt_magic.fd);
 }
 
 static int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_entry) {
 	return -1;
 }
 
-struct pktio_if_operation magic_pktio_operation = {
-	.name = "magic",
-	.global_init = magic_global_init,
-	.setup_pktio_entry = magic_init,
-	.mac_get = magic_mac_get,
-	.recv = magic_recv,
-	.send = magic_send,
-	.promisc_mode_set = magic_promisc_mode_set,
-	.promisc_mode_get = magic_promisc_mode,
-	.mtu_get = magic_mtu_get,
+const pktio_if_ops_t magic_pktio_ops = {
+	.init = magic_init,
 	.open = magic_open,
 	.close = magic_close,
+	.recv = magic_recv,
+	.send = magic_send,
+	.mtu_get = magic_mtu_get,
+	.promisc_mode_set = magic_promisc_mode_set,
+	.promisc_mode_get = magic_promisc_mode,
+	.mac_get = magic_mac_addr_get,
 };

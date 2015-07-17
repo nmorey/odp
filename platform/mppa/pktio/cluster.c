@@ -185,7 +185,7 @@ static int cluster_init_noc_tx(void)
 	return 0;
 }
 
-static int cluster_global_init(void)
+static int cluster_init(void)
 {
 	mppacl_init_available_clusters();
 
@@ -198,37 +198,28 @@ static int cluster_global_init(void)
 	return 0;
 }
 
-
-static int cluster_init_entry(pktio_entry_t * pktio_entry, odp_pool_t pool)
+static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
+			const char *devname, odp_pool_t pool)
 {
-	pktio_cluster_t * pkt_cluster = &pktio_entry->s.cluster;
+	if(!strncmp("cluster:", devname, strlen("cluster:"))) {
+		pkt_cluster_t * pkt_cluster = &pktio_entry->s.pkt_cluster;
 
-	pkt_cluster->pool = pool;
-	pkt_cluster->sent_pkt_count = 0;
-	pkt_cluster->recv_pkt_count = 0;
+		/* String should in the following format: "cluster:<cluster_id>" */
+		pkt_cluster->clus_id = atoi(devname + strlen("cluster:"));
 
-	/* pkt buffer size */
-	pkt_cluster->buf_size = odp_buffer_pool_segment_size(pool);
-	/* max frame len taking into account the l2-offset */
-	pkt_cluster->max_frame_len = pkt_cluster->buf_size -
-		odp_buffer_pool_headroom(pool) -
-		odp_buffer_pool_tailroom(pool);
+		if (pkt_cluster->clus_id < 0 || pkt_cluster->clus_id > 15)
+			return -1;
 
-	return 0;
-}
+		pkt_cluster->pool = pool;
+		pkt_cluster->sent_pkt_count = 0;
+		pkt_cluster->recv_pkt_count = 0;
 
-static int cluster_open(pktio_entry_t * const pktio_entry, const char *dev)
-{
-	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
-	if(!strncmp("cluster-", dev, strlen("cluster-"))) {
-		/* String should in the following format: "cluster-<cluster_id>" */
-		pktio_entry->s.type = ODP_PKTIO_TYPE_CLUSTER;
-		pktio_clus->clus_id = atoi(dev+strlen("cluster-"));
-
-		if (pktio_clus->clus_id < 0 || pktio_clus->clus_id > 15)
-			return 1;
-
-		return 0;
+		/* pkt buffer size */
+		pkt_cluster->buf_size = odp_buffer_pool_segment_size(pool);
+		/* max frame len taking into account the l2-offset */
+		pkt_cluster->max_frame_len = pkt_cluster->buf_size -
+			odp_buffer_pool_headroom(pool) -
+			odp_buffer_pool_tailroom(pool);
 	}
 
 	return -1;
@@ -240,19 +231,20 @@ static int cluster_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
 }
 
 
-static void cluster_mac_get(const pktio_entry_t *const pktio_entry,
-			    void * mac_addr)
+static int cluster_mac_addr_get(pktio_entry_t *pktio_entry,
+				void *mac_addr)
 {
-	const pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
+	const pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	uint8_t *mac_addr_u = mac_addr;
 
 	memset(mac_addr_u, 0, ETH_ALEN);
 
 	mac_addr_u[0] = pktio_clus->clus_id;
+	return ETH_ALEN;
 }
 
 #ifdef __k1a__
-static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
+static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 {
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
@@ -280,7 +272,7 @@ static int cluster_send_recv_pkt_count(pktio_cluster_t *pktio_clus)
 #endif
 
 #ifdef __k1a__
-static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus,
+static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 					 odp_packet_t *pkt)
 {
 	uint8_t *pkt_buf;
@@ -325,12 +317,13 @@ static int cluster_receive_single_packet(pktio_cluster_t *pktio_clus,
 #endif
 
 static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
-			odp_packet_t pkt_table[] ODP_UNUSED, int len ODP_UNUSED)
+			odp_packet_t pkt_table[] ODP_UNUSED,
+			unsigned len ODP_UNUSED)
 {
 	unsigned int nb_rx = 0;
 #ifdef __k1a__
 	mppa_noc_dnoc_rx_counters_t counter;
-	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
+	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
 
 	/* Check if we received some packets */
@@ -352,7 +345,7 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 }
 
 static inline int
-cluster_send_single_packet(pktio_cluster_t *pktio_clus,
+cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 			   void *frame, uint32_t frame_len)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
@@ -448,7 +441,7 @@ cluster_send_single_packet(pktio_cluster_t *pktio_clus,
 static int cluster_send(pktio_entry_t *const pktio_entry,
 			odp_packet_t pkt_table[], unsigned len)
 {
-	pktio_cluster_t *pktio_clus = &pktio_entry->s.cluster;
+	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
 	uint8_t *frame;
 	uint32_t frame_len;
@@ -487,16 +480,14 @@ static int cluster_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED)
 	return ODP_PKTIO_MAX_PKT_SIZE;
 }
 
-struct pktio_if_operation cluster_pktio_operation = {
-	.name = "cluster",
-	.global_init = cluster_global_init,
-	.setup_pktio_entry = cluster_init_entry,
-	.mac_get = cluster_mac_get,
-	.recv = cluster_recv,
-	.send = cluster_send,
-	.promisc_mode_set = cluster_promisc_mode_set,
-	.promisc_mode_get = cluster_promisc_mode,
-	.mtu_get = cluster_mtu_get,
+const pktio_if_ops_t cluster_pktio_ops = {
+	.init = cluster_init,
 	.open = cluster_open,
 	.close = cluster_close,
+	.recv = cluster_recv,
+	.send = cluster_send,
+	.mtu_get = cluster_mtu_get,
+	.promisc_mode_set = cluster_promisc_mode_set,
+	.promisc_mode_get = cluster_promisc_mode,
+	.mac_get = cluster_mac_addr_get,
 };

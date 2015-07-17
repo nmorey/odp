@@ -568,7 +568,7 @@ static void pktio_test_open(void)
 		printf("Close pktio %s ok\n", iface_name[i]);
 	}
 
-	pktio = odp_pktio_open("cluster-16", default_pkt_pool);
+	pktio = odp_pktio_open("cluster:16", default_pkt_pool);
 	CU_ASSERT(pktio == ODP_PKTIO_INVALID);
 }
 
@@ -637,7 +637,7 @@ static int pktio_suite_init(void)
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
 		pool[i] = ODP_POOL_INVALID;
 
-		sprintf(iface_name[i], "cluster-%d", i);
+		sprintf(iface_name[i], "cluster:%d", i);
 		if (create_pool(iface_name[i], i) != 0)
 			return -1;
 	}
