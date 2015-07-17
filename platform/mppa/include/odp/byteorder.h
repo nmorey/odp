@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#include <machine/endian.h>
+#include <odp/plat/endian.h>
 #include <odp/plat/byteorder_types.h>
 #include <odp/std_types.h>
 #include <odp/compiler.h>

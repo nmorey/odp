@@ -54,6 +54,7 @@ odpplatinclude_HEADERS = \
 		  $(srcdir)/include/odp/plat/classification_types.h \
 		  $(srcdir)/include/odp/plat/cpumask_types.h \
 		  $(srcdir)/include/odp/plat/crypto_types.h \
+		  $(srcdir)/include/odp/plat/endian.h \
 		  $(srcdir)/include/odp/plat/event_types.h \
 		  $(srcdir)/include/odp/plat/packet_types.h \
 		  $(srcdir)/include/odp/plat/packet_io_types.h \
