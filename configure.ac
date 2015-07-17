@@ -73,12 +73,9 @@ AS_CASE([$host],
   [*]
 )
 AS_CASE([$host],
-  [k1*-nodeos*], [ARCH=${ARCH}-nodeos
-  				 OS=nodeos],
-  [k1*-mos*],    [ARCH=${ARCH}-mos
-				  OS=mos],
-  [k1*-rtems*],  [ARCH=${ARCH}-rtems
-				  OS=rtems],
+  [k1*-nodeos*], [OS=nodeos],
+  [k1*-mos*],    [OS=mos],
+  [k1*-rtems*],  [OS=rtems],
   [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"
   				  OS=linux]
 )
