@@ -54,10 +54,8 @@ typedef struct _odp_buffer_pool_init_t {
 /* Local cache for buffer alloc/free acceleration */
 typedef struct local_cache_t {
 	odp_buffer_hdr_t *buf_freelist;  /* The local cache */
-#ifdef POOL_STATS
 	uint64_t bufallocs;              /* Local buffer alloc count */
 	uint64_t buffrees;               /* Local buffer free count */
-#endif
 } local_cache_t;
 
 /* Use ticketlock instead of spinlock */
@@ -74,6 +72,20 @@ typedef struct local_cache_t {
 #define POOL_UNLOCK(a)    odp_spinlock_unlock(a)
 #define POOL_LOCK_INIT(a) odp_spinlock_init(a)
 #endif
+
+/**
+ * ODP Pool stats - Maintain some useful stats regarding pool utilization
+ */
+typedef struct {
+	odp_atomic_u64_t bufallocs;     /**< Count of successful buf allocs */
+	odp_atomic_u64_t buffrees;      /**< Count of successful buf frees */
+	odp_atomic_u64_t blkallocs;     /**< Count of successful blk allocs */
+	odp_atomic_u64_t blkfrees;      /**< Count of successful blk frees */
+	odp_atomic_u64_t bufempty;      /**< Count of unsuccessful buf allocs */
+	odp_atomic_u64_t blkempty;      /**< Count of unsuccessful blk allocs */
+	odp_atomic_u64_t high_wm_count; /**< Count of high wm conditions */
+	odp_atomic_u64_t low_wm_count;  /**< Count of low wm conditions */
+} _odp_pool_stats_t;
 
 struct pool_entry_s {
 #ifdef POOL_USE_TICKETLOCK
@@ -112,16 +124,9 @@ struct pool_entry_s {
 	odp_buffer_hdr_t       *buf_freelist;
 	void                   *blk_freelist;
 	odp_atomic_u32_t        bufcount;
-#ifdef POOL_STATS
 	odp_atomic_u32_t        blkcount;
-	odp_atomic_u64_t        bufallocs;
-	odp_atomic_u64_t        buffrees;
-	odp_atomic_u64_t        blkallocs;
-	odp_atomic_u64_t        blkfrees;
-	odp_atomic_u64_t        bufempty;
-	odp_atomic_u64_t        blkempty;
-	odp_atomic_u64_t        high_wm_count;
-	odp_atomic_u64_t        low_wm_count;
+#ifdef POOL_STATS
+	_odp_pool_stats_t       poolstats;
 #endif
 	uint32_t                buf_num;
 	uint32_t                seg_size;
@@ -150,7 +155,7 @@ extern void *pool_entry_ptr[];
 
 static inline void *get_blk(struct pool_entry_s *pool)
 {
-	odp_buf_blk_t *myhead;
+	void *myhead;
 	POOL_LOCK(&pool->blk_lock);
 
 	myhead = LOAD_PTR(pool->blk_freelist);
@@ -158,14 +163,15 @@ static inline void *get_blk(struct pool_entry_s *pool)
 	if (odp_unlikely(myhead == NULL)) {
 		POOL_UNLOCK(&pool->blk_lock);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->blkempty);
+		odp_atomic_inc_u64(&pool->poolstats.blkempty);
 #endif
 	} else {
-		INVALIDATE(myhead);
-		STORE_PTR(pool->blk_freelist, myhead->next);
+		INVALIDATE((odp_buf_blk_t *)myhead);
+		STORE_PTR(pool->blk_freelist, ((odp_buf_blk_t *)myhead)->next);
 		POOL_UNLOCK(&pool->blk_lock);
 #ifdef POOL_STATS
 		odp_atomic_dec_u32(&pool->blkcount);
+		odp_atomic_inc_u64(&pool->poolstats.blkallocs);
 #endif
 	}
 
@@ -183,7 +189,7 @@ static inline void ret_blk(struct pool_entry_s *pool, void *block)
 
 #ifdef POOL_STATS
 	odp_atomic_inc_u32(&pool->blkcount);
-	odp_atomic_inc_u64(&pool->blkfrees);
+	odp_atomic_inc_u64(&pool->poolstats.blkfrees);
 #endif
 }
 
@@ -195,7 +201,7 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 		myhead = LOAD_PTR(pool->buf_freelist);
 		if (odp_unlikely(myhead == NULL)) {
 #ifdef POOL_STATS
-			odp_atomic_inc_u64(&pool->bufempty);
+		odp_atomic_inc_u64(&pool->poolstats.bufempty);
 #endif
 			return NULL;
 		}
@@ -230,12 +236,12 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
 		STORE_U32(pool->low_wm_assert, 1);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->low_wm_count);
+		odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
 #endif
 	}
 
 #ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->bufallocs);
+	odp_atomic_inc_u64(&pool->poolstats.bufallocs);
 #endif
 	myhead->allocator = odp_thread_id();
 
@@ -272,12 +278,12 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
 		STORE_U32(pool->low_wm_assert, 0);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->high_wm_count);
+		odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
 #endif
 	}
 
 #ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->buffrees);
+	odp_atomic_inc_u64(&pool->poolstats.buffrees);
 #endif
 }
 
@@ -344,8 +350,9 @@ static inline void flush_cache(local_cache_t *buf_cache,
 	}
 
 #ifdef POOL_STATS
-	odp_atomic_add_u64(&pool->bufallocs, buf_cache->bufallocs);
-	odp_atomic_add_u64(&pool->buffrees, buf_cache->buffrees - flush_count);
+	odp_atomic_add_u64(&pool->poolstats.bufallocs, buf_cache->bufallocs);
+	odp_atomic_add_u64(&pool->poolstats.buffrees,
+			   buf_cache->buffrees - flush_count);
 
 	buf_cache->bufallocs = 0;
 	buf_cache->buffrees = 0;
