@@ -169,11 +169,12 @@ __LIB__libodp_la_SOURCES = \
 			   odp_system_info.c \
 			   odp_thread.c \
 			   odp_ticketlock.c \
-			   odp_time.c \
+			   ../linux-generic/odp_time.c \
 			   odp_timer.c \
 			   os/@OS@/timer.c \
 			   ../linux-generic/odp_version.c \
 			   ../linux-generic/odp_weak.c \
+			   arch/@ARCH@/odp_time.c \
 			   ucode_fw/odp_ucode_linear.c
 
 
