@@ -115,7 +115,7 @@ typedef struct odp_buffer_hdr_t {
 			uint32_t hdrdata:1;  /* Data is in buffer hdr */
 		};
 	} flags;
-	short                    allocator;  /* allocating thread id */
+	int16_t                  allocator;  /* allocating thread id */
 	int8_t                   type;       /* buffer type */
 	int8_t                   event_type; /* for reuse as event */
 	uint32_t                 size;       /* max data size */
