@@ -30,8 +30,7 @@ DEFAULT_CFLAGS		:=
 DEFAULT_CPPFLAGS	:= 
 DEFAULT_DYN_LFLAGS      := -shared -nostdlib -Wl,--hash-style=sysv -Wl,-Bsymbolic
 
-DEFAULT_DYN_CFLAGS      := -fPIC -fno-builtin -fno-stack-check
-DEFAULT_DYN_CPPFLAGS      := -fPIC -fno-builtin -fno-stack-check
+DEFAULT_DYN_CFLAGS      := -fPIC -fno-builtin -fno-stack-check -g0
 
 ################################################################################
 #			    Binary and path checking
@@ -472,9 +471,9 @@ __K1_IO_CPPFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cppflags) $(k1-cppflag
 __K1_IO_FCFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(fcflags) $(k1-fcflags) $(DEFAULT_CFLAGS) $(io-fcflags)
 
 __K1_IO_DYN_LFLAGS = $(DEFAULT_DYN_LFLAGS) $(__K1_IO_COMMON_FLAGS) $(__K1_IO_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(io-dyn-lflags) 
-__K1_IO_DYN_CFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cflags) $(k1-cflags) $(DEFAULT_CFLAGS) $(io-dyn-cflags) $(DEFAULT_DYN_CFLAGS) -g0
-__K1_IO_DYN_CPPFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cppflags) $(k1-cppflags) $(DEFAULT_CPPFLAGS) $(io-dyn-cppflags) $(DEFAULT_DYN_CFLAGS) -g0
-__K1_IO_DYN_FCFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(fcflags) $(k1-fcflags) $(DEFAULT_CFLAGS) $(io-dyn-fcflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_IO_DYN_CFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cflags) $(k1-cflags) $(DEFAULT_CFLAGS) $(io-dyn-cflags) $(DEFAULT_DYN_CFLAGS)
+__K1_IO_DYN_CPPFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(cppflags) $(k1-cppflags) $(DEFAULT_CPPFLAGS) $(io-dyn-cppflags) $(DEFAULT_DYN_CFLAGS)
+__K1_IO_DYN_FCFLAGS = $(depgencmd) $(__K1_IO_COMMON_FLAGS) $(fcflags) $(k1-fcflags) $(DEFAULT_CFLAGS) $(io-dyn-fcflags) $(DEFAULT_DYN_CFLAGS)
 
 __K1_DP_COMMON_FLAGS = -mcluster=node -mboard=$(board)
 __K1_DP_COMMON_LFLAGS = -L$(LIB_REAL_OUTPUT_DIR)/cluster/
@@ -485,9 +484,9 @@ __K1_DP_CPPFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cp
 __K1_DP_FCFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(fcflags) $(k1-fcflags) $(cluster-fcflags) 
 
 __K1_DP_DYN_LFLAGS = $(DEFAULT_DYN_LFLAGS) $(__K1_DP_COMMON_FLAGS) $(__K1_DP_COMMON_LFLAGS) $(lflags) $(k1-lflags) $(cluster-dyn-lflags)
-__K1_DP_DYN_CFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(cflags) $(k1-cflags) $(cluster-dyn-cflags) $(DEFAULT_DYN_CFLAGS) -g0
-__K1_DP_DYN_CPPFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cppflags) $(k1-cppflags) $(cluster-dyn-cppflags) $(DEFAULT_DYN_CFLAGS) -g0
-__K1_DP_DYN_FCFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(fcflags) $(k1-fcflags) $(cluster-dyn-fcflags) $(DEFAULT_DYN_CFLAGS) -g0
+__K1_DP_DYN_CFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(cflags) $(k1-cflags) $(cluster-dyn-cflags) $(DEFAULT_DYN_CFLAGS)
+__K1_DP_DYN_CPPFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CPPFLAGS) $(cppflags) $(k1-cppflags) $(cluster-dyn-cppflags) $(DEFAULT_DYN_CFLAGS)
+__K1_DP_DYN_FCFLAGS = $(depgencmd) $(__K1_DP_COMMON_FLAGS) $(DEFAULT_CFLAGS) $(fcflags) $(k1-fcflags) $(cluster-dyn-fcflags) $(DEFAULT_DYN_CFLAGS)
 
 
 #####################################################
@@ -685,7 +684,9 @@ $(1)_multibin_ios_names_flags = $$(if $$($(1)_multibin_ios_names), --ios-names $
 $(1)-name ?= $(1).mpk
 mppa_multibins_mpk += $(BIN_DIR)/$$($(1)-name)
 
-$(BIN_DIR)/$$($(1)-name): $(addprefix $(BIN_DIR)/,$($(1)-objs)) $($(1)-deps) $(BIN_DIR)/.dirstamp FORCE
+$(1)_real_bin_deps = $(foreach obj,$($(1)-objs),$(if $($(obj)-srcs),$(BIN_DIR)/$(objs),$(obj)))
+
+$(BIN_DIR)/$$($(1)-name): $$($(1)_real_bin_deps) $($(1)-deps) $(BIN_DIR)/.dirstamp FORCE
 	$$(call build_if_changed,create_multibin,$(1))
 
 PHONY += $(1)
