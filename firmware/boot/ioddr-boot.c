@@ -2,11 +2,10 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 #include <mppa_bsp.h>
+#include <mppa/osconfig.h>
 
 #include <stdio.h>
 
-
-#define CNOC_IO_RX_ID			0
 /**
  * Cluster tag to recevie IO sync
  */
@@ -23,7 +22,7 @@ static int io_init_cnoc_rx(uint64_t clus_mask)
 #endif
 	mppa_noc_ret_t ret;
 	mppa_noc_cnoc_rx_configuration_t conf = {0};
-	int rx_id = CNOC_IO_RX_ID;
+	int rx_id = CNOC_CLUS_SYNC_RX_ID;
 
 	conf.mode = MPPA_NOC_CNOC_RX_BARRIER;
 	conf.init_value = clus_mask;
@@ -64,10 +63,12 @@ static int io_wait_cluster_sync(int cluster_count)
 	mppa_cnoc_config_t config;
 	mppa_cnoc_header_t header;
 
+	printf("Waiting for clusters to have booted\n");
+
 	while ((volatile bool) mppa_noc_has_pending_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
 			true);
 
-	mppa_noc_cnoc_clear_rx_event(NOC_IO_IFACE_ID, CNOC_IO_RX_ID);
+	mppa_noc_cnoc_clear_rx_event(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
 
 	printf("Got cluster sync, sending ack\n");
 
@@ -99,9 +100,16 @@ int main (int argc, char *argv[])
 	const char *clus_argv[3];
 	uint64_t clus_mask = 0;
 
+	if (argc < 2) {
+		printf("Missing arguments\n");
+		exit(1);
+	}
+
 	mppa_power_init();
 
 	clus_count = argc - 1;
+	printf("Spawning %d clusters\n", clus_count);
+
 	for (i = 0; i < clus_count; i++)
 		clus_mask |= (1 << i);
 
@@ -113,13 +121,10 @@ int main (int argc, char *argv[])
 		clus_argv[1] = clus_id;
 		clus_argv[2] = NULL;
 
-		printf("Spawning %s on cluster %d\n", argv[0], i);
+		printf("Spawning %s on cluster %d\n", clus_argv[0], i);
 		clus_pid[i] = mppa_power_base_spawn(i, clus_argv[0], clus_argv, NULL, MPPA_POWER_SHUFFLING_DISABLED);
 	}
 
-	/* Wait for cluster boot */
-	while ((volatile bool) mppa_noc_has_pending_event(i, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
-				true);
 
 	io_init_cnoc_tx();
 	io_wait_cluster_sync(clus_count);

@@ -19,12 +19,16 @@ CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
 ifeq ($(USE_PACKAGES),1)
 ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
 CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
+BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)/boot.kelf
 else
 ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
 CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
-endif
 
-BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)/boot.kelf
+# Build the ioddr boot firmware to avoid additionnal build/install steps...
+boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
+boot-lflags := -lmppapower -lmppanoc -lmpparouting
+BOOT_ELF := boot
+endif
 
 cluster-cflags := -I$(ODP_INSTALL_DIR)/$(SYSTEM_NAME)/include -I$(CUNIT_INSTALL_DIR)/include
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/
@@ -39,6 +43,7 @@ io-bin := $(BOOT_ELF)
 mppa-bin :=
 cluster-bin :=
 cluster-tests :=
+mppa-tests :=
 
 # Subdirectories
 SUB_DIRS := $(wildcard */Makefile)
