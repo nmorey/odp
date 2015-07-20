@@ -26,7 +26,7 @@ extern "C" {
 /**
  * Maximum number of threads
  */
-#define ODP_CONFIG_MAX_THREADS  16
+#define ODP_CONFIG_MAX_THREADS  128
 
 /**
  * Maximum number of pools
@@ -46,7 +46,7 @@ extern "C" {
 /**
  * Maximum number of packet IO resources
  */
-#define ODP_CONFIG_PKTIO_ENTRIES 32
+#define ODP_CONFIG_PKTIO_ENTRIES 64
 
 /**
  * Minimum buffer alignment
