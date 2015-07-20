@@ -36,12 +36,18 @@ env["LD_LIBRARY_PATH"] = "#{k1tools}/lib:#{k1tools}/lib64:#{ENV["LD_LIBRARY_PATH
 
 repo = Git.new(odp_clone,workspace)
 
+local_valid = options["local-valid"]
 
 clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
-long = Target.new("long", repo, [])
+
 install = Target.new("install", repo, [build])
+if local_valid then
+        long = Target.new("long", repo, [install])
+else
+        long = Target.new("long", repo, [])
+end
 package = Target.new("package", repo, [install])
 
 b = Builder.new("odp", options, [clean, build, valid, long, package, install])
@@ -105,7 +111,7 @@ b.target("long") do
     cd odp_path
 
     make_opt = ""
-    if options["local-valid"] == false then
+    if not local_valid then
         make_opt = "USE_PACKAGES=1"
     end
 
