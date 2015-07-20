@@ -32,7 +32,7 @@
 typedef union buffer_type_any_u {
 	odp_buffer_hdr_t  buf;
 	odp_packet_hdr_t  pkt;
-	odp_timeout_hdr_t tmo;
+	odp_timeout_fakehdr_t tmo;
 } odp_anybuf_t;
 
 /* Any buffer type header */
@@ -157,7 +157,8 @@ odp_pool_t odp_pool_create(const char *name,
 
 	/* Default size and align for timeouts */
 	if (params->type == ODP_POOL_TIMEOUT) {
-		params->buf.size  = 0; /* tmo.__res1 */
+		/* The real timeout header is stored in the buffer */
+		params->buf.size  = sizeof(odp_timeout_hdr_t); /* tmo.__res1 */
 		params->buf.align = 0; /* tmo.__res2 */
 	}
 
@@ -205,7 +206,7 @@ odp_pool_t odp_pool_create(const char *name,
 		tailroom = ODP_CONFIG_PACKET_TAILROOM;
 		buf_num = params->pkt.num;
 
-		seg_len = params->pkt.seg_len == 0 ?
+		seg_len = params->pkt.seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MIN ?
 			ODP_CONFIG_PACKET_SEG_LEN_MIN :
 			(params->pkt.seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MAX ?
 			 params->pkt.seg_len : ODP_CONFIG_PACKET_SEG_LEN_MAX);
@@ -229,7 +230,7 @@ odp_pool_t odp_pool_create(const char *name,
 		break;
 
 	case ODP_POOL_TIMEOUT:
-		blk_size = 0;
+		blk_size = params->buf.size;
 		buf_num = params->tmo.num;
 		buf_stride = sizeof(odp_timeout_hdr_stride);
 		break;
