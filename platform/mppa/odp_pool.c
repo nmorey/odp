@@ -208,14 +208,14 @@ odp_pool_t odp_pool_create(const char *name,
 		tailroom = ODP_CONFIG_PACKET_TAILROOM;
 		buf_num = params->pkt.num;
 
-		seg_len = params->pkt.seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MIN ?
+		seg_len = params->pkt.seg_len + headroom + tailroom;
+		seg_len = seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MIN ?
 			ODP_CONFIG_PACKET_SEG_LEN_MIN :
-			(params->pkt.seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MAX ?
-			 params->pkt.seg_len : ODP_CONFIG_PACKET_SEG_LEN_MAX);
+			(seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MAX ?
+			 seg_len : ODP_CONFIG_PACKET_SEG_LEN_MAX);
 
-		seg_len = ODP_ALIGN_ROUNDUP(
-			headroom + seg_len + tailroom,
-			ODP_CONFIG_BUFFER_ALIGN_MIN);
+		seg_len = ODP_ALIGN_ROUNDUP(seg_len,
+					    ODP_CONFIG_BUFFER_ALIGN_MIN);
 
 		blk_size = params->pkt.len <= seg_len ? seg_len :
 			ODP_ALIGN_ROUNDUP(params->pkt.len, seg_len);
