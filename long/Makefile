@@ -3,7 +3,7 @@ O ?= ./output
 project-name := odp
 
 ODP_SRC_DIR ?= $(CURDIR)/..
-ODP_PLATFORM ?= k1-cluster
+ODP_PLATFORM ?= mppa
 ODP_ARCH ?= k1a-kalray-nodeos
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
@@ -31,7 +31,7 @@ cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/l
 endif
 
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/
-cluster-lflags += -lodp -lcunit -lmppanoc -lmpparouting
+cluster-lflags += -lodphelper -lodp -lcunit -lmppanoc -lmpparouting
 
 # Empty direct assignement to allows += to work in included Makefiles
 cluster-bin :=

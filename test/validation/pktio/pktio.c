@@ -382,12 +382,16 @@ static void pktio_txrx_multi(pktio_info_t *pktio_a, pktio_info_t *pktio_b,
 		ret = odp_queue_enq(pktio_a->outq, tx_ev[0]);
 		if (ret != 0) {
 			CU_FAIL("failed to enqueue test packet");
+			odp_packet_free(tx_pkt[0]);
 			return;
 		}
 	} else {
 		ret = odp_queue_enq_multi(pktio_a->outq, tx_ev, num_pkts);
 		if (ret != num_pkts) {
 			CU_FAIL("failed to enqueue test packets");
+			i = ret < 0 ? 0 : ret;
+			for ( ; i < num_pkts; i++)
+				odp_packet_free(tx_pkt[i]);
 			return;
 		}
 	}
@@ -540,7 +544,8 @@ static void pktio_test_inq_remdef(void)
 
 	CU_ASSERT(pktio != ODP_PKTIO_INVALID);
 	CU_ASSERT(create_inq(pktio, ODP_QUEUE_TYPE_POLL) == 0);
-	CU_ASSERT((inq = odp_pktio_inq_getdef(pktio)) != ODP_QUEUE_INVALID);
+	inq = odp_pktio_inq_getdef(pktio);
+	CU_ASSERT(inq != ODP_QUEUE_INVALID);
 	CU_ASSERT(odp_pktio_inq_remdef(pktio) == 0);
 
 	for (i = 0; i < 100; i++) {

@@ -109,7 +109,8 @@ void enqueue_loop_interface(odp_packet_t pkt)
 	odp_queue_t defqueue = odp_pktio_outq_getdef(pktio_loop);
 
 	ev = odp_packet_to_event(pkt);
-	CU_ASSERT(odp_queue_enq(defqueue, ev) == 0);
+	if (!(CU_ASSERT(odp_queue_enq(defqueue, ev) == 0)))
+		odp_packet_free(pkt);
 }
 
 static inline
@@ -807,7 +808,7 @@ static void classification_test_pmr_terms_cap(void)
 	unsigned long long retval;
 	/* Need to check different values for different platforms */
 	retval = odp_pmr_terms_cap();
-	CU_ASSERT(retval | (1 << ODP_PMR_IPPROTO));
+	CU_ASSERT(retval & (1 << ODP_PMR_IPPROTO));
 }
 
 static void classification_test_pktio_configure(void)

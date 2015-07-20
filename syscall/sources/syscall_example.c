@@ -140,7 +140,7 @@ errcode_t do_eth_get_mac(debug_agent_interface_t *interface, int *sys_ret){
 		fprintf(stderr, "Failed to write to data cache\n");
 		exit(1);
 	}
-	interface->set_return(interface->self, 0, 0);
+	interface->set_return(interface->self, 0, ETH_ALEN);
 	return RET_OK;
 }
 

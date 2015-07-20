@@ -268,7 +268,7 @@ odp_packet_t create_ipv4_packet(stream_db_entry_t *stream,
 		inner_ip->frag_offset = 0;
 		inner_ip->src_addr = odp_cpu_to_be_32(stream->src_ip);
 		inner_ip->dst_addr = odp_cpu_to_be_32(stream->dst_ip);
-		inner_ip->chksum = odp_chksum(inner_ip, sizeof(inner_ip));
+		inner_ip->chksum = odp_chksum(inner_ip, sizeof(*inner_ip));
 		data += sizeof(*inner_ip);
 	}
 
@@ -566,7 +566,11 @@ int create_stream_db_inputs(void)
 				break;
 			}
 			stream->created++;
-			odp_queue_enq(queue, odp_packet_to_event(pkt));
+			if (odp_queue_enq(queue, odp_packet_to_event(pkt))) {
+				odp_packet_free(pkt);
+				printf("Queue enqueue failed\n");
+				break;
+			}
 
 			/* Count this stream when we create first packet */
 			if (1 == stream->created)

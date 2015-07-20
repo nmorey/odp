@@ -5,7 +5,7 @@ LIB   = $(top_builddir)/lib
 #in the following line, the libs using the symbols should come before
 #the libs containing them! The includer is given a chance to add things
 #before libodp by setting PRE_LDADD before the inclusion.
-LDADD = $(PRE_LDADD) $(LIB)/libodp.la
+LDADD = $(PRE_LDADD) $(LIB)/libodphelper.la $(LIB)/libodp.la
 
 INCFLAGS = -I$(srcdir) \
 	-I$(top_srcdir)/test \
@@ -21,10 +21,4 @@ AM_LDFLAGS += -L$(LIB)
 @VALGRIND_CHECK_RULES@
 valgrind_tools = memcheck drd sgcheck
 
-
-TEST_EXTENSIONS = .kelf
-
-KELF_LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
-LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh
-
-TESTS_ENVIRONMENT= ODP_PLATFORM=${with_platform} EXEEXT=${EXEEXT} TARGET_RUNNER="$(KELF_LOG_COMPILER)" TOP_SRCDIR=$(top_srcdir) RUN_TARGET=${RUN_TARGET}
+TESTS_ENVIRONMENT+= ODP_PLATFORM=${with_platform} EXEEXT=${EXEEXT}

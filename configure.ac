@@ -73,13 +73,11 @@ AS_CASE([$host],
   [*]
 )
 AS_CASE([$host],
-  [k1*-nodeos*], [ARCH=${ARCH}-nodeos
-  				 OS=nodeos],
-  [k1*-mos*],    [ARCH=${ARCH}-mos
-				  OS=mos],
-  [k1*-rtems*],  [ARCH=${ARCH}-rtems
-				  OS=rtems],
-  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"]
+  [k1*-nodeos*], [OS=nodeos],
+  [k1*-mos*],    [OS=mos],
+  [k1*-rtems*],  [OS=rtems],
+  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"
+  				  OS=linux]
 )
 AS_CASE([$host],
   [k1*simu], [k1_hw=no
@@ -121,9 +119,9 @@ AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 if test "${with_platform}" == "linux-generic";
 then
     m4_include([./platform/linux-generic/m4/configure.m4])
-elif test "${with_platform}" == "k1-cluster";
+elif test "${with_platform}" == "mppa";
 then
-    m4_include([./platform/k1-cluster/m4/configure.m4])
+    m4_include([./platform/mppa/m4/configure.m4])
 else
     echo "UNSUPPORTED PLATFORM: ${with_platform}"
     exit 1
@@ -351,10 +349,11 @@ AC_CONFIG_FILES([Makefile
 		 helper/Makefile
 		 helper/test/Makefile
 		 pkgconfig/libodp.pc
+		 pkgconfig/libodphelper.pc
 		 platform/linux-generic/Makefile
-		 platform/k1-cluster/Makefile
+		 platform/mppa/Makefile
 		 platform/linux-generic/test/pktio/Makefile
-		 platform/k1-cluster/test/pktio/Makefile
+		 platform/mppa/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
@@ -365,6 +364,7 @@ AC_CONFIG_FILES([Makefile
 		 test/validation/cpumask/Makefile
 		 test/validation/common/Makefile
 		 test/validation/crypto/Makefile
+		 test/validation/errno/Makefile
 		 test/validation/init/Makefile
 		 test/validation/packet/Makefile
 		 test/validation/pktio/Makefile
@@ -373,8 +373,11 @@ AC_CONFIG_FILES([Makefile
 		 test/validation/random/Makefile
 		 test/validation/scheduler/Makefile
 		 test/validation/synchronizers/Makefile
-		 test/validation/system/Makefile
 		 test/validation/thread/Makefile
+		 test/validation/time/Makefile
+		 test/validation/timer/Makefile
+		 test/validation/shmem/Makefile
+		 test/validation/system/Makefile
 		 test/miscellaneous/Makefile
 		 ])
 
