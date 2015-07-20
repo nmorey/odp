@@ -285,7 +285,6 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 {
 	if(!strncmp("cluster:", devname, strlen("cluster:"))) {
 		pkt_cluster_t * pkt_cluster = &pktio_entry->s.pkt_cluster;
-
 		/* String should in the following format: "cluster:<cluster_id>" */
 		pkt_cluster->clus_id = atoi(devname + strlen("cluster:"));
 
@@ -302,6 +301,8 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		pkt_cluster->max_frame_len = pkt_cluster->buf_size -
 			odp_buffer_pool_headroom(pool) -
 			odp_buffer_pool_tailroom(pool);
+
+		return 0;
 	}
 
 	return -1;
