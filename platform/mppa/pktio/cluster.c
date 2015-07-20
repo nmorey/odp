@@ -219,7 +219,7 @@ static int cluster_init_noc_tx(void)
 	return 0;
 }
 
-static int cluster_configure_cnoc_tx(int clus_id)
+static int cluster_configure_cnoc_tx(int clus_id, int tag)
 {
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
@@ -232,7 +232,7 @@ static int cluster_configure_cnoc_tx(int clus_id)
 	if (rret != MPPA_ROUTING_RET_SUCCESS)
 		return 1;
 
-	header._.tag = CNOC_CLUS_BASE_RX_ID + clus_id;
+	header._.tag = tag;
 
 	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
 					  config, header);
@@ -245,12 +245,14 @@ static int cluster_configure_cnoc_tx(int clus_id)
 static int cluster_io_sync(void)
 {
 	uint64_t value = 1 << __k1_get_cluster_id();
-	ODP_DBG("Signaling IO for sync\n");
 
-	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID) != 0)
+	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID, CNOC_CLUS_SYNC_RX_ID) != 0)
 		return 1;
 
+	ODP_DBG("Signaling IO for sync\n");
+
 	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, value);
+
 	ODP_DBG("Waiting for IO sync\n");
 
 	while ((volatile bool) mppa_noc_has_pending_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
@@ -329,7 +331,7 @@ static int cluster_mac_addr_get(pktio_entry_t *pktio_entry,
 #ifdef __k1a__
 static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 {
-	if (cluster_configure_cnoc_tx(pktio_clus->clus_id) != 0)
+	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id) != 0)
 		return 1;
 
 	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
