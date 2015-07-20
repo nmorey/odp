@@ -415,8 +415,8 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 	UNLOCK(queue);
 
 	/* Add queue to scheduling */
-	if (sched)
-		schedule_queue(queue);
+	if (sched && schedule_queue(queue))
+		ODP_ABORT("schedule_queue failed\n");
 
 	return num; /* All events enqueued */
 }
