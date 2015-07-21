@@ -116,3 +116,15 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	mppa_noc_dnoc_rx_free(local_interface, tx_port);
 	return 1;
 }
+int odp_rpc_wait_ack(odp_rpc_t * cmd, void ** payload)
+{
+	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))
+		__k1_cpu_backoff(100);
+
+	*cmd = odp_rpc_ack_buf.rpc_cmd;
+	if(payload)
+		*payload = odp_rpc_ack_buf.payload;
+
+	return 0;
+
+}

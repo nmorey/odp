@@ -80,13 +80,13 @@ static int get_if_rx_id(unsigned interface_id)
 	return -1;
 }
 
-static int ack_msg(int clus_id, odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
+static int ack_msg(odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
 {
 	msg->ack = 1;
 	msg->data_len = 0;
 	msg->inl_data = ack.inl_data;
 
-	return odp_rpc_send_msg(clus_id % 4, clus_id, msg->dma_id, msg, NULL);
+	return odp_rpc_send_msg(msg->dma_id / 4, msg->dma_id, msg->dnoc_tag, msg, NULL);
 }
 
 int main()
@@ -114,7 +114,7 @@ int main()
 			odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
 
 			/* Ack the RPC message */
-			ack_msg(remoteClus, msg, ack);
+			ack_msg(msg, ack);
 		}
 	}
 	return 0;
