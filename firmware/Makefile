@@ -1,11 +1,12 @@
-BUILDDIR := $(shell pwd)
+BUILDDIR   := $(shell pwd)
+MAKEFILE   := $(shell echo $(MAKEFILE_LIST) | awk '{ print $$NF}')
+TOP_SRCDIR := $(shell readlink -f $$(dirname $(MAKEFILE))/..)
+SRCFILES   += $(shell find $(SRCDIR) -name "[^.]*.c")
+HDRFILES   += $(shell find $(SRCDIR) -name "[^.]*.h")
+OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
-SRCFILES := $(shell find $(SRCDIR) -name "[^.]*.c")
-HDRFILES := $(shell find $(SRCDIR) -name "[^.]*.h")
-OBJFILES := $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
-
-_CFLAGS  := $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99
-_LDFLAGS := $(LDFLAGS)
+_CFLAGS    += $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99
+_LDFLAGS   += $(LDFLAGS)
 
 BIN      := $(BUILDDIR)/$(FIRMDIR).kelf
 INSTBIN  := $(INSTDIR)/$(FIRMDIR).kelf
@@ -13,7 +14,8 @@ all: $(BIN)
 
 $(BIN): $(OBJFILES)
 	$(CC) -o $@ $^ $(_CFLAGS) $(_LDFLAGS)
-$(OBJFILES): $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HDRFILES)
+$(OBJFILES): $(BUILDDIR)/%.o: $(TOP_SRCDIR)/%.c $(HDRFILES)
+	@mkdir -p $$(dirname $@) || true
 	$(CC) -o $@ -c $< $(_CFLAGS)
 
 install: $(INSTBIN)
