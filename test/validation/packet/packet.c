@@ -129,9 +129,7 @@ static void packet_test_alloc_free(void)
 static void packet_test_alloc_segmented(void)
 {
 	odp_packet_t pkt;
-	const uint32_t len = ODP_CONFIG_PACKET_BUF_LEN_MAX -
-			ODP_CONFIG_PACKET_HEADROOM -
-			ODP_CONFIG_PACKET_TAILROOM;
+	const uint32_t len = segmented_packet_len;
 
 	pkt = odp_packet_alloc(packet_pool, len);
 	CU_ASSERT_FATAL(pkt != ODP_PACKET_INVALID);
