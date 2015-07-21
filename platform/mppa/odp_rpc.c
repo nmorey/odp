@@ -17,9 +17,38 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
+static struct {
+	odp_rpc_t rpc_cmd;
+	uint8_t payload[RPC_MAX_PAYLOAD];
+} odp_rpc_ack_buf;
+static unsigned rx_port = -1;
+
+int odp_rpc_client_setup(void){
+	/* Already initialized */
+	if(rx_port < (unsigned)(-1))
+		return 0;
+
+	mppa_noc_ret_t ret;
+	mppa_noc_dnoc_rx_configuration_t conf = {0};
+
+	ret = mppa_noc_dnoc_rx_alloc_auto(0, &rx_port, MPPA_NOC_BLOCKING);
+	if (ret != MPPA_NOC_RET_SUCCESS)
+		return -1;
+
+	conf.buffer_base = (uintptr_t)&odp_rpc_ack_buf;
+	conf.buffer_size = sizeof(odp_rpc_ack_buf),
+	conf.activation = MPPA_NOC_ACTIVATED;
+	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
+
+	ret = mppa_noc_dnoc_rx_configure(0, rx_port, conf);
+
+	return 0;
+}
+
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 		     uint16_t dest_tag, odp_rpc_t * cmd,
-		     void * payload){
+		     void * payload)
+{
 	mppa_noc_ret_t ret;
 	mppa_routing_ret_t rret;
 	unsigned tx_port;
