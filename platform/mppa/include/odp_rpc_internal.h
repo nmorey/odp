@@ -11,8 +11,14 @@ typedef struct {
 typedef struct {
 	uint16_t pkt_type;
 	uint16_t data_len;       /* Packet is data len * 8B long. data_len < RPC_MAX_PAYLOAD / 8 */
-	uint8_t  dma_id;
-	uint8_t  cnoc_id;
+	uint8_t  dma_id;         /* Source cluster ID */
+	uint8_t  dnoc_tag;       /* Source Rx tag for reply */
+	union {
+		struct {
+			uint8_t ack : 1;
+		};
+		uint16_t flags;
+	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_t;
 
