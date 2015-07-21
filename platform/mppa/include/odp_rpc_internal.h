@@ -52,6 +52,24 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
 
+static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_id){
+	switch(eth_slot){
+	case 0:
+		/* East */
+		return 160 + cluster_id / 4;
+	case 1:
+		/* West */
+		return 224 + cluster_id / 4;
+	default:
+		return -1;
+	}
+}
+
+static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_id){
+	(void) eth_slot;
+	return RPC_BASE_RX + (cluster_id % 4);
+}
+
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id, uint16_t dest_tag,
 		     odp_rpc_t * cmd, void * payload);
 
