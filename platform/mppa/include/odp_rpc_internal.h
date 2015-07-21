@@ -72,6 +72,8 @@ static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_i
 
 int odp_rpc_client_setup(void);
 
+void odp_rpc_print_msg(const odp_rpc_t * cmd);
+
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id, uint16_t dest_tag,
 		     odp_rpc_t * cmd, void * payload);
 

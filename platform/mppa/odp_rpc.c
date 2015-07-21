@@ -4,6 +4,7 @@
  * SPDX-License-Identifier:     BSD-3-Clause
  */
 
+#include <stdio.h>
 #include <inttypes.h>
 #include <HAL/hal/hal.h>
 
@@ -43,6 +44,18 @@ int odp_rpc_client_setup(void){
 	ret = mppa_noc_dnoc_rx_configure(0, rx_port, conf);
 
 	return 0;
+}
+
+void odp_rpc_print_msg(const odp_rpc_t * cmd)
+{
+	printf("RPC CMD:\n"
+	       "\tType: %u\n"
+	       "\tData: %u\n"
+	       "\tDMA : %u\n"
+	       "\tTag : %u\n"
+	       "\tFlag: %x\n",
+	       cmd->pkt_type, cmd->data_len, cmd->dma_id,
+	       cmd->dnoc_tag, cmd->flags);
 }
 
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
