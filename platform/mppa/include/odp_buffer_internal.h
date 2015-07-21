@@ -50,15 +50,7 @@ extern "C" {
 	((x) <= 65536 ? 16 : \
 	 (0/0)))))))))))))))))
 
-_ODP_STATIC_ASSERT(ODP_CONFIG_PACKET_SEG_LEN_MIN >= 256,
-		   "ODP Segment size must be a minimum of 256 bytes");
-
-_ODP_STATIC_ASSERT((ODP_CONFIG_PACKET_BUF_LEN_MAX %
-		   ODP_CONFIG_PACKET_SEG_LEN_MIN) == 0,
-		  "Packet max size must be a multiple of segment size");
-
-#define ODP_BUFFER_MAX_SEG \
-	(ODP_CONFIG_PACKET_BUF_LEN_MAX / ODP_CONFIG_PACKET_SEG_LEN_MIN)
+#define ODP_BUFFER_MAX_SEG 5
 
 /* We can optimize storage of small raw buffers within metadata area */
 #define ODP_MAX_INLINE_BUF     ((sizeof(void *)) * (ODP_BUFFER_MAX_SEG - 1))
@@ -115,7 +107,7 @@ typedef struct odp_buffer_hdr_t {
 			uint32_t hdrdata:1;  /* Data is in buffer hdr */
 		};
 	} flags;
-	short                    allocator;  /* allocating thread id */
+	int16_t                  allocator;  /* allocating thread id */
 	int8_t                   type;       /* buffer type */
 	int8_t                   event_type; /* for reuse as event */
 	uint32_t                 size;       /* max data size */

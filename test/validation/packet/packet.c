@@ -19,12 +19,9 @@
 
 static odp_pool_t packet_pool;
 static const uint32_t packet_len = PACKET_BUF_LEN -
-				ODP_CONFIG_PACKET_HEADROOM -
-				ODP_CONFIG_PACKET_TAILROOM -
 				PACKET_TAILROOM_RESERVE;
 
 static const uint32_t segmented_packet_len = PACKET_BUF_LEN * 5 -
-	ODP_CONFIG_PACKET_HEADROOM - ODP_CONFIG_PACKET_TAILROOM -
 	PACKET_TAILROOM_RESERVE;
 
 odp_packet_t test_packet, segmented_test_packet;
@@ -132,13 +129,12 @@ static void packet_test_alloc_free(void)
 static void packet_test_alloc_segmented(void)
 {
 	odp_packet_t pkt;
-	const uint32_t len = ODP_CONFIG_PACKET_BUF_LEN_MAX -
-			ODP_CONFIG_PACKET_HEADROOM -
-			ODP_CONFIG_PACKET_TAILROOM;
+	const uint32_t len = segmented_packet_len;
 
 	pkt = odp_packet_alloc(packet_pool, len);
 	CU_ASSERT_FATAL(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(odp_packet_len(pkt) == len);
+	CU_ASSERT(odp_packet_is_segmented(pkt) == 1);
 	odp_packet_free(pkt);
 }
 

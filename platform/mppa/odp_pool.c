@@ -32,7 +32,7 @@
 typedef union buffer_type_any_u {
 	odp_buffer_hdr_t  buf;
 	odp_packet_hdr_t  pkt;
-	odp_timeout_hdr_t tmo;
+	odp_timeout_fakehdr_t tmo;
 } odp_anybuf_t;
 
 /* Any buffer type header */
@@ -86,18 +86,18 @@ int odp_pool_init_global(void)
 		pool->s.pool_id = i;
 		pool_entry_ptr[i] = pool;
 		odp_atomic_init_u32(&pool->s.bufcount, 0);
-#ifdef POOL_STATS
 		odp_atomic_init_u32(&pool->s.blkcount, 0);
 
+#ifdef POOL_STATS
 		/* Initialize pool statistics counters */
-		odp_atomic_init_u64(&pool->s.bufallocs, 0);
-		odp_atomic_init_u64(&pool->s.buffrees, 0);
-		odp_atomic_init_u64(&pool->s.blkallocs, 0);
-		odp_atomic_init_u64(&pool->s.blkfrees, 0);
-		odp_atomic_init_u64(&pool->s.bufempty, 0);
-		odp_atomic_init_u64(&pool->s.blkempty, 0);
-		odp_atomic_init_u64(&pool->s.high_wm_count, 0);
-		odp_atomic_init_u64(&pool->s.low_wm_count, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.bufallocs, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.buffrees, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.blkallocs, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.blkfrees, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.bufempty, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.blkempty, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.high_wm_count, 0);
+		odp_atomic_init_u64(&pool->s.poolstats.low_wm_count, 0);
 #endif
 	}
 
@@ -159,7 +159,8 @@ odp_pool_t odp_pool_create(const char *name,
 
 	/* Default size and align for timeouts */
 	if (params->type == ODP_POOL_TIMEOUT) {
-		params->buf.size  = 0; /* tmo.__res1 */
+		/* The real timeout header is stored in the buffer */
+		params->buf.size  = sizeof(odp_timeout_hdr_t); /* tmo.__res1 */
 		params->buf.align = 0; /* tmo.__res2 */
 	}
 
@@ -207,21 +208,29 @@ odp_pool_t odp_pool_create(const char *name,
 		tailroom = ODP_CONFIG_PACKET_TAILROOM;
 		buf_num = params->pkt.num;
 
-		seg_len = params->pkt.seg_len == 0 ?
+		seg_len = params->pkt.seg_len + headroom + tailroom;
+		seg_len = seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MIN ?
 			ODP_CONFIG_PACKET_SEG_LEN_MIN :
-			(params->pkt.seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MAX ?
-			 params->pkt.seg_len : ODP_CONFIG_PACKET_SEG_LEN_MAX);
+			(seg_len <= ODP_CONFIG_PACKET_SEG_LEN_MAX ?
+			 seg_len : ODP_CONFIG_PACKET_SEG_LEN_MAX);
 
-		seg_len = ODP_ALIGN_ROUNDUP(
-			headroom + seg_len + tailroom,
-			ODP_CONFIG_BUFFER_ALIGN_MIN);
+		seg_len = ODP_ALIGN_ROUNDUP(seg_len,
+					    ODP_CONFIG_BUFFER_ALIGN_MIN);
 
 		blk_size = params->pkt.len <= seg_len ? seg_len :
 			ODP_ALIGN_ROUNDUP(params->pkt.len, seg_len);
 
 		/* Reject create if pkt.len needs too many segments */
-		if (blk_size / seg_len > ODP_BUFFER_MAX_SEG)
-			return ODP_POOL_INVALID;
+		if (blk_size / seg_len > ODP_BUFFER_MAX_SEG) {
+			if(params->pkt.seg_len != 0) {
+				return ODP_POOL_INVALID;
+			} else {
+				seg_len = (blk_size + ODP_BUFFER_MAX_SEG - 1) /
+					ODP_BUFFER_MAX_SEG;
+				seg_len = ODP_ALIGN_ROUNDUP(seg_len,
+							    ODP_CONFIG_BUFFER_ALIGN_MIN);
+			}
+		}
 
 		p_udata_size = params->pkt.uarea_size;
 		udata_stride = ODP_ALIGN_ROUNDUP(p_udata_size,
@@ -231,7 +240,7 @@ odp_pool_t odp_pool_create(const char *name,
 		break;
 
 	case ODP_POOL_TIMEOUT:
-		blk_size = 0;
+		blk_size = params->buf.size;
 		buf_num = params->tmo.num;
 		buf_stride = sizeof(odp_timeout_hdr_stride);
 		break;
@@ -348,9 +357,8 @@ odp_pool_t odp_pool_create(const char *name,
 
 		/* Initialization will increment these to their target vals */
 		odp_atomic_store_u32(&pool->s.bufcount, 0);
-#ifdef POOL_STATS
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
-#endif
+
 		uint8_t *buf = udata_base_addr - buf_stride;
 		uint8_t *udat = udata_stride == 0 ? NULL :
 			udata_base_addr + udata_size - udata_stride;
@@ -406,19 +414,19 @@ odp_pool_t odp_pool_create(const char *name,
 
 #ifdef POOL_STATS
 		/* Initialize pool statistics counters */
-		odp_atomic_store_u64(&pool->s.bufallocs, 0);
-		odp_atomic_store_u64(&pool->s.buffrees, 0);
-		odp_atomic_store_u64(&pool->s.blkallocs, 0);
-		odp_atomic_store_u64(&pool->s.blkfrees, 0);
-		odp_atomic_store_u64(&pool->s.bufempty, 0);
-		odp_atomic_store_u64(&pool->s.blkempty, 0);
-		odp_atomic_store_u64(&pool->s.high_wm_count, 0);
-		odp_atomic_store_u64(&pool->s.low_wm_count, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.bufallocs, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.buffrees, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.blkallocs, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.blkfrees, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.bufempty, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.blkempty, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.high_wm_count, 0);
+		odp_atomic_store_u64(&pool->s.poolstats.low_wm_count, 0);
 #endif
+
 		/* Reset other pool globals to initial state */
 		pool->s.low_wm_assert = 0;
 		pool->s.quiesced = 0;
-		pool->s.low_wm_assert = 0;
 		pool->s.headroom = headroom;
 		pool->s.tailroom = tailroom;
 
@@ -578,8 +586,7 @@ void _odp_flush_caches(void)
 
 	for (i = 0; i < ODP_CONFIG_POOLS; i++) {
 		pool_entry_t *pool = get_pool_entry(i);
-		if (pool->s.pool_shm != ODP_SHM_INVALID)
-			flush_cache(&local_cache[i], &pool->s);
+		flush_cache(&local_cache[i], &pool->s);
 	}
 }
 
@@ -592,18 +599,19 @@ void odp_pool_print(odp_pool_t pool_hdl)
 	pool    = get_pool_entry(pool_id);
 
 	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.bufcount);
-#ifdef POOL_STATS
 	uint32_t blkcount  = odp_atomic_load_u32(&pool->s.blkcount);
-	uint64_t bufallocs = odp_atomic_load_u64(&pool->s.bufallocs);
-	uint64_t buffrees  = odp_atomic_load_u64(&pool->s.buffrees);
-	uint64_t blkallocs = odp_atomic_load_u64(&pool->s.blkallocs);
-	uint64_t blkfrees  = odp_atomic_load_u64(&pool->s.blkfrees);
-	uint64_t bufempty  = odp_atomic_load_u64(&pool->s.bufempty);
-	uint64_t blkempty  = odp_atomic_load_u64(&pool->s.blkempty);
-	uint64_t hiwmct    = odp_atomic_load_u64(&pool->s.high_wm_count);
-	uint64_t lowmct    = odp_atomic_load_u64(&pool->s.low_wm_count);
+#ifdef POOL_STATS
+	uint64_t bufallocs = odp_atomic_load_u64(&pool->s.poolstats.bufallocs);
+	uint64_t buffrees  = odp_atomic_load_u64(&pool->s.poolstats.buffrees);
+	uint64_t blkallocs = odp_atomic_load_u64(&pool->s.poolstats.blkallocs);
+	uint64_t blkfrees  = odp_atomic_load_u64(&pool->s.poolstats.blkfrees);
+	uint64_t bufempty  = odp_atomic_load_u64(&pool->s.poolstats.bufempty);
+	uint64_t blkempty  = odp_atomic_load_u64(&pool->s.poolstats.blkempty);
+	uint64_t hiwmct    =
+		odp_atomic_load_u64(&pool->s.poolstats.high_wm_count);
+	uint64_t lowmct    =
+		odp_atomic_load_u64(&pool->s.poolstats.low_wm_count);
 #else
-	uint32_t blkcount  = 0;
 	uint64_t bufallocs = 0;
 	uint64_t buffrees  = 0;
 	uint64_t blkallocs = 0;

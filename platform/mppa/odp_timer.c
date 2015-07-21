@@ -70,7 +70,7 @@ static _odp_atomic_flag_t locks[NUM_LOCKS]; /* Multiple locks per cache line! */
 
 static odp_timeout_hdr_t *timeout_hdr_from_buf(odp_buffer_t buf)
 {
-	return (odp_timeout_hdr_t *)odp_buf_to_hdr(buf);
+	return odp_timeout_hdr_from_buf(buf);
 }
 
 
@@ -185,6 +185,7 @@ static odp_timer_pool *odp_timer_pool_new(
 	/* Initialize all odp_timer entries */
 	uint32_t i;
 	for (i = 0; i < tp->param.num_timers; i++) {
+		tp->timers[i].queue = ODP_QUEUE_INVALID;
 		set_next_free(&tp->timers[i], i + 1);
 		tp->timers[i].user_ptr = NULL;
 		odp_atomic_init_u64(&tp->tick_buf[i].exp_tck, TMO_UNUSED);
@@ -585,8 +586,7 @@ odp_timeout_t odp_timeout_from_event(odp_event_t ev)
 odp_event_t odp_timeout_to_event(odp_timeout_t tmo)
 {
 	odp_timeout_hdr_t *tmo_hdr = (odp_timeout_hdr_t *)tmo;
-	odp_buffer_t buf = odp_hdr_to_buf(&tmo_hdr->buf_hdr);
-	return odp_buffer_to_event(buf);
+	return odp_buffer_to_event(tmo_hdr->buf);
 }
 
 int odp_timeout_fresh(odp_timeout_t tmo)
@@ -622,16 +622,20 @@ void *odp_timeout_user_ptr(odp_timeout_t tmo)
 
 odp_timeout_t odp_timeout_alloc(odp_pool_t pool)
 {
+	odp_timeout_hdr_t *tmo_hdr;
 	odp_buffer_t buf = odp_buffer_alloc(pool);
 	if (odp_unlikely(buf == ODP_BUFFER_INVALID))
 		return ODP_TIMEOUT_INVALID;
-	return odp_timeout_from_event(odp_buffer_to_event(buf));
+	tmo_hdr = timeout_hdr_from_buf(buf);
+	/* Must save buffer handle in timeout header for later use */
+	tmo_hdr->buf = buf;
+	return (odp_timeout_t)tmo_hdr;
 }
 
 void odp_timeout_free(odp_timeout_t tmo)
 {
-	odp_event_t ev = odp_timeout_to_event(tmo);
-	odp_buffer_free(odp_buffer_from_event(ev));
+	odp_timeout_hdr_t *tmo_hdr = (odp_timeout_hdr_t *)tmo;
+	odp_buffer_free(tmo_hdr->buf);
 }
 
 int odp_timer_init_global(void)
