@@ -53,7 +53,7 @@ static int cluster_init_dnoc_rx(int clus_id)
 		return 1;
 
 	/* DNoC */
-	ret = mppa_noc_dnoc_rx_alloc(clus_id % 4, RPC_BASE_RX + clus_id / 4);
+	ret = mppa_noc_dnoc_rx_alloc(clus_id / 4, RPC_BASE_RX + clus_id % 4);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -62,7 +62,7 @@ static int cluster_init_dnoc_rx(int clus_id)
 	conf.activation = MPPA_NOC_ACTIVATED;
 	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
 
-	ret = mppa_noc_dnoc_rx_configure(clus_id % 4, RPC_BASE_RX + clus_id / 4, conf);
+	ret = mppa_noc_dnoc_rx_configure(clus_id / 4, RPC_BASE_RX + clus_id % 4, conf);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -108,7 +108,7 @@ int main()
 				continue;
 
 			/* Received a message */
-			int remoteClus = if_id + 4 * (tag - RPC_BASE_RX);
+			int remoteClus = 4 * if_id + (tag - RPC_BASE_RX);
 			odp_rpc_t *msg = g_clus_priv[remoteClus].recv_buf;
 
 			odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
