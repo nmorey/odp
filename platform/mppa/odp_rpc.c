@@ -116,6 +116,16 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	mppa_noc_dnoc_rx_free(local_interface, tx_port);
 	return 1;
 }
+
+int odp_rpc_do_query(uint16_t dest_id,
+		     uint16_t dest_tag, odp_rpc_t * cmd,
+		     void * payload)
+{
+	cmd->dma_id = __k1_get_cluster_id();
+	cmd->dnoc_tag = rx_port;
+	return odp_rpc_send_msg(0, dest_id, dest_tag, cmd, payload);
+}
+
 int odp_rpc_wait_ack(odp_rpc_t * cmd, void ** payload)
 {
 	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))

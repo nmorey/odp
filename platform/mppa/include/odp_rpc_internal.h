@@ -75,6 +75,10 @@ int odp_rpc_client_setup(void);
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id, uint16_t dest_tag,
 		     odp_rpc_t * cmd, void * payload);
 
+/* Calls odp_rpc_send_msg after filling the required info for reply */
+int odp_rpc_do_query(uint16_t dest_id, uint16_t dest_tag,
+		     odp_rpc_t * cmd, void * payload);
+
 int odp_rpc_wait_ack(odp_rpc_t * cmd, void ** payload);
 
 #endif /* __FIRMWARE__IOETH__RPC__H__ */
