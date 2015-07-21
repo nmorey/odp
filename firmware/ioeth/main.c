@@ -80,28 +80,13 @@ static int get_if_rx_id(unsigned interface_id)
 	return -1;
 }
 
-static int ack_msg(int clus_id, odp_rpc_t * msg)
+static int ack_msg(int clus_id, odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
 {
-	mppa_noc_ret_t nret;
-	mppa_routing_ret_t rret;
-	mppa_cnoc_config_t config;
-	mppa_cnoc_header_t header;
+	msg->ack = 1;
+	msg->data_len = 0;
+	msg->inl_data = ack.inl_data;
 
-	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(),
-						   msg->dma_id,
-						   &config, &header);
-	if (rret != MPPA_ROUTING_RET_SUCCESS)
-		return 1;
-
-	header._.tag = msg->cnoc_id;
-
-	nret = mppa_noc_cnoc_tx_configure(0, 0, config, header);
-	if (nret != MPPA_NOC_RET_SUCCESS)
-		return 1;
-
-	mppa_noc_cnoc_tx_push(0, 0, g_clus_priv[clus_id].recv_pkt_count);
-
-	return 0;
+	return odp_rpc_send_msg(clus_id % 4, clus_id, msg->dma_id, msg, NULL);
 }
 
 int main()
@@ -126,10 +111,10 @@ int main()
 			int remoteClus = if_id + 4 * (tag - RPC_BASE_RX);
 			odp_rpc_t *msg = g_clus_priv[remoteClus].recv_buf;
 
-			rpcHandle(remoteClus, msg);
+			odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
 
 			/* Ack the RPC message */
-			ack_msg(remoteClus, msg);
+			ack_msg(remoteClus, msg, ack);
 		}
 	}
 	return 0;
