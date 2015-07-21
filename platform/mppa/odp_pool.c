@@ -221,8 +221,16 @@ odp_pool_t odp_pool_create(const char *name,
 			ODP_ALIGN_ROUNDUP(params->pkt.len, seg_len);
 
 		/* Reject create if pkt.len needs too many segments */
-		if (blk_size / seg_len > ODP_BUFFER_MAX_SEG)
-			return ODP_POOL_INVALID;
+		if (blk_size / seg_len > ODP_BUFFER_MAX_SEG) {
+			if(params->pkt.seg_len != 0) {
+				return ODP_POOL_INVALID;
+			} else {
+				seg_len = (blk_size + ODP_BUFFER_MAX_SEG - 1) /
+					ODP_BUFFER_MAX_SEG;
+				seg_len = ODP_ALIGN_ROUNDUP(seg_len,
+							    ODP_CONFIG_BUFFER_ALIGN_MIN);
+			}
+		}
 
 		p_udata_size = params->pkt.uarea_size;
 		udata_stride = ODP_ALIGN_ROUNDUP(p_udata_size,
