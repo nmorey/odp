@@ -7,6 +7,8 @@
 #include "HAL/hal/hal.h"
 #include <odp/errno.h>
 #include <errno.h>
+#include "odp_rpc_internal.h"
+
 
 #define MAX_ETH_SLOTS 2
 #define MAX_ETH_PORTS 4
@@ -14,8 +16,9 @@
 
 static int eth_init(void)
 {
-	return 0;
+	return odp_rpc_client_setup();
 }
+
 
 static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
