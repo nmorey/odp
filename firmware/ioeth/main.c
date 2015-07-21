@@ -12,6 +12,7 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 #include "odp_rpc_internal.h"
+#include <odp/plat/atomic_types.h>
 #include "eth.h"
 
 #define RPC_PKT_SIZE (sizeof(odp_rpc_t) + RPC_MAX_PAYLOAD)
@@ -26,6 +27,7 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
 
 	(void)remoteClus;
+	INVALIDATE(msg);
 	switch (msg->pkt_type){
 	case ODP_RPC_CMD_OPEN:
 		return eth_open_rx(remoteClus, msg);

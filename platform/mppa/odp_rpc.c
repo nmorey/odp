@@ -13,6 +13,7 @@
 #endif
 
 #include "odp_rpc_internal.h"
+#include <odp/plat/atomic_types.h>
 
 #include <mppa_bsp.h>
 #include <mppa_routing.h>
@@ -144,10 +145,15 @@ int odp_rpc_wait_ack(odp_rpc_t * cmd, void ** payload)
 	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))
 		__k1_cpu_backoff(100);
 
+	INVALIDATE(&odp_rpc_ack_buf.rpc_cmd);
 	*cmd = odp_rpc_ack_buf.rpc_cmd;
-	if(payload)
+
+	if (payload && cmd->data_len) {
+		INVALIDATE_AREA(&odp_rpc_ack_buf.payload, cmd->data_len);
 		*payload = odp_rpc_ack_buf.payload;
+	}
 
 	return 0;
 
 }
+
