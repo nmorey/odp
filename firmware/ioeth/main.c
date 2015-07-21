@@ -71,10 +71,13 @@ static int cluster_init_dnoc_rx(int clus_id)
 
 static int get_if_rx_id(unsigned interface_id)
 {
+	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(interface_id);
 	for (int i = 0; i < 3; ++i) {
-		uint64_t mask = mppa_dnoc[interface_id]->rx_global.events[i].dword;
-		if (mask) {
-			return __k1_ctzdl(mask) + i * 8 * sizeof(mask);
+		if (bitmask.bitmask[i]) {
+			int rx_id = __k1_ctzdl(bitmask.bitmask[i]) + i * 8 * sizeof(bitmask.bitmask[i]);
+			mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
+
+			return rx_id;
 		}
 	}
 	return -1;
