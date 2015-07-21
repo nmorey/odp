@@ -45,6 +45,5 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_clos_t;
 
-void rpcHandle(unsigned remoteClus, odp_rpc_t * msg);
 
 #endif /* __FIRMWARE__IOETH__RPC__H__ */
