@@ -45,5 +45,11 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_clos_t;
 
+typedef union {
+	struct {
+		uint8_t status;
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_ack_t;
 
 #endif /* __FIRMWARE__IOETH__RPC__H__ */
