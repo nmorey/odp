@@ -9,7 +9,8 @@
 #include <errno.h>
 
 #define MAX_ETH_SLOTS 2
-#define MAX_ETH_PORTS 2
+#define MAX_ETH_PORTS 4
+
 
 static int eth_init(void)
 {
@@ -23,8 +24,8 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		return -1;
 
 	int slot_id = devname[1] - '0';
-	int port_id = -1;
-	if (slot_id < 0 || slot_id > MAX_ETH_SLOTS)
+	int port_id = 4;
+	if (slot_id < 0 || slot_id >= MAX_ETH_SLOTS)
 		return -1;
 
 	if (devname[2] != 0) {
@@ -32,7 +33,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 		port_id = devname[3] - '0';
 
-		if (port_id < 0 || port_id > MAX_ETH_PORTS)
+		if (port_id < 0 || port_id >= MAX_ETH_PORTS)
 			return -1;
 
 		if(devname[4] != 0)
