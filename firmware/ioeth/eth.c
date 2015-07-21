@@ -13,7 +13,7 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
-#include "rpc.h"
+#include "odp_rpc_internal.h"
 #include "eth.h"
 
 int eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)

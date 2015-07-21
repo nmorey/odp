@@ -122,6 +122,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_packet_io_queue.h \
 		  $(srcdir)/include/odp_pool_internal.h \
 		  $(srcdir)/include/odp_queue_internal.h \
+		  $(srcdir)/include/odp_rpc_internal.h \
 		  $(srcdir)/include/odp_schedule_internal.h \
 		  $(srcdir)/include/odp_spin_internal.h \
 		  $(srcdir)/include/odp_timer_internal.h \
@@ -162,6 +163,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_pool.c \
 			   odp_queue.c \
 			   ../../helper/ring.c \
+			   odp_rpc.c \
 			   odp_rwlock.c \
 			   odp_schedule.c \
 			   odp_shared_memory.c \

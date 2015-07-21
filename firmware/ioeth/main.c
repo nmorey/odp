@@ -11,7 +11,7 @@
 #include <mppa_bsp.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
-#include "rpc.h"
+#include "odp_rpc_internal.h"
 #include "eth.h"
 
 #define RPC_PKT_SIZE (sizeof(odp_rpc_t) + RPC_MAX_PAYLOAD)
