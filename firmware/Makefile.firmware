@@ -3,7 +3,7 @@ FIRMDIR  := $(shell basename $(SRCDIR))
 
 ODP_INCDIR = $(TOP_SRCDIR)/platform/mppa/include
 ODP_SRCDIR = $(TOP_SRCDIR)/platform/mppa/
-_CFLAGS   = -I$(ODP_INCDIR)
+_CFLAGS   = -I$(ODP_INCDIR) -I$(TOP_SRCDIR)/include
 HDRFILES  = $(ODP_INCDIR)/odp_rpc_internal.h
 SRCFILES  = $(ODP_SRCDIR)/odp_rpc.c
 
