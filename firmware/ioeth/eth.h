@@ -7,6 +7,6 @@
 #define ETH_MATCHALL_RULE_ID 0
 
 void eth_init(void);
-int eth_open_rx(unsigned remoteClus, odp_rpc_t * msg);
-int eth_close_rx(unsigned remoteClus, odp_rpc_t * msg);
+odp_rpc_cmd_ack_t eth_open_rx(unsigned remoteClus, odp_rpc_t * msg);
+odp_rpc_cmd_ack_t eth_close_rx(unsigned remoteClus, odp_rpc_t * msg);
 #endif /* __FIRMWARE__IOETH__ETH__H__ */

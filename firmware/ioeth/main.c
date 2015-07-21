@@ -21,6 +21,28 @@ static struct {
 	void    *recv_buf;
 } g_clus_priv[BSP_NB_CLUSTER_MAX];
 
+
+odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
+{
+
+	(void)remoteClus;
+	switch (msg->pkt_type){
+	case ODP_RPC_CMD_OPEN:
+		return eth_open_rx(remoteClus, msg);
+		break;
+	case ODP_RPC_CMD_CLOS:
+		return eth_close_rx(remoteClus, msg);
+		break;
+	case ODP_RPC_CMD_INVL:
+		break;
+	default:
+		fprintf(stderr, "Invalid MSG\n");
+		exit(EXIT_FAILURE);
+	}
+	odp_rpc_cmd_ack_t ack = {.status = -1 };
+	return ack;
+}
+
 static int cluster_init_dnoc_rx(int clus_id)
 {
 	mppa_noc_ret_t ret;
