@@ -150,8 +150,8 @@ b.target("package") do
     depends.push b.depends_info_struct.new("k1-tools","=", options["k1version"], "")
     package_description = "K1 ODP package (k1-odp-#{version}-#{releaseID} sha1 #{sha1})."
     pinfo = b.package_info("k1-odp", release_info,
-                           package_description, "/usr",
-                           workspace, depends)
+                           package_description,
+                           depends, "/usr", workspace)
     b.create_package(tar_package, pinfo)
 
     #K1 ODP Tests
@@ -160,8 +160,8 @@ b.target("package") do
     depends.push b.depends_info_struct.new("k1-odp","=", release_info.full_version)
     package_description = "K1 ODP Standard Tests (k1-odp-tests-#{version}-#{releaseID} sha1 #{sha1})."
     pinfo = b.package_info("k1-odp-tests", release_info,
-                           package_description, "/usr",
-                           workspace, depends)
+                           package_description, 
+                           depends, "/usr", workspace)
     b.create_package(tar_package, pinfo)
 
     #K1 ODP Tests
@@ -170,8 +170,8 @@ b.target("package") do
     depends.push b.depends_info_struct.new("k1-odp-cunit","=", release_info.full_version)
     package_description = "K1 ODP CUnit (k1-odp-cunit-#{version}-#{releaseID} sha1 #{sha1})."
     pinfo = b.package_info("k1-odp-cunit", release_info,
-                           package_description, "/usr",
-                           workspace, depends)
+                           package_description,
+                           depends, "/usr", workspace)
     b.create_package(tar_package, pinfo)
 
 
