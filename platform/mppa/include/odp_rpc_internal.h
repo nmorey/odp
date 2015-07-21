@@ -2,7 +2,7 @@
 #define __FIRMWARE__IOETH__RPC__H__
 
 #define RPC_BASE_RX 10
-#define RPC_MAX_PAYLOAD 1024 /* max payload in bytes */
+#define RPC_MAX_PAYLOAD 128 /* max payload in bytes */
 
 typedef struct {
 	uint64_t data[4];
