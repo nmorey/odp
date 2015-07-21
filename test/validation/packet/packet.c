@@ -134,6 +134,7 @@ static void packet_test_alloc_segmented(void)
 	pkt = odp_packet_alloc(packet_pool, len);
 	CU_ASSERT_FATAL(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(odp_packet_len(pkt) == len);
+	CU_ASSERT(odp_packet_is_segmented(pkt) == 1);
 	odp_packet_free(pkt);
 }
 
