@@ -684,7 +684,7 @@ $(1)_multibin_ios_names_flags = $$(if $$($(1)_multibin_ios_names), --ios-names $
 $(1)-name ?= $(1).mpk
 mppa_multibins_mpk += $(BIN_DIR)/$$($(1)-name)
 
-$(1)_real_bin_deps = $(foreach obj,$($(1)-objs),$(if $($(obj)-srcs),$(BIN_DIR)/$(objs),$(obj)))
+$(1)_real_bin_deps = $(foreach obj,$($(1)-objs),$(if $($(obj)-srcs),$(BIN_DIR)/$(obj),$(obj)))
 
 $(BIN_DIR)/$$($(1)-name): $$($(1)_real_bin_deps) $($(1)-deps) $(BIN_DIR)/.dirstamp FORCE
 	$$(call build_if_changed,create_multibin,$(1))

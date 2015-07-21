@@ -13,7 +13,7 @@
 #include <stdlib.h>
 
 #define PKT_BUF_NUM            8
-#define PKT_BUF_SIZE           (9 * 1024)
+#define PKT_BUF_SIZE           (2 * 1024)
 #define PKT_LEN_NORMAL         64
 #define PKT_LEN_JUMBO          (PKT_BUF_SIZE - ODPH_ETHHDR_LEN - \
 				ODPH_IPV4HDR_LEN - ODPH_UDPHDR_LEN)
