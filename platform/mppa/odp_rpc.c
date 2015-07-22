@@ -25,7 +25,7 @@ static struct {
 } odp_rpc_ack_buf;
 static unsigned rx_port = -1;
 
-int odp_rpc_client_setup(void){
+int odp_rpc_client_init(void){
 	/* Already initialized */
 	if(rx_port < (unsigned)(-1))
 		return 0;

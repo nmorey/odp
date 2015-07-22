@@ -8,6 +8,7 @@
 #include <odp_internal.h>
 #include <odp/debug.h>
 #include <odp_debug_internal.h>
+#include <odp_rpc_internal.h>
 
 struct odp_global_data_s odp_global_data;
 
@@ -74,6 +75,10 @@ int odp_init_global(odp_init_t *params,
 		return -1;
 	}
 
+	if (odp_rpc_client_init()) {
+		ODP_ERR("ODP RPC init failed.\n");
+		return -1;
+	}
 	return 0;
 }
 

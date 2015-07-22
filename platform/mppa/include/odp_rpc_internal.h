@@ -88,7 +88,7 @@ static inline int odp_rpc_get_ioddr_tag_id(unsigned ddr_id, unsigned cluster_id)
 	return RPC_BASE_RX + (cluster_id / 4);
 }
 
-int odp_rpc_client_setup(void);
+int odp_rpc_client_init(void);
 
 void odp_rpc_print_msg(const odp_rpc_t * cmd);
 

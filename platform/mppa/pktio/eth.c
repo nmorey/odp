@@ -18,7 +18,7 @@
 
 static int eth_init(void)
 {
-	return odp_rpc_client_setup();
+	return 0;
 }
 
 
