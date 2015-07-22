@@ -7,8 +7,10 @@ ODP_PLATFORM ?= mppa
 ODP_ARCH ?= k1a-kalray-nodeos
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
-
+OS_NAME = $(lastword $(subst -, ,$(SYSTEM_NAME)))
 CORE_ARCH = $(firstword $(subst -, ,$(ODP_ARCH)))
+
+arch = $(CORE_ARCH)
 
 ifeq ($(MAKELEVEL),0)
 $(info --- Building for arch $(ODP_ARCH), platform $(ODP_PLATFORM) ---)
@@ -29,6 +31,8 @@ boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
 boot-lflags := -lmppapower -lmppanoc -lmpparouting
 BOOT_ELF := boot
 endif
+
+cluster-system := $(OS_NAME)
 
 cluster-cflags := -I$(ODP_INSTALL_DIR)/$(SYSTEM_NAME)/include -I$(CUNIT_INSTALL_DIR)/include
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/
