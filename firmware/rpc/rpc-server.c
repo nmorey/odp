@@ -123,7 +123,6 @@ static int get_if_rx_id(unsigned interface_id)
 		if (bitmask.bitmask[i]) {
 			int rx_id = __k1_ctzdl(bitmask.bitmask[i]) + i * 8 * sizeof(bitmask.bitmask[i]);
 			int ev_counter = mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
-			printf("%d %d %d has %d events !!\n", interface_id, i, rx_id, ev_counter);
 
 			return rx_id;
 		}
