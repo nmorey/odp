@@ -20,6 +20,8 @@ ARCH_COMPONENTS := odp cunit
 COMPONENTS := extra doc $(ARCH_COMPONENTS) $(FIRMWARES)
 CHECK_LIST :=
 
+install_DEPS := build
+
 include mk/platforms.inc
 include mk/rules.inc
 

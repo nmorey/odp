@@ -115,7 +115,7 @@ endef
 #
 define DO_RULES_PAR
 # $(1) = RULE
-$(1): $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(1))
+$(1): $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(1)) $($(1)_DEPS)
 CHECK_LIST += $(foreach COMPONENT, $(COMPONENTS),$(COMPONENT)-$(1))
 endef
 
@@ -125,7 +125,7 @@ endef
 define DO_RULES_SEQ
 # $(1) = RULE
 .PHONY: $(1)
-$(1):
+$(1): $($(1)_DEPS)
 	set -e; for rule in $(foreach COMPONENT, $(COMPONENTS), $(COMPONENT)-$(1)); do $(MAKE) $$$${rule}; done
 
 CHECK_LIST += $(foreach COMPONENT, $(COMPONENTS),$(COMPONENT)-$(1))
