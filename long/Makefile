@@ -40,8 +40,9 @@ else
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
 
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
-  boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
+  boot-srcs := $(ODP_SRC_DIR)/firmware/boot/ioddr-boot.c $(ODP_SRC_DIR)/firmware/rpc/rpc-server.c $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c
   boot-lflags := $(LIB_NOC_LFLAGS)
+  boot-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/ -I$(ODP_SRC_DIR)/include/
   BOOT_ELF := boot
 endif
 
@@ -61,11 +62,8 @@ cluster-tests :=
 mppa-tests :=
 
 # Subdirectories
-SUB_DIRS := $(wildcard */Makefile)
-
+#~ SUB_DIRS := $(wildcard */Makefile)
+SUB_DIRS := pktio_cluster_sync/Makefile  pktio_cluster_test/Makefile
 include $(SUB_DIRS)
-
-# Inject cunit common file to all tests
-$(foreach clus_bin,$(cluster-bin),$(eval $(clus_bin)-srcs += $(CUNIT_COMMON_SRC)))
 
 include $(CURDIR)/../mk/Makefile.kalray

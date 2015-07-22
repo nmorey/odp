@@ -24,9 +24,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	
-
-
 	if (0 != odp_term_local()) {
 		fprintf(stderr, "error: odp_term_local() failed.\n");
 		return -1;

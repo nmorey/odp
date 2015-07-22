@@ -104,7 +104,9 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 
 int odp_rpc_server_start(odp_rpc_handler_t handler)
 {
-	for (int i = 0; i < BSP_NB_CLUSTER_MAX; ++i) {
+	int i;
+
+	for (i = 0; i < BSP_NB_CLUSTER_MAX; ++i) {
 		int ret = cluster_init_dnoc_rx(i, handler);
 		if (ret)
 			return ret;
@@ -114,8 +116,10 @@ int odp_rpc_server_start(odp_rpc_handler_t handler)
 }
 static int get_if_rx_id(unsigned interface_id)
 {
+	int i;
+
 	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(interface_id);
-	for (int i = 0; i < 3; ++i) {
+	for (i = 0; i < 3; ++i) {
 		if (bitmask.bitmask[i]) {
 			int rx_id = __k1_ctzdl(bitmask.bitmask[i]) + i * 8 * sizeof(bitmask.bitmask[i]);
 			mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
@@ -127,7 +131,9 @@ static int get_if_rx_id(unsigned interface_id)
 }
 int odp_rpc_server_poll_msg(odp_rpc_t **msg, uint8_t **payload)
 {
-	for (int if_id = 0; if_id < 4; ++if_id) {
+	int if_id;
+
+	for (if_id = 0; if_id < 4; ++if_id) {
 		int tag = get_if_rx_id(if_id);
 		if(tag < 0)
 			continue;
