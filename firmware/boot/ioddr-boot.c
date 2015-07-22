@@ -60,8 +60,8 @@ static int io_wait_cluster_sync(int cluster_count)
 	int clus;
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
-	mppa_cnoc_config_t config;
-	mppa_cnoc_header_t header;
+	mppa_cnoc_config_t config = {0};
+	mppa_cnoc_header_t header = {0};
 
 	printf("Waiting for clusters to have booted\n");
 

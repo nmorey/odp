@@ -187,7 +187,7 @@ extern char _heap_start, _heap_end;
 static int cluster_init_noc_tx(void)
 {
 	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_uc_configuration_t uc_conf;
+	mppa_noc_dnoc_uc_configuration_t uc_conf = {0};
 
 	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
 	uc_conf.buffer_base = (uintptr_t) &_heap_start;
@@ -223,8 +223,8 @@ static int cluster_configure_cnoc_tx(int clus_id, int tag)
 {
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
-	mppa_cnoc_config_t config;
-	mppa_cnoc_header_t header;
+	mppa_cnoc_config_t config = {0};
+	mppa_cnoc_header_t header = {0};
 
 	rret = mppa_routing_get_cnoc_unicast_route(__k1_get_cluster_id(),
 						   clus_id,
@@ -420,8 +420,8 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 			   void *frame, uint32_t frame_len)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf;
-	mppa_dnoc_channel_config_t config = { 0 };
-	mppa_dnoc_header_t header = { 0 };
+	mppa_dnoc_channel_config_t config = {0};
+	mppa_dnoc_header_t header = {0};
 
 	mppa_noc_uc_program_run_t program_run;
 	mppa_noc_ret_t nret;
