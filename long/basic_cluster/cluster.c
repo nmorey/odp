@@ -214,8 +214,7 @@ static int default_pool_create(void)
 	params.pkt.num     = PKT_BUF_NUM;
 	params.type        = ODP_POOL_PACKET;
 
-	default_pkt_pool = odp_pool_create("pkt_pool_default",
-					   ODP_SHM_NULL, &params);
+	default_pkt_pool = odp_pool_create("pkt_pool_default", &params);
 	if (default_pkt_pool == ODP_POOL_INVALID)
 		return -1;
 
@@ -618,7 +617,7 @@ static int create_pool(const char *iface, int num)
 
 	snprintf(pool_name, sizeof(pool_name), "pkt_pool_%s", iface);
 
-	pool[num] = odp_pool_create(pool_name, ODP_SHM_NULL, &params);
+	pool[num] = odp_pool_create(pool_name, &params);
 	if (ODP_POOL_INVALID == pool[num]) {
 		fprintf(stderr, "unable to create pool\n");
 		return -1;
