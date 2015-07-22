@@ -65,10 +65,9 @@ static int io_wait_cluster_sync(int cluster_count)
 
 	printf("Waiting for clusters to have booted\n");
 
-	while ((volatile bool) mppa_noc_has_pending_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
-			true);
-
 	mppa_noc_cnoc_clear_rx_event(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
+
+	mppa_noc_wait_clear_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
 
 	printf("Got cluster sync, sending ack\n");
 

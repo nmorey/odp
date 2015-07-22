@@ -257,17 +257,9 @@ static int cluster_io_sync(void)
 	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID, CNOC_CLUS_SYNC_RX_ID) != 0)
 		return 1;
 
-	ODP_DBG("Signaling IO for sync\n");
-
 	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, value);
 
-	ODP_DBG("Waiting for IO sync\n");
-
-	while (mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0) {
-		ODP_DBG("waiting io sync\n");
-	}
-
-	mppa_noc_cnoc_clear_rx_event(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
+	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
 
 	ODP_DBG("IO sync ok\n");
 
