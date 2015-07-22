@@ -33,7 +33,7 @@
 #include <string.h>
 #include <test_debug.h>
 
-#define PKT_BUF_NUM       2048
+#define PKT_BUF_NUM       1024
 #define MAX_NUM_IFACES    2
 #define TEST_HDR_MAGIC    0x92749451
 #define MAX_WORKERS       32
