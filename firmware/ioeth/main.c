@@ -4,8 +4,6 @@
 #include <assert.h>
 #include <HAL/hal/hal.h>
 
-#include <odp/plat/atomic_types.h>
-
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
 #include "eth.h"
@@ -14,7 +12,6 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
 
 	(void)remoteClus;
-	INVALIDATE(msg);
 	switch (msg->pkt_type){
 	case ODP_RPC_CMD_OPEN:
 		return eth_open_rx(remoteClus, msg);
