@@ -86,6 +86,11 @@ int odp_term_global(void)
 {
 	int rc = 0;
 
+	if (odp_rpc_client_term()) {
+		ODP_ERR("ODP RPC tem failed.\n");
+		return -1;
+	}
+
 	if (odp_classification_term_global()) {
 		ODP_ERR("ODP classificatio term failed.\n");
 		rc = -1;
