@@ -12,6 +12,7 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
 
 	(void)remoteClus;
+	odp_rpc_cmd_ack_t ack = {.status = -1 };
 	switch (msg->pkt_type){
 	case ODP_RPC_CMD_ETH_OPEN:
 		return eth_open_rx(remoteClus, msg);
@@ -19,13 +20,15 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 	case ODP_RPC_CMD_ETH_CLOS:
 		return eth_close_rx(remoteClus, msg);
 		break;
+	case ODP_RPC_CMD_BAS_PING:
+		ack.status = 0;
+		return ack;
 		break;
 	case ODP_RPC_CMD_BAS_INVL:
 	default:
 		fprintf(stderr, "Invalid MSG\n");
 		exit(EXIT_FAILURE);
 	}
-	odp_rpc_cmd_ack_t ack = {.status = -1 };
 	return ack;
 }
 
