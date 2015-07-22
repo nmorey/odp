@@ -13,14 +13,14 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 
 	(void)remoteClus;
 	switch (msg->pkt_type){
-	case ODP_RPC_CMD_OPEN:
+	case ODP_RPC_CMD_ETH_OPEN:
 		return eth_open_rx(remoteClus, msg);
 		break;
-	case ODP_RPC_CMD_CLOS:
+	case ODP_RPC_CMD_ETH_CLOS:
 		return eth_close_rx(remoteClus, msg);
 		break;
-	case ODP_RPC_CMD_INVL:
 		break;
+	case ODP_RPC_CMD_BAS_INVL:
 	default:
 		fprintf(stderr, "Invalid MSG\n");
 		exit(EXIT_FAILURE);
