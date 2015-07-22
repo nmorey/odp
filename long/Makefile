@@ -62,8 +62,7 @@ cluster-tests :=
 mppa-tests :=
 
 # Subdirectories
-#~ SUB_DIRS := $(wildcard */Makefile)
-SUB_DIRS := pktio_cluster_sync/Makefile  pktio_cluster_test/Makefile
+SUB_DIRS := $(wildcard */Makefile) 
 include $(SUB_DIRS)
 
 include $(CURDIR)/../mk/Makefile.kalray
