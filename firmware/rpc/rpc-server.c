@@ -18,28 +18,6 @@ static struct {
 	void    *recv_buf;
 } g_clus_priv[BSP_NB_CLUSTER_MAX];
 
-static inline int get_tag_id(unsigned cluster_id)
-{
-#if defined(__ioddr__)
-	return odp_rpc_get_ioddr_tag_id(0, cluster_id);
-#elif defined(__ioeth__)
-	return odp_rpc_get_ioeth_tag_id(0, cluster_id);
-#else
-#error "Neither ioddr nor ioeth"
-#endif
-}
-
-static inline int get_dma_id(unsigned cluster_id)
-{
-#if defined(__ioddr__)
-	return odp_rpc_get_ioddr_dma_id(0, cluster_id) - 128;
-#elif defined(__ioeth__)
-	return odp_rpc_get_ioeth_dma_id(0, cluster_id) - 160;
-#else
-#error "Neither ioddr nor ioeth"
-#endif
-}
-
 static inline int rxToMsg(unsigned ifId, unsigned tag,
 			   odp_rpc_t **msg, uint8_t **payload)
 {
@@ -47,7 +25,16 @@ static inline int rxToMsg(unsigned ifId, unsigned tag,
 #if defined(__ioddr__)
 	remoteClus = ifId + 4 * (tag - RPC_BASE_RX);
 #elif defined(__ioeth__)
-	remoteClus = 4 * ifId + (tag - RPC_BASE_RX);
+  #if defined(K1B_EXPLORER)
+	(void)ifId;
+	remoteClus = (tag - RPC_BASE_RX);
+  #else
+	int locIfId = ifId;
+    #if defined(__k1b__)
+	locIfId = locIfId - 4;
+    #endif
+	remoteClus = 4 * locIfId + (tag - RPC_BASE_RX);
+  #endif
 #else
 #error "Neither ioddr nor ioeth"
 #endif
@@ -135,7 +122,8 @@ static int get_if_rx_id(unsigned interface_id)
 	for (int i = 0; i < 3; ++i) {
 		if (bitmask.bitmask[i]) {
 			int rx_id = __k1_ctzdl(bitmask.bitmask[i]) + i * 8 * sizeof(bitmask.bitmask[i]);
-			mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
+			int ev_counter = mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
+			printf("%d %d %d has %d events !!\n", interface_id, i, rx_id, ev_counter);
 
 			return rx_id;
 		}
@@ -144,7 +132,9 @@ static int get_if_rx_id(unsigned interface_id)
 }
 int odp_rpc_server_poll_msg(odp_rpc_t **msg, uint8_t **payload)
 {
-	for (int if_id = 0; if_id < 4; ++if_id) {
+	const int base_if = (__bsp_flavour == BSP_ETH_530) ? 4 : 0;
+	for (int idx = 0; idx < BSP_NB_DMA_IO; ++idx) {
+		int if_id = idx + base_if;
 		int tag = get_if_rx_id(if_id);
 		if(tag < 0)
 			continue;
