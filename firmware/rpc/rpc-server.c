@@ -94,15 +94,8 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 	int ifId;
 	int rxId;
 
-#if defined(__ioddr__)
-	ifId = clus_id % 4;
-	rxId = RPC_BASE_RX + clus_id / 4;
-#elif defined(__ioeth__)
-	ifId = clus_id / 4;
-	rxId = RPC_BASE_RX + clus_id % 4;
-#else
-#error "Neither ioddr nor ioeth"
-#endif
+	ifId = get_dma_id(clus_id);
+	rxId = get_tag_id(clus_id);
 
 	/* DNoC */
 	ret = mppa_noc_dnoc_rx_alloc(ifId, rxId);
@@ -166,15 +159,7 @@ int odp_rpc_server_ack(odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
 	msg->data_len = 0;
 	msg->inl_data = ack.inl_data;
 
-	unsigned interface;
-
-#if defined(__ioddr__)
-	interface = msg->dma_id % 4;
-#elif defined(__ioeth__)
-	interface = msg->dma_id / 4;
-#else
-#error "Neither ioddr nor ioeth"
-#endif
+	unsigned interface = get_dma_id(msg->dma_id);
 
 	return odp_rpc_send_msg(interface, msg->dma_id, msg->dnoc_tag, msg, NULL);
 }
