@@ -14,9 +14,9 @@
 
 /* FIXME when noc is ready */
 #ifdef __k1a__
-#define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, 0, 0, NULL}
+#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, 0, 0, NULL}
 #else
-#define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, NULL, NULL}
+#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, {0}, {0}, NULL, NULL}
 #endif
 
 
@@ -263,8 +263,9 @@ static int cluster_io_sync(void)
 
 	ODP_DBG("Waiting for IO sync\n");
 
-	while ((volatile bool) mppa_noc_has_pending_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX) !=
-			true);
+	while (mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0) {
+		ODP_DBG("waiting io sync\n");
+	}
 
 	mppa_noc_cnoc_clear_rx_event(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
 
