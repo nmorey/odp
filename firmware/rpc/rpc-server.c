@@ -21,6 +21,37 @@ static struct {
 	void    *recv_buf;
 } g_clus_priv[BSP_NB_CLUSTER_MAX];
 
+static inline int rxToMsg(unsigned ifId, unsigned tag,
+			   odp_rpc_t **msg, uint8_t **payload)
+{
+	int remoteClus = 4 * ifId + (tag - RPC_BASE_RX);
+	odp_rpc_t *cmd = g_clus_priv[remoteClus].recv_buf;
+	*msg = cmd;
+	INVALIDATE(cmd);
+
+	if(payload && cmd->data_len > 0) {
+		*payload = (uint8_t*)(cmd + 1);
+		INVALIDATE_AREA(*payload, cmd->data_len);
+	}
+	return remoteClus;
+}
+
+static void dnoc_callback(unsigned interface_id,
+			  mppa_noc_interrupt_line_t line,
+			  unsigned resource_id, void *args)
+{
+	odp_rpc_handler_t handler = (odp_rpc_handler_t)(args);
+	odp_rpc_t * msg;
+	uint8_t * payload = NULL;
+	unsigned remoteClus;
+
+	mppa_noc_dnoc_rx_lac_event_counter(interface_id, resource_id);
+	(void)line;
+
+	remoteClus = rxToMsg(interface_id, resource_id, &msg, &payload);
+	handler(remoteClus, msg, payload);
+}
+
 static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 {
 	mppa_noc_ret_t ret;
@@ -50,6 +81,9 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
+	if (handler)
+		mppa_noc_register_interrupt_handler(ifId, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
+						    rxId, dnoc_callback, handler);
 	return 0;
 }
 
@@ -84,16 +118,7 @@ int odp_rpc_server_poll_msg(odp_rpc_t **msg, uint8_t **payload)
 			continue;
 
 		/* Received a message */
-		int remoteClus = 4 * if_id + (tag - RPC_BASE_RX);
-		odp_rpc_t *cmd = g_clus_priv[remoteClus].recv_buf;
-		*msg = cmd;
-		INVALIDATE(cmd);
-
-		if(payload && cmd->data_len > 0) {
-			*payload = (uint8_t*)(cmd + 1);
-			INVALIDATE_AREA(*payload, cmd->data_len);
-		}
-		return remoteClus;
+		return rxToMsg(if_id, tag, msg, payload);
 	}
 	return -1;
 }
