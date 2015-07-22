@@ -70,6 +70,24 @@ static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_i
 	return RPC_BASE_RX + (cluster_id % 4);
 }
 
+static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
+	switch(ddr_id){
+	case 0:
+		/* East */
+		return 128 + cluster_id % 4;
+	case 1:
+		/* West */
+		return 192 + cluster_id % 4;
+	default:
+		return -1;
+	}
+}
+
+static inline int odp_rpc_get_ioddr_tag_id(unsigned ddr_id, unsigned cluster_id){
+	(void) ddr_id;
+	return RPC_BASE_RX + (cluster_id / 4);
+}
+
 int odp_rpc_client_setup(void);
 
 void odp_rpc_print_msg(const odp_rpc_t * cmd);
