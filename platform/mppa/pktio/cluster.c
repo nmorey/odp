@@ -12,6 +12,14 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
+/* FIXME when noc is ready */
+#ifdef __k1a__
+#define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, 0, 0, NULL}
+#else
+#define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, NULL, NULL}
+#endif
+
+
 #include <unistd.h>
 
 #define DNOC_CLUS_BASE_RX	0
@@ -187,7 +195,7 @@ extern char _heap_start, _heap_end;
 static int cluster_init_noc_tx(void)
 {
 	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_uc_configuration_t uc_conf = {0};
+	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
 	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
 	uc_conf.buffer_base = (uintptr_t) &_heap_start;
@@ -419,7 +427,7 @@ static inline int
 cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 			   void *frame, uint32_t frame_len)
 {
-	mppa_noc_dnoc_uc_configuration_t uc_conf;
+	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 	mppa_dnoc_channel_config_t config = {0};
 	mppa_dnoc_header_t header = {0};
 
