@@ -74,10 +74,10 @@ static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_i
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
 	switch(ddr_id){
 	case 0:
-		/* East */
+		/* North */
 		return 128 + cluster_id % 4;
 	case 1:
-		/* West */
+		/* South */
 		return 192 + cluster_id % 4;
 	default:
 		return -1;
