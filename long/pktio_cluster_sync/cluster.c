@@ -11,6 +11,7 @@
 #include <odp/helper/udp.h>
 
 #include <stdlib.h>
+#include <mppa_power.h>
 
 int main(int argc, char **argv)
 {
@@ -23,6 +24,8 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	
+
 
 	if (0 != odp_term_local()) {
 		fprintf(stderr, "error: odp_term_local() failed.\n");
@@ -33,6 +36,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "error: odp_term_global() failed.\n");
 		return -1;
 	}
+
+	//~ mppa_power_base_exit(0);
 
 	return 0;
 }

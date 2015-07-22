@@ -23,12 +23,14 @@ cluster-system := $(OS_NAME)
 arch = $(CORE_ARCH)
 board = $(BOARD_NAME)
 
+cflags := -Wall -Werror
+
 ifeq ($(MAKELEVEL),0)
 $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
 endif
 
 CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
-
+LIB_NOC_LFLAGS := -lmppapower -lmppanoc -lmpparouting
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
@@ -39,12 +41,12 @@ else
 
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
   boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
-  boot-lflags := -lmppapower -lmppanoc -lmpparouting
+  boot-lflags := $(LIB_NOC_LFLAGS)
   BOOT_ELF := boot
 endif
 
 cluster-cflags := -I$(ODP_INSTALL_DIR)/$(arch)-$(cluster-system)/include -I$(CUNIT_INSTALL_DIR)/include
-cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/
+cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/ $(LIB_NOC_LFLAGS)
 
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/
 cluster-lflags += -lodphelper -lodp -lcunit -lmppanoc -lmpparouting

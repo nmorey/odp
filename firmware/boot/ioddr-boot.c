@@ -93,7 +93,7 @@ static int io_wait_cluster_sync(int cluster_count)
 
 int main (int argc, char *argv[])
 {
-	int i, clus_count, clus_status;
+	int i, clus_count, clus_status, ret = 0;
 	char clus_id[4];
 	mppa_power_pid_t clus_pid[BSP_NB_CLUSTER_MAX];
 	const char *clus_argv[3];
@@ -131,6 +131,10 @@ int main (int argc, char *argv[])
 	for (i = 0; i < clus_count; i++) {
 		if (mppa_power_base_waitpid(clus_pid[i], &clus_status, 0) != clus_pid[i]) {
 			printf("Failed to wait cluster %d\n", i);
+			return 1;
 		}
+		ret |= clus_status;
 	}
+
+	return ret;
 }
