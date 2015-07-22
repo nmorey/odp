@@ -24,7 +24,15 @@ static struct {
 static inline int rxToMsg(unsigned ifId, unsigned tag,
 			   odp_rpc_t **msg, uint8_t **payload)
 {
-	int remoteClus = 4 * ifId + (tag - RPC_BASE_RX);
+	int remoteClus;
+#if defined(__ioddr__)
+	remoteClus = ifId + 4 * (tag - RPC_BASE_RX);
+#elif defined(__ioeth__)
+	remoteClus = 4 * ifId + (tag - RPC_BASE_RX);
+#else
+#error "Neither ioddr nor ioeth"
+#endif
+
 	odp_rpc_t *cmd = g_clus_priv[remoteClus].recv_buf;
 	*msg = cmd;
 	INVALIDATE(cmd);
@@ -64,8 +72,15 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 	int ifId;
 	int rxId;
 
+#if defined(__ioddr__)
+	ifId = clus_id % 4;
+	rxId = RPC_BASE_RX + clus_id / 4;
+#elif defined(__ioeth__)
 	ifId = clus_id / 4;
 	rxId = RPC_BASE_RX + clus_id % 4;
+#else
+#error "Neither ioddr nor ioeth"
+#endif
 
 	/* DNoC */
 	ret = mppa_noc_dnoc_rx_alloc(ifId, rxId);
@@ -129,5 +144,15 @@ int odp_rpc_server_ack(odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
 	msg->data_len = 0;
 	msg->inl_data = ack.inl_data;
 
-	return odp_rpc_send_msg(msg->dma_id / 4, msg->dma_id, msg->dnoc_tag, msg, NULL);
+	unsigned interface;
+
+#if defined(__ioddr__)
+	interface = msg->dma_id % 4;
+#elif defined(__ioeth__)
+	interface = msg->dma_id / 4;
+#else
+#error "Neither ioddr nor ioeth"
+#endif
+
+	return odp_rpc_send_msg(interface, msg->dma_id, msg->dnoc_tag, msg, NULL);
 }
