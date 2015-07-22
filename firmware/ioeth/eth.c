@@ -28,6 +28,8 @@ odp_rpc_cmd_ack_t  eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 	unsigned nocTx;
 	int ret;
 
+	if(status[data.ifId].default_tx[remoteClus] >= 0)
+		goto err;
 
 	/* Configure Tx */
 	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + (nocIf % 4),
@@ -76,7 +78,12 @@ odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = get_dma_id(remoteClus);
-	const unsigned nocTx = status[data.ifId].default_tx[remoteClus];
+	const int nocTx = status[data.ifId].default_tx[remoteClus];
+
+	if(nocTx < 0) {
+		ack.status = -1;
+		return ack;
+	}
 
 	/* Deconfigure DMA/Tx in the RR bitmask */
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
@@ -96,6 +103,8 @@ void eth_init(void)
 			     /* Espected Value */ 0, /* Hash. Unused */0);
 
 	for (int ifId = 0; ifId < 4; ++ifId) {
+		for(int id = 0; id < BSP_NB_CLUSTER_MAX; ++id)
+			status[ifId].default_tx[id] = -1;
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
 					    ifId, MPPABETHLB_ADD_HEADER);
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
