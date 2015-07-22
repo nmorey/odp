@@ -82,7 +82,6 @@ static void dnoc_callback(unsigned interface_id,
 static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 {
 	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_rx_configuration_t conf = {0};
 	(void)handler;
 	g_clus_priv[clus_id].recv_buf = malloc(RPC_PKT_SIZE);
 	if (!g_clus_priv[clus_id].recv_buf)
@@ -99,10 +98,16 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	conf.buffer_base = (uintptr_t)g_clus_priv[clus_id].recv_buf;
-	conf.buffer_size = RPC_PKT_SIZE;
-	conf.activation = MPPA_NOC_ACTIVATED;
-	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
+	mppa_noc_dnoc_rx_configuration_t conf = {
+		.buffer_base = (uintptr_t)g_clus_priv[clus_id].recv_buf,
+		.buffer_size = RPC_PKT_SIZE,
+		.current_offset = 0,
+		.item_counter = 0,
+		.item_reload = 0,
+		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF,
+		.activation = MPPA_NOC_ACTIVATED,
+		.counter_id = 0
+	};
 
 	ret = mppa_noc_dnoc_rx_configure(ifId, rxId, conf);
 	if (ret != MPPA_NOC_RET_SUCCESS)
