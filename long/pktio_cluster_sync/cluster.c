@@ -37,7 +37,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	//~ mppa_power_base_exit(0);
-
+	printf("Exit\n");
 	return 0;
 }
