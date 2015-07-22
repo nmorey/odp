@@ -46,7 +46,11 @@ int odp_rpc_client_init(void){
 
 	return 0;
 }
+int odp_rpc_client_term(void){
+	mppa_noc_dnoc_rx_free(0, rx_port);
 
+	return 0;
+}
 void odp_rpc_print_msg(const odp_rpc_t * cmd)
 {
 	printf("RPC CMD:\n"
