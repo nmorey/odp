@@ -4,15 +4,12 @@
 #include <assert.h>
 #include <HAL/hal/hal.h>
 
-#ifndef BSP_NB_DMA_IO_MAX
-#define BSP_NB_DMA_IO_MAX 1
-#endif
+#include <odp_rpc_internal.h>
+#include <odp/plat/atomic_types.h>
 
 #include <mppa_bsp.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
-#include "odp_rpc_internal.h"
-#include <odp/plat/atomic_types.h>
 #include "rpc-server.h"
 
 #define RPC_PKT_SIZE (sizeof(odp_rpc_t) + RPC_MAX_PAYLOAD)

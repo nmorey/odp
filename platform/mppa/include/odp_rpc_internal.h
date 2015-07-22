@@ -1,6 +1,10 @@
 #ifndef __FIRMWARE__IOETH__RPC__H__
 #define __FIRMWARE__IOETH__RPC__H__
 
+#ifndef BSP_NB_DMA_IO_MAX
+#define BSP_NB_DMA_IO_MAX 8
+#endif
+
 #define RPC_BASE_RX 10
 #define RPC_MAX_PAYLOAD 128 /* max payload in bytes */
 
