@@ -21,6 +21,28 @@ static struct {
 	void    *recv_buf;
 } g_clus_priv[BSP_NB_CLUSTER_MAX];
 
+static inline int get_tag_id(unsigned cluster_id)
+{
+#if defined(__ioddr__)
+	return odp_rpc_get_ioddr_tag_id(0, cluster_id);
+#elif defined(__ioeth__)
+	return odp_rpc_get_ioeth_tag_id(0, cluster_id);
+#else
+#error "Neither ioddr nor ioeth"
+#endif
+}
+
+static inline int get_dma_id(unsigned cluster_id)
+{
+#if defined(__ioddr__)
+	return odp_rpc_get_ioddr_dma_id(0, cluster_id) - 128;
+#elif defined(__ioeth__)
+	return odp_rpc_get_ioeth_dma_id(0, cluster_id) - 160;
+#else
+#error "Neither ioddr nor ioeth"
+#endif
+}
+
 static inline int rxToMsg(unsigned ifId, unsigned tag,
 			   odp_rpc_t **msg, uint8_t **payload)
 {
