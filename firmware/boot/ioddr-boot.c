@@ -105,7 +105,7 @@ static int io_wait_cluster_sync(int cluster_count)
 
 int main (int argc, char *argv[])
 {
-	int i, clus_count, clus_status, ret = 0;
+	int i, clus_count, clus_status;
 	char clus_id[4];
 	mppa_power_pid_t clus_pid[BSP_NB_CLUSTER_MAX];
 	const char *clus_argv[3];
@@ -135,6 +135,10 @@ int main (int argc, char *argv[])
 
 		printf("Spawning %s on cluster %d\n", clus_argv[0], i);
 		clus_pid[i] = mppa_power_base_spawn(i, clus_argv[0], clus_argv, NULL, MPPA_POWER_SHUFFLING_DISABLED);
+		if (clus_pid[i] < 0) {
+			printf("Failed to spawn cluster %d\n", i);
+			return 1;
+		}
 	}
 
 
@@ -146,8 +150,10 @@ int main (int argc, char *argv[])
 			printf("Failed to wait cluster %d\n", i);
 			return 1;
 		}
-		ret |= clus_status;
+		printf("Cluster return status: %d\n", clus_status);
+		if (clus_status != 0)
+			return 1;
 	}
 
-	return ret;
+	return 0;
 }

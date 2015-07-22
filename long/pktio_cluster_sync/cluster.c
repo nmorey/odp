@@ -17,23 +17,22 @@ int main(int argc, char **argv)
 {
 	if (0 != odp_init_global(NULL, NULL)) {
 		fprintf(stderr, "error: odp_init_global() failed.\n");
-		return -1;
+		return 1;
 	}
 	if (0 != odp_init_local()) {
 		fprintf(stderr, "error: odp_init_local() failed.\n");
-		return -1;
+		return 1;
 	}
 
 	if (0 != odp_term_local()) {
 		fprintf(stderr, "error: odp_term_local() failed.\n");
-		return -1;
+		return 1;
 	}
 
 	if (0 != odp_term_global()) {
 		fprintf(stderr, "error: odp_term_global() failed.\n");
-		return -1;
+		return 1;
 	}
 
-	printf("Exit\n");
 	return 0;
 }
