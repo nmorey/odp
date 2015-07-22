@@ -7,14 +7,20 @@
 #include "HAL/hal/hal.h"
 #include <odp/errno.h>
 #include <errno.h>
+#include "odp_rpc_internal.h"
+
 
 #define MAX_ETH_SLOTS 2
-#define MAX_ETH_PORTS 2
+#define MAX_ETH_PORTS 4
+#define N_RX_PER_PORT 10
+
+#include <mppa_noc.h>
 
 static int eth_init(void)
 {
 	return 0;
 }
+
 
 static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
@@ -23,8 +29,8 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		return -1;
 
 	int slot_id = devname[1] - '0';
-	int port_id = -1;
-	if (slot_id < 0 || slot_id > MAX_ETH_SLOTS)
+	int port_id = 4;
+	if (slot_id < 0 || slot_id >= MAX_ETH_SLOTS)
 		return -1;
 
 	if (devname[2] != 0) {
@@ -32,7 +38,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 		port_id = devname[3] - '0';
 
-		if (port_id < 0 || port_id > MAX_ETH_PORTS)
+		if (port_id < 0 || port_id >= MAX_ETH_PORTS)
 			return -1;
 
 		if(devname[4] != 0)
@@ -42,12 +48,83 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pktio_entry->s.pkt_eth.slot_id = slot_id;
 	pktio_entry->s.pkt_eth.port_id = port_id;
 	pktio_entry->s.pkt_eth.pool = pool;
-	return 0;
+
+	int first_rx = -1;
+	int n_rx;
+	for (n_rx = 0; n_rx < N_RX_PER_PORT; ++n_rx) {
+		mppa_noc_ret_t ret;
+		unsigned rx_port;
+
+		ret = mppa_noc_dnoc_rx_alloc_auto(0, &rx_port, MPPA_NOC_BLOCKING);
+		if(ret != MPPA_NOC_RET_SUCCESS)
+			break;
+
+		if (first_rx >= 0 && (unsigned)(first_rx + n_rx) != rx_port) {
+			/* Non contiguous port... Fail */
+			mppa_noc_dnoc_rx_free(0, rx_port);
+			break;
+		}
+		if(first_rx < 0)
+			first_rx = rx_port;
+	}
+	if (n_rx < N_RX_PER_PORT) {
+		/* Something went wrong. Free the ports */
+
+		/* Last one was a failure or
+		 * non contiguoues (thus freed already) */
+		n_rx --;
+
+		for ( ;n_rx >= 0; --n_rx)
+			mppa_noc_dnoc_rx_free(0, first_rx + n_rx);
+	}
+	odp_rpc_cmd_open_t open_cmd = {
+		{
+			.ifId = port_id,
+			.min_rx = first_rx,
+			.max_rx = first_rx + n_rx - 1
+		}
+	};
+	unsigned cluster_id = __k1_get_cluster_id();
+	odp_rpc_t cmd = {
+		.pkt_type = ODP_RPC_CMD_OPEN,
+		.data_len = 0,
+		.flags = 0,
+		.inl_data = open_cmd.inl_data
+	};
+	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
+			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
+			 &cmd, NULL);
+	odp_rpc_wait_ack(&cmd, NULL);
+	odp_rpc_cmd_ack_t ack_cmd = { .inl_data = cmd.inl_data};
+	return ack_cmd.status;
 }
 
-static int eth_close(pktio_entry_t * const pktio_entry ODP_UNUSED)
+static int eth_close(pktio_entry_t * const pktio_entry)
 {
-	return 0;
+
+	int slot_id = pktio_entry->s.pkt_eth.slot_id;
+	int port_id = pktio_entry->s.pkt_eth.port_id;
+
+	odp_rpc_cmd_clos_t close_cmd = {
+		{
+			.ifId = pktio_entry->s.pkt_eth.port_id = port_id
+
+		}
+	};
+	unsigned cluster_id = __k1_get_cluster_id();
+	odp_rpc_t cmd = {
+		.pkt_type = ODP_RPC_CMD_CLOS,
+		.data_len = 0,
+		.flags = 0,
+		.inl_data = close_cmd.inl_data
+	};
+	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
+			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
+			 &cmd, NULL);
+
+	odp_rpc_wait_ack(&cmd, NULL);
+	odp_rpc_cmd_ack_t ack_cmd = { .inl_data = cmd.inl_data};
+	return ack_cmd.status;
 }
 
 static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,

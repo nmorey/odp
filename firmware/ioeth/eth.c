@@ -13,11 +13,12 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
-#include "rpc.h"
+#include "odp_rpc_internal.h"
 #include "eth.h"
 
-int eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
+odp_rpc_cmd_ack_t  eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 {
+	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = remoteClus % 4;
 	const uint32_t nocTx = ETH_BASE_TX + (remoteClus / 4);
@@ -31,11 +32,11 @@ int eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + nocIf,
 						  remoteClus, &config, &header);
 	if (ret != MPPA_ROUTING_RET_SUCCESS)
-		return 1;
+		goto err;
 
 	ret = mppa_noc_dnoc_tx_alloc(nocIf, nocTx);
 	if (ret != MPPA_ROUTING_RET_SUCCESS)
-		return 1;
+		goto err;
 
 	ret = mppa_noc_dnoc_tx_configure(nocIf, nocTx, header, config);
 	if (ret != MPPA_ROUTING_RET_SUCCESS)
@@ -58,15 +59,18 @@ int eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 						  ETH_MATCHALL_TABLE_ID,
 						  data.ifId, nocIf, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
-	return 0;
+	return ack;
 
-open_err:
+ open_err:
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
-	return 1;
+ err:
+	ack.status = 1;
+	return ack;
 }
 
-int eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
+odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 {
+	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = remoteClus % 4;
 	const uint32_t nocTx = ETH_BASE_TX + (remoteClus / 4);
@@ -78,7 +82,7 @@ int eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 						  (1 << ETH_DEFAULT_CTX));
 	/* Close the Tx */
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
-	return 0;
+	return ack;
 }
 void eth_init(void)
 {

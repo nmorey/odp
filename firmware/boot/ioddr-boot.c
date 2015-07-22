@@ -1,10 +1,22 @@
+#include <stdio.h>
 #include <mppa_power.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 #include <mppa_bsp.h>
 #include <mppa/osconfig.h>
 
-#include <stdio.h>
+#include "odp_rpc_internal.h"
+#include "rpc-server.h"
+
+
+void rpcHandle(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload)
+{
+
+	(void)remoteClus;
+	(void)payload;
+	odp_rpc_cmd_ack_t ack = {.status = -1 };
+	odp_rpc_server_ack(msg, ack);
+}
 
 /**
  * Cluster tag to recevie IO sync
@@ -105,6 +117,7 @@ int main (int argc, char *argv[])
 	}
 
 	mppa_power_init();
+	odp_rpc_server_start(rpcHandle);
 
 	clus_count = argc - 1;
 	printf("Spawning %d clusters\n", clus_count);
