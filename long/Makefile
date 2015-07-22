@@ -3,38 +3,47 @@ O ?= ./output
 project-name := odp
 
 ODP_SRC_DIR ?= $(CURDIR)/..
-ODP_PLATFORM ?= mppa
 ODP_ARCH ?= k1a-kalray-nodeos
+
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
-OS_NAME = $(lastword $(subst -, ,$(SYSTEM_NAME)))
 CORE_ARCH = $(firstword $(subst -, ,$(ODP_ARCH)))
+OS_BOARD_NAME = $(lastword $(subst -, ,$(ODP_ARCH)))
 
+OS_mos := bare
+OS_nodeos := nodeos
+OS_rtems := rtems
+BOARD_simu := developer
+BOARD_explorer := explorer
+
+OS_NAME = $(OS_$(firstword $(subst _, ,$(OS_BOARD_NAME))))
+BOARD_NAME = $(if $(findstring _,$(OS_BOARD_NAME)),$(BOARD_$(lastword $(subst _, ,$(OS_BOARD_NAME)))),developer)
+
+cluster-system := $(OS_NAME)
 arch = $(CORE_ARCH)
+board = $(BOARD_NAME)
 
 ifeq ($(MAKELEVEL),0)
-$(info --- Building for arch $(ODP_ARCH), platform $(ODP_PLATFORM) ---)
+$(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
 endif
 
 CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
 
 ifeq ($(USE_PACKAGES),1)
-ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
-CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
-BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)/boot.kelf
+  ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
+  CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
+  BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)/boot.kelf
 else
-ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
-CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
+  ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
+  CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
 
-# Build the ioddr boot firmware to avoid additionnal build/install steps...
-boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
-boot-lflags := -lmppapower -lmppanoc -lmpparouting
-BOOT_ELF := boot
+  # Build the ioddr boot firmware to avoid additionnal build/install steps...
+  boot-srcs := $(CURDIR)/../firmware/boot/ioddr-boot.c
+  boot-lflags := -lmppapower -lmppanoc -lmpparouting
+  BOOT_ELF := boot
 endif
 
-cluster-system := $(OS_NAME)
-
-cluster-cflags := -I$(ODP_INSTALL_DIR)/$(SYSTEM_NAME)/include -I$(CUNIT_INSTALL_DIR)/include
+cluster-cflags := -I$(ODP_INSTALL_DIR)/$(arch)-$(cluster-system)/include -I$(CUNIT_INSTALL_DIR)/include
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/
 
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/
