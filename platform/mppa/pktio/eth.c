@@ -94,9 +94,11 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
-	odp_rpc_wait_ack(&cmd, NULL);
-	odp_rpc_cmd_ack_t ack_cmd = { .inl_data = cmd.inl_data};
-	return ack_cmd.status;
+
+	odp_rpc_t * ack_msg;
+	odp_rpc_wait_ack(&ack_msg, NULL);
+	odp_rpc_cmd_ack_t ack = { .inl_data = ack_msg->inl_data};
+	return ack.status;
 }
 
 static int eth_close(pktio_entry_t * const pktio_entry)
@@ -122,9 +124,10 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&cmd, NULL);
-	odp_rpc_cmd_ack_t ack_cmd = { .inl_data = cmd.inl_data};
-	return ack_cmd.status;
+	odp_rpc_t * ack_msg;
+	odp_rpc_wait_ack(&ack_msg, NULL);
+	odp_rpc_cmd_ack_t ack = { .inl_data = ack_msg->inl_data};
+	return ack.status;
 }
 
 static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
