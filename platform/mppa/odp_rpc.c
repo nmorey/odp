@@ -98,7 +98,7 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	header._.tag = dest_tag;
 
 	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() +
-						   local_interface,
+						   (local_interface % 4),
 						   dest_id, &config, &header);
 	if (rret != MPPA_ROUTING_RET_SUCCESS)
 		goto err_tx;

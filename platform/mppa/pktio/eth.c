@@ -86,7 +86,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	};
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_OPEN,
+		.pkt_type = ODP_RPC_CMD_ETH_OPEN,
 		.data_len = 0,
 		.flags = 0,
 		.inl_data = open_cmd.inl_data
@@ -113,7 +113,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	};
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_CLOS,
+		.pkt_type = ODP_RPC_CMD_ETH_CLOS,
 		.data_len = 0,
 		.flags = 0,
 		.inl_data = close_cmd.inl_data

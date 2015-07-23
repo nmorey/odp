@@ -4,43 +4,48 @@
 #include <assert.h>
 #include <HAL/hal/hal.h>
 
-#ifndef BSP_NB_DMA_IO_MAX
-#define BSP_NB_DMA_IO_MAX 1
-#endif
-
+#include <odp_rpc_internal.h>
 #include <libmppa_eth_core.h>
 #include <libmppa_eth_loadbalancer_core.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
-#include "odp_rpc_internal.h"
+#include "rpc-server.h"
 #include "eth.h"
+
+struct {
+	int default_tx[BSP_NB_CLUSTER_MAX];
+} status[5];
 
 odp_rpc_cmd_ack_t  eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
-	const uint32_t nocIf = remoteClus % 4;
-	const uint32_t nocTx = ETH_BASE_TX + (remoteClus / 4);
+	const uint32_t nocIf = get_dma_id(remoteClus);
 	volatile mppa_dnoc_min_max_task_id_t *context;
 	mppa_dnoc_header_t header = { 0 };
 	mppa_dnoc_channel_config_t config = { 0 };
+	unsigned nocTx;
 	int ret;
 
+	if(status[data.ifId].default_tx[remoteClus] >= 0)
+		goto err;
 
 	/* Configure Tx */
-	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + nocIf,
+	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + (nocIf % 4),
 						  remoteClus, &config, &header);
 	if (ret != MPPA_ROUTING_RET_SUCCESS)
 		goto err;
 
-	ret = mppa_noc_dnoc_tx_alloc(nocIf, nocTx);
-	if (ret != MPPA_ROUTING_RET_SUCCESS)
+	ret = mppa_noc_dnoc_tx_alloc_auto(nocIf, &nocTx, MPPA_NOC_BLOCKING);
+	if (ret != MPPA_NOC_RET_SUCCESS)
 		goto err;
 
 	ret = mppa_noc_dnoc_tx_configure(nocIf, nocTx, header, config);
-	if (ret != MPPA_ROUTING_RET_SUCCESS)
+	if (ret != MPPA_NOC_RET_SUCCESS)
 		goto open_err;
+
+	status[data.ifId].default_tx[remoteClus] = nocTx;
 
 	context =  &mppa_dnoc[nocIf]->tx_chan_route[nocTx].
 		min_max_task_id[ETH_DEFAULT_CTX];
@@ -72,8 +77,13 @@ odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
-	const uint32_t nocIf = remoteClus % 4;
-	const uint32_t nocTx = ETH_BASE_TX + (remoteClus / 4);
+	const uint32_t nocIf = get_dma_id(remoteClus);
+	const int nocTx = status[data.ifId].default_tx[remoteClus];
+
+	if(nocTx < 0) {
+		ack.status = -1;
+		return ack;
+	}
 
 	/* Deconfigure DMA/Tx in the RR bitmask */
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
@@ -93,6 +103,8 @@ void eth_init(void)
 			     /* Espected Value */ 0, /* Hash. Unused */0);
 
 	for (int ifId = 0; ifId < 4; ++ifId) {
+		for(int id = 0; id < BSP_NB_CLUSTER_MAX; ++id)
+			status[ifId].default_tx[id] = -1;
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
 					    ifId, MPPABETHLB_ADD_HEADER);
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),

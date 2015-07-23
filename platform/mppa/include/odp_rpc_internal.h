@@ -1,6 +1,10 @@
 #ifndef __FIRMWARE__IOETH__RPC__H__
 #define __FIRMWARE__IOETH__RPC__H__
 
+#ifndef BSP_NB_DMA_IO_MAX
+#define BSP_NB_DMA_IO_MAX 8
+#endif
+
 #define RPC_BASE_RX 10
 #define RPC_MAX_PAYLOAD 128 /* max payload in bytes */
 
@@ -23,9 +27,10 @@ typedef struct {
 } odp_rpc_t;
 
 typedef enum {
-	ODP_RPC_CMD_INVL = 0 /**< Invalid command. Skip */,
-	ODP_RPC_CMD_OPEN     /**< Forward Rx traffic to a cluster */,
-	ODP_RPC_CMD_CLOS     /**< Stop forwarding Rx trafic to a cluster */
+	ODP_RPC_CMD_BAS_INVL = 0 /**< BASE: Invalid command. Skip */,
+	ODP_RPC_CMD_BAS_PING     /**< BASE: Ping command. server sends back ack = 0 */,
+	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
+	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */
 } odp_rpc_cmd_e;
 
 
@@ -53,13 +58,18 @@ typedef union {
 } odp_rpc_cmd_ack_t;
 
 static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_id){
+	unsigned offset = cluster_id / 4;
+#if defined(K1B_EXPLORER)
+	/* Only DMA4 available on explorer + eth530 */
+	offset = 0;
+#endif
 	switch(eth_slot){
 	case 0:
 		/* East */
-		return 160 + cluster_id / 4;
+		return 160 + offset;
 	case 1:
 		/* West */
-		return 224 + cluster_id / 4;
+		return 224 + offset;
 	default:
 		return -1;
 	}
@@ -67,16 +77,21 @@ static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_i
 
 static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_id){
 	(void) eth_slot;
-	return RPC_BASE_RX + (cluster_id % 4);
+	unsigned offset = cluster_id % 4;
+#if defined(K1B_EXPLORER)
+	/* Only DMA4 available on explorer + eth530 */
+	offset = cluster_id;
+#endif
+	return RPC_BASE_RX + offset;
 }
 
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
 	switch(ddr_id){
 	case 0:
-		/* East */
+		/* North */
 		return 128 + cluster_id % 4;
 	case 1:
-		/* West */
+		/* South */
 		return 192 + cluster_id % 4;
 	default:
 		return -1;
