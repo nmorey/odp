@@ -58,9 +58,36 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 	       "\tData: %u\n"
 	       "\tDMA : %u\n"
 	       "\tTag : %u\n"
-	       "\tFlag: %x\n",
+	       "\tFlag: %x\n"
+	       "\tInl Data:\n",
 	       cmd->pkt_type, cmd->data_len, cmd->dma_id,
 	       cmd->dnoc_tag, cmd->flags);
+	if (cmd->ack) {
+		odp_rpc_cmd_ack_t ack = { .inl_data = cmd->inl_data };
+		printf("\t\tstatus: %d\n", ack.status);
+		return;
+	}
+	switch (cmd->pkt_type){
+	case ODP_RPC_CMD_ETH_OPEN:
+		{
+			odp_rpc_cmd_open_t open = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n"
+				"\t\tRx(s): [%d:%d]\n",
+				open.ifId,
+				open.min_rx, open.max_rx);
+		}
+		break;
+	case ODP_RPC_CMD_ETH_CLOS:
+		{
+			odp_rpc_cmd_clos_t clos = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n", clos.ifId);
+		}
+		break;
+	case ODP_RPC_CMD_BAS_INVL:
+	case ODP_RPC_CMD_BAS_PING:
+	default:
+		break;
+	}
 }
 
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
