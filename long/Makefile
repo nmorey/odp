@@ -5,18 +5,27 @@ project-name := odp
 ODP_SRC_DIR ?= $(CURDIR)/..
 ODP_ARCH ?= k1a-kalray-nodeos
 
+include $(ODP_SRC_DIR)/mk/platforms.inc
+
+INCLUDE_DIR=$($(ODP_ARCH)_INC_DIR)
+
 # Kalray internal system name
 SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
 CORE_ARCH = $(firstword $(subst -, ,$(ODP_ARCH)))
 OS_BOARD_NAME = $(lastword $(subst -, ,$(ODP_ARCH)))
 
+# -mos option according to real os name
 OS_mos := bare
 OS_nodeos := nodeos
 OS_rtems := rtems
 BOARD_simu := developer
 BOARD_explorer := explorer
 
-OS_NAME = $(OS_$(firstword $(subst _, ,$(OS_BOARD_NAME))))
+LFLAGS_mos :=  -mhypervisor -lvbsp -lutask
+
+# extract OS name and board name
+REAL_OS_NAME = $(firstword $(subst _, ,$(OS_BOARD_NAME)))
+OS_NAME = $(OS_$(REAL_OS_NAME))
 BOARD_NAME = $(if $(findstring _,$(OS_BOARD_NAME)),$(BOARD_$(lastword $(subst _, ,$(OS_BOARD_NAME)))),developer)
 
 cluster-system := $(OS_NAME)
@@ -30,7 +39,7 @@ $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
 endif
 
 CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
-LIB_NOC_LFLAGS := -lmppapower -lmppanoc -lmpparouting
+LIB_NOC_LFLAGS :=  -lmpparouting -lmppanoc -lmppapower
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
@@ -46,11 +55,11 @@ else
   BOOT_ELF := boot
 endif
 
-cluster-cflags := -I$(ODP_INSTALL_DIR)/$(arch)-$(cluster-system)/include -I$(CUNIT_INSTALL_DIR)/include
-cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/ $(LIB_NOC_LFLAGS)
+cluster-cflags := -I$(ODP_INSTALL_DIR)/$(INCLUDE_DIR)/include -I$(CUNIT_INSTALL_DIR)/include
+cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/ 
 
-cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/
-cluster-lflags += -lodphelper -lodp -lcunit -lmppanoc -lmpparouting
+cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include
+cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $(LFLAGS_$(REAL_OS_NAME))
 
 $(BOOT_ELF)-nameinmpk = boot
 
