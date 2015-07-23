@@ -100,6 +100,7 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	mppa_dnoc_channel_config_t config;
 	mppa_dnoc_header_t header;
 
+	__k1_wmb();
 	ret = mppa_noc_dnoc_tx_alloc_auto(local_interface,
 					  &tx_port, MPPA_NOC_BLOCKING);
 	if (ret != MPPA_NOC_RET_SUCCESS)
