@@ -110,19 +110,23 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	config.word = 0;
 	config._.bandwidth = mppa_noc_dnoc_get_window_length(local_interface);
 #else
+	config._.loopback_multicast = 0;
 	config._.cfg_pe_en = 1;
 	config._.cfg_user_en = 1;
 	config._.write_pe_en = 1;
 	config._.write_user_en = 1;
+	config._.decounter_id = 0;
+	config._.decounted = 0;
+	config._.payload_min = 0;
+	config._.payload_max = 32;
 	config._.bw_current_credit = 0xff;
 	config._.bw_max_credit     = 0xff;
 	config._.bw_fast_delay     = 0x00;
 	config._.bw_slow_delay     = 0x00;
-	config._.payload_max = 32;
-	config._.payload_min = 0;
 #endif
 
 	header._.tag = dest_tag;
+	header._.valid = 1;
 
 	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() +
 						   (local_interface % 4),
