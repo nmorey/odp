@@ -34,7 +34,7 @@ LIB_NOC_LFLAGS := -lmppapower -lmppanoc -lmpparouting
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
-  BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)/boot.kelf
+  BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)/boot.kelf
 else
   ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
