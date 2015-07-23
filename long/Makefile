@@ -21,8 +21,6 @@ OS_rtems := rtems
 BOARD_simu := developer
 BOARD_explorer := explorer
 
-LFLAGS_mos :=  -mhypervisor -lvbsp -lutask
-
 # extract OS name and board name
 REAL_OS_NAME = $(firstword $(subst _, ,$(OS_BOARD_NAME)))
 OS_NAME = $(OS_$(REAL_OS_NAME))
@@ -39,7 +37,7 @@ $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
 endif
 
 CUNIT_COMMON_SRC := $(ODP_SRC_DIR)/test/validation/common/odp_cunit_common.c
-LIB_NOC_LFLAGS :=  -lmpparouting -lmppanoc -lmppapower
+LIB_NOC_LFLAGS :=  -lmppapower -lmpparouting -lmppanoc
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
@@ -58,8 +56,8 @@ endif
 cluster-cflags := -I$(ODP_INSTALL_DIR)/$(INCLUDE_DIR)/include -I$(CUNIT_INSTALL_DIR)/include
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/ 
 
-cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include
-cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $(LFLAGS_$(REAL_OS_NAME))
+cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include $($(ODP_ARCH)_CFLAGS)
+cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS)
 
 $(BOOT_ELF)-nameinmpk = boot
 
