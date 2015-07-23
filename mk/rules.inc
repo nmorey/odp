@@ -62,7 +62,7 @@ $(1)-odp-clean:
 
 $(1)-odp-long:
 	$(error)
-	$(MAKE) -C$(TOP_DIR)/long O=$(ARCH_DIR)/long_$(1)/
+	$(MAKE) -C$(TOP_DIR)/long ODP_ARCH=$(1) O=$(ARCH_DIR)/long_$(1)/
 endef
 
 #
