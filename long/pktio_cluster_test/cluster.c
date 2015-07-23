@@ -85,29 +85,6 @@ static void pktio_test_mtu(void)
 	CU_ASSERT(ret == 0);
 }
 
-static void pktio_test_promisc(void)
-{
-	int ret;
-	odp_pktio_t pktio = create_pktio(iface_name[0], 0);
-
-	ret = odp_pktio_promisc_mode_set(pktio, 1);
-	CU_ASSERT(0 == ret);
-
-	/* Verify that promisc mode set */
-	ret = odp_pktio_promisc_mode(pktio);
-	CU_ASSERT(1 == ret);
-
-	ret = odp_pktio_promisc_mode_set(pktio, 0);
-	CU_ASSERT(0 == ret);
-
-	/* Verify that promisc mode is not set */
-	ret = odp_pktio_promisc_mode(pktio);
-	CU_ASSERT(0 == ret);
-
-	ret = odp_pktio_close(pktio);
-	CU_ASSERT(ret == 0);
-}
-
 static void pktio_test_mac(void)
 {
 	unsigned char mac_addr[ODPH_ETHADDR_LEN];
@@ -249,7 +226,6 @@ static CU_TestInfo pktio_suite[] = {
 	{"pktio lookup",	pktio_test_lookup},
 	{"pktio mac",		pktio_test_mac},
 	{"pktio mtu",		pktio_test_mtu},
-	{"pktio promisc mode",	pktio_test_promisc},
 	CU_TEST_INFO_NULL
 };
 
