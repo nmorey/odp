@@ -19,7 +19,6 @@
 #  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, {0}, {0}, NULL, NULL}
 #endif
 
-
 #include <unistd.h>
 
 #define DNOC_CLUS_BASE_RX	0
@@ -42,6 +41,8 @@
 struct cluster_pkt_header {
 	uint32_t pkt_size;
 };
+
+#define ODP_CLUS_DBG(fmt, ...)	ODP_DBG("[Clus %d] " fmt, __k1_get_cluster_id(), ##__VA_ARGS__)
 
 /** \brief odp_ucode_linear
  * linear transfer
@@ -138,7 +139,7 @@ static int cluster_init_cnoc_rx(int clus_id)
 		return 1;
 
 	//~ mppa_noc_register_interrupt_handler(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
-		//~ rx_id, 0xFFFF, mppa_noc_callback_t callback, void *arg);
+	//~ rx_id, 0xFFFF, mppa_noc_callback_t callback, void *arg);
 
 	return 0;
 }
@@ -261,7 +262,7 @@ static int cluster_io_sync(void)
 
 	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
 
-	ODP_DBG("IO sync ok\n");
+	ODP_CLUS_DBG("IO sync ok\n");
 
 	return 0;
 }
@@ -305,6 +306,7 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			odp_buffer_pool_headroom(pool) -
 			odp_buffer_pool_tailroom(pool);
 
+		ODP_CLUS_DBG("Cluster Pktio %d opened\n", pkt_cluster->clus_id);
 		return 0;
 	}
 
@@ -359,17 +361,17 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 
 	pkt_header = (struct cluster_pkt_header *) g_pkt_recv_buf[pkt_slot];
 	recv_bytes = pkt_header->pkt_size;
-	printf("Received packet of %zd bytes in slot %d\n",
+	ODP_CLUS_DBG("Received packet of %d bytes in slot %d\n",
 	       recv_bytes, pkt_slot);
-
-	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] +
-	       sizeof(struct cluster_pkt_header), recv_bytes);
 
 	/* no data or error: free recv buf and break out of loop */
 	if (odp_unlikely(recv_bytes < 1)) {
 		odp_packet_free(*pkt);
 		return 1;
 	}
+
+	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] +
+	       sizeof(struct cluster_pkt_header), recv_bytes);
 
 	/* /\* frame not explicitly for us, reuse pkt buf for next frame *\/ */
 	/* if (odp_unlikely(sll.sll_pkttype == PACKET_OUTGOING)) */
@@ -394,6 +396,7 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 {
 	unsigned int nb_rx = 0;
 #ifdef __k1a__
+	int ret;
 	mppa_noc_dnoc_rx_counters_t counter;
 	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
@@ -402,23 +405,30 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 	counter = mppa_noc_dnoc_rx_lac_item_event_counter(NOC_CLUS_IFACE_ID,
 							  DNOC_CLUS_BASE_RX +
 							  pktio_clus->clus_id);
+	/* FIXME, we need to store if there are more packets than available space on our side */
 	if (counter.event_counter == 0)
 		return 0;
 
-	printf("%ld packet(s) available\n", counter.event_counter);
+	ODP_CLUS_DBG("%ld packet(s) available\n", counter.event_counter);
+
+	__k1_mb();
 
 	for (nb_rx = 0; nb_rx < counter.event_counter; nb_rx++) {
-		cluster_receive_single_packet(pktio_clus, &pkt);
+		ret = cluster_receive_single_packet(pktio_clus, &pkt);
+		if (ret != 0)
+			return 0;
+
 		pkt_table[nb_rx] = pkt;
 	}
 #endif
+	ODP_CLUS_DBG("Received %d packets\n", nb_rx);
 
 	return nb_rx;
 }
 
 static inline int
 cluster_send_single_packet(pkt_cluster_t *pktio_clus,
-			   void *frame, uint32_t frame_len)
+			   odp_packet_t pkt)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 	mppa_dnoc_channel_config_t config = {0};
@@ -430,7 +440,13 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	uint64_t remote_pkt_count;
 	uintptr_t remote_offset;
 	uint8_t *tmp_pkt;
+	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
 	struct cluster_pkt_header pkt_header;
+	uint32_t iov_count = _tx_pkt_to_iovec(pkt, iovecs);
+
+	ODP_CLUS_DBG("Sending packet of %d iovecs\n", iov_count);
+	assert(iov_count == 1);
+
 #ifdef __k1a__
 	mppa_noc_event_line_t event_line;
 
@@ -451,7 +467,6 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	    ODP_PKTIO_MAX_PKT_COUNT)
 		return 1;
 
-
 	/* Get and configure route */
 #ifdef __k1a__
 	config.word = 0;
@@ -471,14 +486,17 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	if (!tmp_pkt)
 		return 1;
 
-	pkt_header.pkt_size = frame_len;
+	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p\n", iovecs[0].iov_len, iovecs[0].iov_base);
+
+	pkt_header.pkt_size = iovecs[0].iov_len;
 	memcpy(tmp_pkt, &pkt_header, sizeof(struct cluster_pkt_header));
-	memcpy(tmp_pkt + sizeof(struct cluster_pkt_header), frame, frame_len);
+	memcpy(tmp_pkt + sizeof(struct cluster_pkt_header), iovecs[0].iov_base, pkt_header.pkt_size);
 
 	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
 		ODP_PKTIO_MAX_PKT_SIZE;
+	__k1_mb();
 
-	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, frame_len, remote_offset);
+	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, pkt_header.pkt_size, remote_offset);
 	/* We added a local offset to our ucode */
 	uc_conf.parameters[3] = (uintptr_t) tmp_pkt - (uintptr_t) &_heap_start;
 
@@ -515,17 +533,16 @@ static int cluster_send(pktio_entry_t *const pktio_entry,
 {
 	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
-	uint8_t *frame;
-	uint32_t frame_len;
 	unsigned i;
 	int nb_tx = 0;
+
+
+	ODP_CLUS_DBG("Sending %d packet(s)\n", len);
 
 	for (i = 0; i < len; i++) {
 		pkt = pkt_table[i];
 
-		frame = odp_packet_l2_ptr(pkt, &frame_len);
-
-		if(cluster_send_single_packet(pktio_clus, frame, frame_len))
+		if(cluster_send_single_packet(pktio_clus, pkt))
 			break;
 	}
 	nb_tx = i;
