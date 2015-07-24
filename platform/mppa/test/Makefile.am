@@ -5,7 +5,6 @@ TESTS_ENVIRONMENT += TEST_DIR=${top_builddir}/test/validation
 
 ODP_MODULES = pktio
 
-
 if test_vald
 TESTS = pktio/pktio_run \
 	${top_builddir}/test/validation/buffer/buffer_main$(EXEEXT) \
@@ -33,7 +32,6 @@ TESTS +=	${top_builddir}/test/validation/crypto/crypto_main$(EXEEXT) \
 endif
 
 endif
-
 
 #performance tests refer to pktio_env
 if test_perf

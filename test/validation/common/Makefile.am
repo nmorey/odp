@@ -1,5 +1,5 @@
 include $(top_srcdir)/test/Makefile.inc
-AUTOMAKE_OPTIONS += foreign
+AUTOMAKE_OPTIONS = foreign
 
 noinst_LTLIBRARIES = libcunit_common.la libcpumask_common.la libthrmask_common.la
 

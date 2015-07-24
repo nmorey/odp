@@ -13,10 +13,6 @@
 #include <odp/thrmask.h>
 #include <odp/cpumask.h>
 
-#if CPU_SETSIZE < ODP_CONFIG_MAX_THREADS
-#error Thread mask does not fit all thread IDs
-#endif
-
 void odp_thrmask_from_str(odp_thrmask_t *mask, const char *str)
 {
 	odp_cpumask_from_str(&mask->m, str);
