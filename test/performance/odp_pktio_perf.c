@@ -543,8 +543,8 @@ static int setup_txrx_masks(odp_cpumask_t *thd_mask_tx,
 	int num_workers, num_tx_workers, num_rx_workers;
 	int i, cpu;
 
-	num_workers = odph_linux_cpumask_default(&cpumask,
-						 gbl_args->args.cpu_count);
+	num_workers = odp_cpumask_def_worker(&cpumask,
+					     gbl_args->args.cpu_count);
 	if (num_workers < 2) {
 		LOG_ERR("Need at least two cores\n");
 		return -1;
@@ -966,7 +966,7 @@ int main(int argc, char **argv)
 	if (odp_init_global(NULL, NULL) != 0)
 		LOG_ABORT("Failed global init.\n");
 
-	if (odp_init_local() != 0)
+	if (odp_init_local(ODP_THREAD_CONTROL) != 0)
 		LOG_ABORT("Failed local init.\n");
 
 	shm = odp_shm_reserve("test_globals",
