@@ -189,7 +189,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			 ) /* Realign again */ >> (31 - local_max);
 	}
 
-	for (int i = eth->min_port; i < eth->max_port; ++i) {
+	for (int i = eth->min_port; i <= eth->max_port; ++i) {
 		_eth_configure_rx(eth, i);
 	}
 
