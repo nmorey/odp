@@ -299,8 +299,6 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 		while (mask != 0ULL && nb_rx < len) {
 			int mask_bit = __k1_ctzdl(mask);
 			int rx_id = mask_bit + i * 32;
-			int ev_counter = mppa_noc_dnoc_rx_lac_event_counter(eth->dma_if, rx_id);
-			assert(ev_counter > 0);
 
 			odp_packet_t pkt = _eth_reload_rx(eth, rx_id);
 			/* Parse and set packet header data */
