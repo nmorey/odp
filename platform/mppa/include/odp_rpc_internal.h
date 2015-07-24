@@ -37,6 +37,7 @@ typedef enum {
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
+		uint8_t dma_if : 8;
 		uint8_t min_rx : 8;
 		uint8_t max_rx : 8;
 	};
