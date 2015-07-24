@@ -138,6 +138,7 @@ extern const pktio_if_ops_t loopback_pktio_ops;
 extern const pktio_if_ops_t magic_pktio_ops;
 extern const pktio_if_ops_t cluster_pktio_ops;
 extern const pktio_if_ops_t eth_pktio_ops;
+extern const pktio_if_ops_t drop_pktio_ops;
 extern const pktio_if_ops_t * const pktio_if_ops[];
 
 typedef struct _odp_pkt_iovec {
