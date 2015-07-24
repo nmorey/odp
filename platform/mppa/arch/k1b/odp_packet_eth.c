@@ -58,11 +58,18 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 		.item_counter = 1,
 		.item_reload = 1,
 		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_DECR_NOTIF_NO_RELOAD_IDLE,
-		.activation = MPPA_NOC_ACTIVATED,
+		.activation = 0x3,
 		.counter_id = 0
 	};
 	eth->pkts[rxId - eth->min_port] = pkt;
-	return mppa_noc_dnoc_rx_configure(eth->dma_if, rxId, conf);
+	int ret = mppa_noc_dnoc_rx_configure(eth->dma_if, rxId, conf);
+	if(ret)
+		return ret;
+	mppa_noc_enable_event(eth->dma_if, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
+			      rxId, (1 << BSP_NB_PE_P) - 1);
+	mppa_dnoc[eth->dma_if]->rx_queues[rxId].get_drop_pkt_nb_and_activate.reg;
+
+	return 0;
 }
 
 static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
