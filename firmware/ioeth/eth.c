@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include <assert.h>
 #include <HAL/hal/hal.h>
@@ -158,3 +158,30 @@ void eth_init(void)
 	}
 }
 
+void eth_send_pkts(void){
+	static int data_counter = 0;
+	odp_rpc_t buf;
+	memset(&buf, 0, sizeof(buf));
+	buf.pkt_type = ODP_RPC_CMD_BAS_PING;
+
+	for (int ethIf = 0; ethIf < 4; ++ethIf) {
+		for (int clus = 0; clus < BSP_NB_CLUSTER_MAX; ++clus) {
+			const int nocTx = status[ethIf].cluster[clus].txId;
+
+			if(nocTx < 0)
+				continue;
+
+			const int nocIf = get_dma_id(clus);
+			const int minRx = status[ethIf].cluster[clus].min_rx;
+			const int maxRx = status[ethIf].cluster[clus].max_rx;
+
+			for( int rx = minRx; rx <= maxRx; ++rx) {
+				mppa_dnoc[nocIf]->tx_channels[nocTx].
+					header._.tag = rx;
+				mppa_noc_dnoc_tx_send_data_eot(nocIf, nocTx,
+							       sizeof(buf), &buf);
+				buf.inl_data.data[0] = data_counter++;
+			}
+		}
+	}
+}
