@@ -39,7 +39,7 @@ typedef struct eth_status {
 	uint8_t min_port;                /**< Minimum port in the port range */
 	uint8_t max_port;                /**< Maximum port in the port range */
 	odp_queue_t queue;		 /**< Internal queue to store packets  */
-	unsigned long long ev_masks[4];  /**< Mask to isolate events that belong to us */
+	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
 	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
 	uint64_t dropped_pkts;           /**< Number of droppes pkts */
 	uint8_t refresh_rx;
@@ -162,15 +162,15 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	/*
 	 * Compute event mask to detect events on our own tags later
 	 */
-	unsigned long long full_mask = (unsigned long long)(-1LL);
+	unsigned full_mask = (unsigned)(-1);
 
-	for(int i = 0; i < 4; ++i){
-		if (eth->min_port >= (i + 1) * 64 || eth->max_port < i * 64) {
+	for(int i = 0; i < 8; ++i){
+		if (eth->min_port >= (i + 1) * 32 || eth->max_port < i * 32) {
 			eth->ev_masks[i] = 0ULL;
 			continue;
 		}
-		uint8_t local_min = MAX(i * 64, eth->min_port) - (i * 64);
-		uint8_t local_max = MIN((i + 1) * 64 - 1, eth->max_port) - (i * 64);
+		uint8_t local_min = MAX(i * 32, eth->min_port) - (i * 32);
+		uint8_t local_max = MIN((i + 1) * 32 - 1, eth->max_port) - (i * 32);
 		eth->ev_masks[i] = 
 			(/* Trim the upper bits */
 			 (
@@ -178,8 +178,8 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			  full_mask >> (local_min)
 			  )
 			 /* Realign back + trim the top */
-			 << (local_min + 63 - local_max)
-			 ) /* Realign again */ >> (63 - local_max);
+			 << (local_min + 31 - local_max)
+			 ) /* Realign again */ >> (31 - local_max);
 	}
 
 	for (int i = eth->min_port; i < eth->max_port; ++i) {
@@ -283,15 +283,15 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 			_eth_reload_rx(eth, eth->min_port + i);
 	}
 
-	for (int i = 0; i < 3 && nb_rx < len; ++i) {
-		uint64_t mask = eth->ev_masks[i] & bitmask.bitmask[i];
+	for (int i = 0; i < 8 && nb_rx < len; ++i) {
+		uint32_t mask = eth->ev_masks[i] & bitmask.bitmask32[i];
 		if (mask == 0ULL)
 			continue;
 
 		/* We have an event */
 		while (mask != 0ULL && nb_rx < len) {
 			int mask_bit = __k1_ctzdl(mask);
-			int rx_id = mask_bit + i * 64;
+			int rx_id = mask_bit + i * 32;
 			int ev_counter = mppa_noc_dnoc_rx_lac_event_counter(eth->dma_if, rx_id);
 			assert(ev_counter > 0);
 
