@@ -337,7 +337,7 @@ static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
 			      pktio_clus->recv_pkt_count);
 
 	return 0;
@@ -348,7 +348,7 @@ static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 					 odp_packet_t *pkt)
 {
-	uint8_t *pkt_buf;
+	uint8_t *pkt_buf, *buf;
 	ssize_t recv_bytes;
 	struct cluster_pkt_header *pkt_header;
 	int pkt_slot = pktio_clus->recv_pkt_count % ODP_PKTIO_MAX_PKT_COUNT;
@@ -359,7 +359,11 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 
 	pkt_buf = odp_packet_data(*pkt);
 
-	pkt_header = (struct cluster_pkt_header *) g_pkt_recv_buf[pkt_slot];
+	__k1_mb();
+
+	buf = g_pkt_recv_buf[pktio_clus->clus_id] + (pkt_slot * ODP_PKTIO_MAX_PKT_SIZE);
+
+	pkt_header = (struct cluster_pkt_header *) buf;
 	recv_bytes = pkt_header->pkt_size;
 	ODP_CLUS_DBG("Received packet of %d bytes in slot %d\n",
 	       recv_bytes, pkt_slot);
@@ -370,8 +374,7 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 		return 1;
 	}
 
-	memcpy(pkt_buf, g_pkt_recv_buf[pkt_slot] +
-	       sizeof(struct cluster_pkt_header), recv_bytes);
+	memcpy(pkt_buf, buf + sizeof(struct cluster_pkt_header), recv_bytes);
 
 	/* /\* frame not explicitly for us, reuse pkt buf for next frame *\/ */
 	/* if (odp_unlikely(sll.sll_pkttype == PACKET_OUTGOING)) */
@@ -411,8 +414,6 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 
 	ODP_CLUS_DBG("%ld packet(s) available\n", counter.event_counter);
 
-	__k1_mb();
-
 	for (nb_rx = 0; nb_rx < counter.event_counter; nb_rx++) {
 		ret = cluster_receive_single_packet(pktio_clus, &pkt);
 		if (ret != 0)
@@ -434,7 +435,7 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	mppa_dnoc_channel_config_t config = {0};
 	mppa_dnoc_header_t header = {0};
 
-	mppa_noc_uc_program_run_t program_run;
+	mppa_noc_uc_program_run_t program_run = {{0}};
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
 	uint64_t remote_pkt_count;
@@ -452,7 +453,7 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 
 	/* Event config */
 	event_line.line = MPPA_NOC_USE_EVENT;
-	event_line.pe_mask = __k1_get_cpu_id();
+	event_line.pe_mask = 1 << __k1_get_cpu_id();
 #endif
 	uc_conf.pointers = NULL;
 	uc_conf.event_counter = 0;
@@ -462,11 +463,12 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 						      CNOC_CLUS_BASE_RX_ID +
 						      pktio_clus->clus_id);
 
+	ODP_CLUS_DBG("Not enough space to send packet: local: %d, remote %d\n", pktio_clus->sent_pkt_count, remote_pkt_count);
 	/* Is there enough room to send a packet ? */
 	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >=
-	    ODP_PKTIO_MAX_PKT_COUNT)
+	    ODP_PKTIO_MAX_PKT_COUNT) {
 		return 1;
-
+	    }
 	/* Get and configure route */
 #ifdef __k1a__
 	config.word = 0;
@@ -496,7 +498,7 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 		ODP_PKTIO_MAX_PKT_SIZE;
 	__k1_mb();
 
-	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, pkt_header.pkt_size, remote_offset);
+	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, pkt_header.pkt_size + sizeof(struct cluster_pkt_header), remote_offset);
 	/* We added a local offset to our ucode */
 	uc_conf.parameters[3] = (uintptr_t) tmp_pkt - (uintptr_t) &_heap_start;
 
@@ -535,7 +537,6 @@ static int cluster_send(pktio_entry_t *const pktio_entry,
 	odp_packet_t pkt;
 	unsigned i;
 	int nb_tx = 0;
-
 
 	ODP_CLUS_DBG("Sending %d packet(s)\n", len);
 
