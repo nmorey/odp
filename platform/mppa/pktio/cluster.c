@@ -334,10 +334,10 @@ static int cluster_mac_addr_get(pktio_entry_t *pktio_entry,
 #ifdef __k1a__
 static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 {
-	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + pktio_clus->clus_id) != 0)
+	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + __k1_get_cluster_id()) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
 			      pktio_clus->recv_pkt_count);
 
 	return 0;
@@ -463,7 +463,6 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 						      CNOC_CLUS_BASE_RX_ID +
 						      pktio_clus->clus_id);
 
-	ODP_CLUS_DBG("Not enough space to send packet: local: %d, remote %d\n", pktio_clus->sent_pkt_count, remote_pkt_count);
 	/* Is there enough room to send a packet ? */
 	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >=
 	    ODP_PKTIO_MAX_PKT_COUNT) {
@@ -488,14 +487,16 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	if (!tmp_pkt)
 		return 1;
 
-	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p\n", iovecs[0].iov_len, iovecs[0].iov_base);
+	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
+		ODP_PKTIO_MAX_PKT_SIZE;
+
+	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p, offset: %d\n", iovecs[0].iov_len, iovecs[0].iov_base, remote_offset);
 
 	pkt_header.pkt_size = iovecs[0].iov_len;
 	memcpy(tmp_pkt, &pkt_header, sizeof(struct cluster_pkt_header));
 	memcpy(tmp_pkt + sizeof(struct cluster_pkt_header), iovecs[0].iov_base, pkt_header.pkt_size);
 
-	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
-		ODP_PKTIO_MAX_PKT_SIZE;
+
 	__k1_mb();
 
 	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, pkt_header.pkt_size + sizeof(struct cluster_pkt_header), remote_offset);
