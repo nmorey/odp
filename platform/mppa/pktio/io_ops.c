@@ -12,8 +12,11 @@
  * Array must be NULL terminated */
 const pktio_if_ops_t * const pktio_if_ops[]  = {
 	&loopback_pktio_ops,
+	&drop_pktio_ops,
 	&magic_pktio_ops,
 	&cluster_pktio_ops,
+#ifdef __k1b__
 	&eth_pktio_ops,
+#endif
 	NULL
 };

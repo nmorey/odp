@@ -58,9 +58,36 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 	       "\tData: %u\n"
 	       "\tDMA : %u\n"
 	       "\tTag : %u\n"
-	       "\tFlag: %x\n",
+	       "\tFlag: %x\n"
+	       "\tInl Data:\n",
 	       cmd->pkt_type, cmd->data_len, cmd->dma_id,
 	       cmd->dnoc_tag, cmd->flags);
+	if (cmd->ack) {
+		odp_rpc_cmd_ack_t ack = { .inl_data = cmd->inl_data };
+		printf("\t\tstatus: %d\n", ack.status);
+		return;
+	}
+	switch (cmd->pkt_type){
+	case ODP_RPC_CMD_ETH_OPEN:
+		{
+			odp_rpc_cmd_open_t open = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n"
+				"\t\tRx(s): [%d:%d]\n",
+				open.ifId,
+				open.min_rx, open.max_rx);
+		}
+		break;
+	case ODP_RPC_CMD_ETH_CLOS:
+		{
+			odp_rpc_cmd_clos_t clos = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n", clos.ifId);
+		}
+		break;
+	case ODP_RPC_CMD_BAS_INVL:
+	case ODP_RPC_CMD_BAS_PING:
+	default:
+		break;
+	}
 }
 
 int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
@@ -73,6 +100,7 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	mppa_dnoc_channel_config_t config;
 	mppa_dnoc_header_t header;
 
+	__k1_wmb();
 	ret = mppa_noc_dnoc_tx_alloc_auto(local_interface,
 					  &tx_port, MPPA_NOC_BLOCKING);
 	if (ret != MPPA_NOC_RET_SUCCESS)
@@ -83,19 +111,23 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	config.word = 0;
 	config._.bandwidth = mppa_noc_dnoc_get_window_length(local_interface);
 #else
+	config._.loopback_multicast = 0;
 	config._.cfg_pe_en = 1;
 	config._.cfg_user_en = 1;
 	config._.write_pe_en = 1;
 	config._.write_user_en = 1;
+	config._.decounter_id = 0;
+	config._.decounted = 0;
+	config._.payload_min = 0;
+	config._.payload_max = 32;
 	config._.bw_current_credit = 0xff;
 	config._.bw_max_credit     = 0xff;
 	config._.bw_fast_delay     = 0x00;
 	config._.bw_slow_delay     = 0x00;
-	config._.payload_max = 32;
-	config._.payload_min = 0;
 #endif
 
 	header._.tag = dest_tag;
+	header._.valid = 1;
 
 	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() +
 						   (local_interface % 4),
@@ -144,16 +176,17 @@ int odp_rpc_do_query(uint16_t dest_id,
 	return odp_rpc_send_msg(0, dest_id, dest_tag, cmd, payload);
 }
 
-int odp_rpc_wait_ack(odp_rpc_t * cmd, void ** payload)
+int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload)
 {
 	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))
 		__k1_cpu_backoff(100);
 
-	INVALIDATE(&odp_rpc_ack_buf.rpc_cmd);
-	*cmd = odp_rpc_ack_buf.rpc_cmd;
+	odp_rpc_t * msg = &odp_rpc_ack_buf.rpc_cmd;
+	INVALIDATE(msg);
+	*cmd = msg;
 
-	if (payload && cmd->data_len) {
-		INVALIDATE_AREA(&odp_rpc_ack_buf.payload, cmd->data_len);
+	if (payload && msg->data_len) {
+		INVALIDATE_AREA(&odp_rpc_ack_buf.payload, msg->data_len);
 		*payload = odp_rpc_ack_buf.payload;
 	}
 

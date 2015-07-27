@@ -156,8 +156,9 @@ __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_packet_flags.c \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
-			   pktio/eth.c \
+			   arch/@ARCH@/odp_packet_eth.c \
 			   pktio/cluster.c \
+			   pktio/drop.c \
 			   pktio/magic.c \
 			   ../linux-generic/pktio/loop.c \
 			   odp_pool.c \

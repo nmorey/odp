@@ -38,6 +38,7 @@ extern "C" {
 
 /* Forward declaration */
 struct pktio_if_ops;
+struct eth_status;
 
 typedef struct {
 	int clus_id;			/**< Cluster ID */
@@ -61,9 +62,7 @@ typedef struct {
 } pkt_loop_t;
 
 typedef struct {
-	int slot_id;                    /**< IO Eth Id */
-	int port_id;                    /**< Eth Port id. -1 for 40G */
-	odp_pool_t pool; 		/**< pool to alloc packets from */
+	struct eth_status * status;          /**< Ethernet internal data */
 } pkt_eth_t;
 
 struct pktio_entry {
@@ -139,6 +138,7 @@ extern const pktio_if_ops_t loopback_pktio_ops;
 extern const pktio_if_ops_t magic_pktio_ops;
 extern const pktio_if_ops_t cluster_pktio_ops;
 extern const pktio_if_ops_t eth_pktio_ops;
+extern const pktio_if_ops_t drop_pktio_ops;
 extern const pktio_if_ops_t * const pktio_if_ops[];
 
 typedef struct _odp_pkt_iovec {
