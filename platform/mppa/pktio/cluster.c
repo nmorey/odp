@@ -331,7 +331,6 @@ static int cluster_mac_addr_get(pktio_entry_t *pktio_entry,
 	return ETH_ALEN;
 }
 
-#ifdef __k1a__
 static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 {
 	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + __k1_get_cluster_id()) != 0)
@@ -342,9 +341,8 @@ static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 
 	return 0;
 }
-#endif
 
-#ifdef __k1a__
+
 static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 					 odp_packet_t *pkt)
 {
@@ -391,37 +389,35 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 
 	return 0;
 }
-#endif
 
 static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 			odp_packet_t pkt_table[] ODP_UNUSED,
 			unsigned len ODP_UNUSED)
 {
 	unsigned int nb_rx = 0;
-#ifdef __k1a__
 	int ret;
-	mppa_noc_dnoc_rx_counters_t counter;
+	uint16_t item_cnt;
 	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
 
 	/* Check if we received some packets */
-	counter = mppa_noc_dnoc_rx_lac_item_event_counter(NOC_CLUS_IFACE_ID,
-							  DNOC_CLUS_BASE_RX +
+	item_cnt = mppa_noc_dnoc_rx_lac_event_counter(NOC_CLUS_IFACE_ID,  DNOC_CLUS_BASE_RX +
 							  pktio_clus->clus_id);
+
 	/* FIXME, we need to store if there are more packets than available space on our side */
-	if (counter.event_counter == 0)
+	if (item_cnt == 0)
 		return 0;
 
-	ODP_CLUS_DBG("%ld packet(s) available\n", counter.event_counter);
+	ODP_CLUS_DBG("%ld packet(s) available\n", item_cnt);
 
-	for (nb_rx = 0; nb_rx < counter.event_counter; nb_rx++) {
+	for (nb_rx = 0; nb_rx < item_cnt; nb_rx++) {
 		ret = cluster_receive_single_packet(pktio_clus, &pkt);
 		if (ret != 0)
-			return 0;
+			return nb_rx;
 
 		pkt_table[nb_rx] = pkt;
 	}
-#endif
+
 	ODP_CLUS_DBG("Received %d packets\n", nb_rx);
 
 	return nb_rx;
@@ -472,7 +468,22 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 #ifdef __k1a__
 	config.word = 0;
 	config._.bandwidth = mppa_noc_dnoc_get_window_length(NOC_CLUS_IFACE_ID);
+#else
+	config._.loopback_multicast = 0;
+	config._.cfg_pe_en = 1;
+	config._.cfg_user_en = 1;
+	config._.write_pe_en = 1;
+	config._.write_user_en = 1;
+	config._.decounter_id = 0;
+	config._.decounted = 0;
+	config._.payload_min = 0;
+	config._.payload_max = 32;
+	config._.bw_current_credit = 0xff;
+	config._.bw_max_credit     = 0xff;
+	config._.bw_fast_delay     = 0x00;
+	config._.bw_slow_delay     = 0x00;
 #endif
+
 
 	header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
 
