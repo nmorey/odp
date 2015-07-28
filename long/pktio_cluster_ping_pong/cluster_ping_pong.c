@@ -32,7 +32,8 @@ extern int __mppa_power_base_exit_return_status;
 static int setup_test()
 {
 	odp_pool_param_t params;
-	const char *pktio_name;
+	char pktio_name[10];
+	int remote_cluster;
 
 	memset(&params, 0, sizeof(params));
 	params.pkt.seg_len = PKT_BUF_SIZE;
@@ -46,10 +47,9 @@ static int setup_test()
 		return 1;
 	}
 
-	if (__k1_get_cluster_id() == 0)
-		pktio_name = "cluster:1";
-	else
-		pktio_name = "cluster:0";
+	/* Just take the next or the previous one as pair */
+	remote_cluster = (__k1_get_cluster_id() % 2) == 0 ? __k1_get_cluster_id() + 1 : __k1_get_cluster_id() - 1;
+	sprintf(pktio_name, "cluster:%d", remote_cluster);
 
 	pktio = odp_pktio_open(pktio_name, pool);
 	if (pktio == ODP_PKTIO_INVALID)
