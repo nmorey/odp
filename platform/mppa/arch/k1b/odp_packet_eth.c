@@ -78,7 +78,7 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 	odp_packet_t pkt = eth->pkts[rank];
 
 	odp_packet_t new_pkt = _odp_packet_alloc(eth->pool);
-	if (pkt == ODP_PACKET_INVALID) {
+	if (new_pkt == ODP_PACKET_INVALID) {
 		eth->refresh_rx = 1;
 		return pkt;
 	}
