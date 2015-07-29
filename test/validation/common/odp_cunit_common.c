@@ -28,11 +28,10 @@ int odp_cunit_thread_create(void *func_ptr(void *), pthrd_arg *arg)
 	odp_cpumask_t cpumask;
 
 	/* Create and init additional threads */
-	odph_linux_cpumask_default(&cpumask, arg->numthrds);
-	odph_linux_pthread_create(thread_tbl, &cpumask, func_ptr,
-				  (void *)arg);
+	odp_cpumask_def_worker(&cpumask, arg->numthrds);
 
-	return 0;
+	return odph_linux_pthread_create(thread_tbl, &cpumask, func_ptr,
+					 (void *)arg);
 }
 
 /** exit from test thread */
@@ -50,7 +49,7 @@ static int tests_global_init(void)
 		fprintf(stderr, "error: odp_init_global() failed.\n");
 		return -1;
 	}
-	if (0 != odp_init_local()) {
+	if (0 != odp_init_local(ODP_THREAD_CONTROL)) {
 		fprintf(stderr, "error: odp_init_local() failed.\n");
 		return -1;
 	}

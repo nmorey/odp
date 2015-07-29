@@ -1,4 +1,5 @@
-include $(top_srcdir)/Makefile.inc
+TESTS_ENVIRONMENT =
+
 include $(top_srcdir)/platform/@with_platform@/Makefile.inc
 LIB   = $(top_builddir)/lib
 

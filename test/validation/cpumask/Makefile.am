@@ -1,8 +1,9 @@
 include ../Makefile.inc
 
-noinst_LIBRARIES = libcpumask.a
-libcpumask_a_SOURCES = cpumask.c
+noinst_LTLIBRARIES = libcpumask.la
+libcpumask_la_SOURCES = cpumask.c
+libcpumask_la_LIBADD = $(LIBCPUMASK_COMMON)
 
 bin_PROGRAMS = cpumask_main$(EXEEXT)
 dist_cpumask_main_SOURCES = cpumask_main.c
-cpumask_main_LDADD = libcpumask.a $(LIBCUNIT_COMMON) $(LIBODP)
+cpumask_main_LDADD = libcpumask.la $(LIBCUNIT_COMMON) $(LIBODP)
