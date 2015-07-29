@@ -65,6 +65,8 @@ static int drop_promisc_mode_get(pktio_entry_t *pktio_entry ODP_UNUSED)
 }
 
 const pktio_if_ops_t drop_pktio_ops = {
+	.init = NULL,
+	.term = NULL,
 	.open = drop_open,
 	.close = drop_close,
 	.recv = drop_recv_pkt,

@@ -334,6 +334,7 @@ static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
 }
 const pktio_if_ops_t eth_pktio_ops = {
 	.init = eth_init,
+	.term = NULL,
 	.open = eth_open,
 	.close = eth_close,
 	.recv = eth_recv,

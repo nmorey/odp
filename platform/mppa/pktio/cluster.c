@@ -573,6 +573,7 @@ static int cluster_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED)
 
 const pktio_if_ops_t cluster_pktio_ops = {
 	.init = cluster_init,
+	.term = NULL,
 	.open = cluster_open,
 	.close = cluster_close,
 	.recv = cluster_recv,
