@@ -86,6 +86,7 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 	}
 
 	mppa_dnoc[eth->dma_if]->rx_queues[rxId].buffer_base.dword = (unsigned long)odp_packet_data(new_pkt);
+	mppa_dnoc[eth->dma_if]->rx_queues[rxId].current_offset.reg = 0ULL;
 	eth->pkts[rank] = new_pkt;
 
 	eth->dropped_pkts += mppa_dnoc[eth->dma_if]->rx_queues[rxId].get_drop_pkt_nb_and_activate.reg;
@@ -306,6 +307,12 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 		while (mask != 0ULL && nb_rx < len) {
 			int mask_bit = __k1_ctzdl(mask);
 			int rx_id = mask_bit + i * 32;
+			mask = mask ^ (1ULL << mask_bit);
+
+			uint16_t ev_counter = mppa_noc_dnoc_rx_lac_event_counter(eth->dma_if, rx_id);
+			/* Weird... No data ! */
+			if(!ev_counter)
+				continue;
 
 			odp_packet_t pkt = _eth_reload_rx(eth, rx_id);
 			/* Parse and set packet header data */
@@ -313,7 +320,6 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 			_odp_packet_reset_parse(pkt);
 
 			pkt_table[nb_rx++] = pkt;
-			mask = mask ^ (1ULL << mask_bit);
 		}
 	}
 
