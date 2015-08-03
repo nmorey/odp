@@ -5,7 +5,7 @@ COMMON_DIR = $(top_builddir)/test/common_plat/common
 #the following option ensure that option '-I.' is not passed to gcc,
 #therefore distinguishing between '#include "X"' and '#include <X>'.
 #It allows common filenames (such as 'errno.h') to be used locally.
-AUTOMAKE_OPTIONS = nostdinc
+AUTOMAKE_OPTIONS += nostdinc
 
 AM_CFLAGS += -I$(top_srcdir)/test/common_plat/common
 AM_LDFLAGS += -static

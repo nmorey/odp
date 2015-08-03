@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS =
+
 include $(top_srcdir)/platform/@with_platform@/Makefile.inc
 LIB   = $(top_builddir)/lib
 
