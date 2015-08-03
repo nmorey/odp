@@ -33,6 +33,8 @@ static int eth_init(void)
 
 typedef struct eth_status {
 	odp_pool_t pool; 		 /**< pool to alloc packets from */
+	odp_spinlock_t rlock;            /**< Rx lock */
+	odp_spinlock_t wlock;            /**< Tx lock */
 	uint8_t slot_id;                 /**< IO Eth Id */
 	uint8_t port_id;                 /**< Eth Port id. 4 for 40G */
 	uint8_t dma_if;                  /**< DMA Rx Interface */
@@ -130,6 +132,9 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->slot_id = slot_id;
 	eth->port_id = port_id;
 	eth->dma_if = 0;
+
+	odp_spinlock_init(&eth->rlock);
+	odp_spinlock_init(&eth->wlock);
 
 	/*
 	 * Allocate contiguous RX ports
@@ -284,6 +289,8 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
 	unsigned nb_rx = 0;
 
+	odp_spinlock_lock(&eth->rlock);
+
 	if (eth->dropped_pkts) {
 		eth->dropped_pkts = 0;
 		for (int i = 0; i < N_RX_PER_PORT; ++i)
@@ -307,9 +314,11 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 
 			pkt_table[nb_rx++] = pkt;
 			mask = mask ^ (1ULL << mask_bit);
-
 		}
 	}
+
+	odp_spinlock_unlock(&eth->rlock);
+
 	return nb_rx;
 }
 
@@ -317,6 +326,10 @@ static int eth_send(pktio_entry_t *pktio_entry ODP_UNUSED,
 		    odp_packet_t pkt_table[] ODP_UNUSED,
 		    unsigned len ODP_UNUSED)
 {
+	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	odp_spinlock_lock(&eth->wlock);
+	odp_spinlock_unlock(&eth->wlock);
+
 	return 0;
 }
 
