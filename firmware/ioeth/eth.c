@@ -12,6 +12,7 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
+#include "io_utils.h"
 #include "rpc-server.h"
 #include "eth.h"
 
@@ -142,6 +143,8 @@ odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 }
 void eth_init(void)
 {
+	init_mac();
+
 	/* "MATCH_ALL" Rule */
 	mppabeth_lb_cfg_rule((void *)&(mppa_ethernet[0]->lb),
 			     ETH_MATCHALL_TABLE_ID, ETH_MATCHALL_RULE_ID,
