@@ -323,6 +323,12 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 	int i, elapsed = 0;
 	int loop_forever = (duration == 0);
 
+	/* Wait for all thread to have configured their stats structure */
+	do {
+		for (i = 0; i < num_workers && thr_stats[i]; i++)
+			;
+	} while (i != num_workers);
+
 	do {
 		pkts = 0;
 		drops = 0;
