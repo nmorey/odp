@@ -74,7 +74,7 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 		return -1;
 
 	mppa_noc_dnoc_rx_configuration_t conf = {
-		.buffer_base = (unsigned long)odp_packet_data(pkt),
+		.buffer_base = (unsigned long)odp_packet_data(pkt) - sizeof(eth_status_t),
 		.buffer_size = odp_packet_len(pkt),
 		.current_offset = 0,
 		.item_counter = 1,
@@ -105,7 +105,8 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 		return pkt;
 	}
 
-	mppa_dnoc[eth->dma_if]->rx_queues[rxId].buffer_base.dword = (unsigned long)odp_packet_data(new_pkt);
+	mppa_dnoc[eth->dma_if]->rx_queues[rxId].buffer_base.dword =
+		(unsigned long)odp_packet_data(new_pkt) - sizeof(eth_status_t);
 	mppa_dnoc[eth->dma_if]->rx_queues[rxId].current_offset.reg = 0ULL;
 	eth->pkts[rank] = new_pkt;
 
