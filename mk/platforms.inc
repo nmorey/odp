@@ -166,32 +166,32 @@ CONFIGS += x86_64-unknown-linux-gnu
 #
 k1a-kalray-ioddr_CC          := k1-gcc
 k1a-kalray-ioddr_CFLAGS      := -march=k1a -DK1_RTEMS -mos=rtems -mcore=k1io -mcluster=ioddr -mprocessing=single
-k1a-kalray-ioddr_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1a-kalray-ioddr_LDFLAGS     :=
 k1a-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1a
 boot_CONFIGS += k1a-kalray-ioddr
 
 k1b-kalray-ioddr_CC          := k1-gcc
 k1b-kalray-ioddr_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1bio -mcluster=ioddr -mprocessing=single
-k1b-kalray-ioddr_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1b-kalray-ioddr_LDFLAGS     :=
 k1b-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 boot_CONFIGS += k1b-kalray-ioddr
 
 k1b-kalray-ioddr_explorer_CC          := k1-gcc
 k1b-kalray-ioddr_explorer_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1bio -mcluster=ioddr \
 									  	 -mprocessing=single -mboard=explorer -DK1B_EXPLORER
-k1b-kalray-ioddr_explorer_LDFLAGS     := -lmppapower -lmppanoc -lmpparouting
+k1b-kalray-ioddr_explorer_LDFLAGS     :=
 k1b-kalray-ioddr_explorer_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_explorer
 boot_CONFIGS += k1b-kalray-ioddr_explorer
 
 # k1a-kalray-ioeth_CC          := k1-gcc
 # k1a-kalray-ioeth_CFLAGS      := -march=k1a -DK1_BARE -mcore=k1io -mcluster=ioeth
-# k1a-kalray-ioeth_LDFLAGS     := -lmppaeth
+# k1a-kalray-ioeth_LDFLAGS     :=
 # k1a-kalray-ioeth_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1a
 # ioeth_CONFIGS += k1a-kalray-ioeth
 
 k1b-kalray-ioeth_CC          := k1-gcc
 k1b-kalray-ioeth_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioeth -mos=bare
-k1b-kalray-ioeth_LDFLAGS     := 
+k1b-kalray-ioeth_LDFLAGS     :=
 k1b-kalray-ioeth_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 ioeth_CONFIGS += k1b-kalray-ioeth
 
