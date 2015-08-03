@@ -1,4 +1,3 @@
-
 TEST_EXTENSIONS = .kelf
 
 KELF_LOG_COMPILER =	$(top_srcdir)/ktest-wrapper.sh

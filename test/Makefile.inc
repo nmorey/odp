@@ -1,5 +1,5 @@
 TESTS_ENVIRONMENT =
-AUTOMAKE_OPTIONS =
+AUTOMAKE_OPTIONS = parallel-tests
 
 include $(top_srcdir)/platform/@with_platform@/Makefile.inc
 LIB   = $(top_builddir)/lib
