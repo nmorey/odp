@@ -1,4 +1,5 @@
 AUTOMAKE_OPTIONS =
+TESTS_ENVIRONMENT=
 
 include $(top_srcdir)/platform/@with_platform@/Makefile.inc
 LIB   = $(top_builddir)/lib
@@ -25,4 +26,4 @@ AM_LDFLAGS += -L$(LIB)
 @VALGRIND_CHECK_RULES@
 valgrind_tools = memcheck
 
-TESTS_ENVIRONMENT= ODP_PLATFORM=${with_platform} EXEEXT=${EXEEXT}
+TESTS_ENVIRONMENT+= ODP_PLATFORM=${with_platform} EXEEXT=${EXEEXT}
