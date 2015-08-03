@@ -7,7 +7,6 @@ include Metabuild
 CONFIGS = `make list-configs`.split(" ").inject({}){|x, c| x.merge({ c => {} })}
 
 options = Options.new({ "k1tools"       => [ENV["K1_TOOLCHAIN_DIR"].to_s,"Path to a valid compiler prefix."],
-                        "artifacts"     => {"type" => "string", "default" => "", "help" => "Artifacts path given by Jenkins."},
                         "debug"         => {"type" => "boolean", "default" => false, "help" => "Debug mode." },
                         "list-configs"  => {"type" => "boolean", "default" => false, "help" => "List all targets" },
                         "local-valid"   => {"type" => "boolean", "default" => false, "help" => "Valid using the local installation" },
@@ -83,8 +82,8 @@ configs = (options["configs"].split(" ")).uniq
 configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
-artifacts = File.expand_path(options["artifacts"])
-artifacts = File.join(workspace,"artifacts") if(options["artifacts"].empty?)
+artifacts = File.expand_path(options["output-dir"])
+artifacts = File.join(workspace,"artifacts") if(options["output-dir"].empty?)
 mkdir_p artifacts unless File.exists?(artifacts)
 
 b.target("build") do
