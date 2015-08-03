@@ -16,6 +16,26 @@
 
 #include <mppa_noc.h>
 
+union mppa_ethernet_header_info_t {
+ mppa_uint64 dword;
+ mppa_uint32 word[2];
+ mppa_uint16 hword[4];
+ mppa_uint8 bword[8];
+  struct {
+    mppa_uint32 pkt_size : 16;
+    mppa_uint32 hash_key : 16;
+    mppa_uint32 lane_id  : 2;
+    mppa_uint32 io_id    : 1;
+    mppa_uint32 rule_id  : 4;
+    mppa_uint32 pkt_id   : 25;
+  } _;
+};
+
+typedef struct mppa_ethernet_header_s {
+  mppa_uint64 timestamp;
+  union mppa_ethernet_header_info_t info;
+} mppa_ethernet_header_t;
+
 static inline int MIN(int a, int b)
 {
 	return a > b ? b : a;
