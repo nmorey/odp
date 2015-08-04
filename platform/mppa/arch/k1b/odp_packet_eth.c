@@ -56,7 +56,6 @@ typedef struct eth_status {
 	odp_spinlock_t rlock;            /**< Rx lock */
 	odp_spinlock_t wlock;            /**< Tx lock */
 
-	odp_queue_t queue;               /**< Internal queue to store packets  */
 	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
 	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
 	uint64_t dropped_pkts;           /**< Number of droppes pkts */
@@ -234,19 +233,6 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	}
 
 	/*
-	 * Internal queue to store packet faster than recv may ask us
-	 * so we can keep the RX open
-	 */
-	char q_name[ODP_QUEUE_NAME_LEN];
-	snprintf(q_name, sizeof(q_name), "%" PRIu64 "-pktio_internalq",
-		 odp_pktio_to_u64(id));
-	eth->queue =
-		odp_queue_create(q_name, ODP_QUEUE_TYPE_POLL, NULL);
-
-	if (eth->queue == ODP_QUEUE_INVALID)
-		return -1;
-
-	/*
 	 * RPC Msg to IOETH  #N so the LB will dispatch to us
 	 */
 	odp_rpc_cmd_open_t open_cmd = {
@@ -281,7 +267,6 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	int slot_id = eth->slot_id;
 	int port_id = eth->port_id;
 
-	odp_queue_destroy(eth->queue);
 	odp_rpc_cmd_clos_t close_cmd = {
 		{
 			.ifId = eth->port_id = port_id
