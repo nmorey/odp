@@ -349,15 +349,18 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 	return nb_rx;
 }
 
-static int eth_send(pktio_entry_t *pktio_entry ODP_UNUSED,
-		    odp_packet_t pkt_table[] ODP_UNUSED,
-		    unsigned len ODP_UNUSED)
+static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
+		    unsigned len)
 {
+	unsigned i;
 	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
 	odp_spinlock_lock(&eth->wlock);
 	odp_spinlock_unlock(&eth->wlock);
 
-	return 0;
+	for (i = 0; i < len; i++)
+		odp_packet_free(pkt_table[i]);
+
+	return len;
 }
 
 static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
