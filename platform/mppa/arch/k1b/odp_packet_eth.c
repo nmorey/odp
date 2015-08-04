@@ -77,9 +77,11 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 	if (pkt == ODP_PACKET_INVALID)
 		return -1;
 
+	int ret;
+	odp_packet_hdr_t * pkt_hdr = odp_packet_hdr(pkt);
 	mppa_noc_dnoc_rx_configuration_t conf = {
-		.buffer_base = (unsigned long)odp_packet_data(pkt) - sizeof(eth_status_t),
-		.buffer_size = odp_packet_len(pkt),
+		.buffer_base = (unsigned long)packet_map(pkt_hdr, 0, NULL) - sizeof(mppa_ethernet_header_t),
+		.buffer_size = pkt_hdr->frame_len,
 		.current_offset = 0,
 		.event_counter = 0,
 		.item_counter = 1,
@@ -88,10 +90,12 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 		.activation = 0x3,
 		.counter_id = 0
 	};
+
 	eth->pkts[rxId - eth->min_port] = pkt;
-	int ret = mppa_noc_dnoc_rx_configure(eth->dma_if, rxId, conf);
+	ret = mppa_noc_dnoc_rx_configure(eth->dma_if, rxId, conf);
 	if(ret)
 		return ret;
+
 	mppa_noc_enable_event(eth->dma_if, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
 			      rxId, (1 << BSP_NB_PE_P) - 1);
 	mppa_dnoc[eth->dma_if]->rx_queues[rxId].get_drop_pkt_nb_and_activate.reg;
@@ -104,8 +108,16 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 	int rank = rxId - eth->min_port;
 	odp_packet_t pkt = eth->pkts[rank];
 
-	odp_packet_t new_pkt = _odp_packet_alloc(eth->pool);
+	if (pkt != ODP_PACKET_INVALID) {
+		/* Compute real packet length */
+		mppa_ethernet_header_t * header =
+			(void*)(unsigned long)mppa_dnoc[eth->dma_if]->
+			rx_queues[rxId].buffer_base.reg;
 
+		packet_set_len(pkt, header->info._.pkt_size);
+	}
+
+	odp_packet_t new_pkt = _odp_packet_alloc(eth->pool);
 	eth->pkts[rank] = new_pkt;
 
 	if (new_pkt == ODP_PACKET_INVALID) {
@@ -114,7 +126,7 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 	}
 
 	mppa_dnoc[eth->dma_if]->rx_queues[rxId].buffer_base.dword =
-		(unsigned long)odp_packet_data(new_pkt) - sizeof(eth_status_t);
+		(unsigned long)packet_map(odp_packet_hdr(new_pkt), 0, NULL) - sizeof(eth_status_t);
 	mppa_dnoc[eth->dma_if]->rx_queues[rxId].current_offset.reg = 0ULL;
 
 	eth->dropped_pkts += mppa_dnoc[eth->dma_if]->rx_queues[rxId].get_drop_pkt_nb_and_activate.reg;
