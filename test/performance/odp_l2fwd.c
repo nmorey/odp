@@ -325,10 +325,11 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 
 	/* Wait for all thread to have configured their stats structure */
 	do {
-		for (i = 0; i < num_workers && thr_stats[i]; i++)
+		for (i = 0; i < num_workers && LOAD_PTR(thr_stats[i]); i++)
 			;
 	} while (i != num_workers);
 
+	INVALIDATE(thr_stats);
 	do {
 		pkts = 0;
 		drops = 0;
@@ -336,8 +337,8 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 		sleep(timeout);
 
 		for (i = 0; i < num_workers; i++) {
-			pkts += thr_stats[i]->packets;
-			drops += thr_stats[i]->drops;
+			pkts += LOAD_U64(thr_stats[i]->packets);
+			drops += LOAD_U64(thr_stats[i]->drops);
 		}
 		pps = (pkts - pkts_prev) / timeout;
 		if (pps > maximum_pps)
