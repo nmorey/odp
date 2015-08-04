@@ -55,6 +55,13 @@ typedef struct eth_status {
 	odp_pool_t pool; 		 /**< pool to alloc packets from */
 	odp_spinlock_t rlock;            /**< Rx lock */
 	odp_spinlock_t wlock;            /**< Tx lock */
+
+	odp_queue_t queue;               /**< Internal queue to store packets  */
+	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
+	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
+	uint64_t dropped_pkts;           /**< Number of droppes pkts */
+	mppa_noc_dnoc_rx_bitmask_t bmask;/**< Last read bitmask to avoid starvation */
+
 	uint8_t slot_id;                 /**< IO Eth Id */
 	uint8_t port_id;                 /**< Eth Port id. 4 for 40G */
 	uint8_t dma_if;                  /**< DMA Rx Interface */
@@ -62,11 +69,7 @@ typedef struct eth_status {
 	uint8_t max_port;                /**< Maximum port in the port range */
 	uint8_t min_mask;                /**< Rank of minimum non-null mask */
 	uint8_t max_mask;                /**< Rank of maximum non-null mask */
-	odp_queue_t queue;               /**< Internal queue to store packets  */
-	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
-	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
-	uint64_t dropped_pkts;           /**< Number of droppes pkts */
-	uint8_t refresh_rx;
+	uint8_t refresh_rx;              /**< At least some Rx do not have any registered packets */
 } eth_status_t;
 
 static int _eth_configure_rx(eth_status_t *eth, int rxId)
@@ -328,12 +331,14 @@ static void _eth_reload_rxes(eth_status_t * eth)
 }
 
 static unsigned _eth_poll_mask(eth_status_t * eth, odp_packet_t pkt_table[],
-			  unsigned len, mppa_noc_dnoc_rx_bitmask_t *bitmask)
+			       unsigned len)
 {
 	unsigned nb_rx = 0;
+	int i;
+	uint32_t mask = 0;
 
-	for (int i = eth->min_mask; i <= eth->max_mask && nb_rx < len; ++i) {
-		uint32_t mask = eth->ev_masks[i] & bitmask->bitmask32[i];
+	for (i = eth->min_mask; i <= eth->max_mask && nb_rx < len; ++i) {
+		mask = eth->ev_masks[i] & eth->bmask.bitmask32[i];
 
 		if (mask == 0ULL)
 			continue;
@@ -364,7 +369,6 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
-	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
 	unsigned nb_rx;
 
 	odp_spinlock_lock(&eth->rlock);
@@ -373,7 +377,9 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	if (eth->refresh_rx)
 		_eth_reload_rxes(eth);
 
-	nb_rx = _eth_poll_mask(eth, pkt_table, len, &bitmask);
+	eth->bmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
+
+	nb_rx = _eth_poll_mask(eth, pkt_table, len);
 
 	odp_spinlock_unlock(&eth->rlock);
 
