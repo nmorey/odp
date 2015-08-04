@@ -60,7 +60,9 @@ typedef struct eth_status {
 	uint8_t dma_if;                  /**< DMA Rx Interface */
 	uint8_t min_port;                /**< Minimum port in the port range */
 	uint8_t max_port;                /**< Maximum port in the port range */
-	odp_queue_t queue;		 /**< Internal queue to store packets  */
+	uint8_t min_mask;                /**< Rank of minimum non-null mask */
+	uint8_t max_mask;                /**< Rank of maximum non-null mask */
+	odp_queue_t queue;               /**< Internal queue to store packets  */
 	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
 	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
 	uint64_t dropped_pkts;           /**< Number of droppes pkts */
@@ -198,7 +200,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	 */
 	unsigned full_mask = (unsigned)(-1);
 
-	for(int i = 0; i < 8; ++i){
+	for (int i = 0; i < 8; ++i){
 		if (eth->min_port >= (i + 1) * 32 || eth->max_port < i * 32) {
 			eth->ev_masks[i] = 0ULL;
 			continue;
@@ -214,6 +216,12 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			 /* Realign back + trim the top */
 			 << (local_min + 31 - local_max)
 			 ) /* Realign again */ >> (31 - local_max);
+
+		if (eth->ev_masks[i] != 0) {
+			if (eth->min_mask == (uint8_t)-1)
+				eth->min_mask = i;
+			eth->max_mask = i;
+		}
 	}
 
 	for (int i = eth->min_port; i <= eth->max_port; ++i) {
