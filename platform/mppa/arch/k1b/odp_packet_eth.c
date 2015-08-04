@@ -81,6 +81,7 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 		.buffer_base = (unsigned long)odp_packet_data(pkt) - sizeof(eth_status_t),
 		.buffer_size = odp_packet_len(pkt),
 		.current_offset = 0,
+		.event_counter = 0,
 		.item_counter = 1,
 		.item_reload = 1,
 		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_DECR_NOTIF_NO_RELOAD_IDLE,
