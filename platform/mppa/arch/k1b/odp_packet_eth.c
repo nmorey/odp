@@ -71,17 +71,14 @@ typedef struct eth_status {
 	uint8_t refresh_rx;              /**< At least some Rx do not have any registered packets */
 } eth_status_t;
 
-static int _eth_configure_rx(eth_status_t *eth, int rxId)
+static void _eth_set_rx_conf(unsigned ifId, int rxId, odp_packet_t pkt)
 {
-	odp_packet_t pkt = _odp_packet_alloc(eth->pool);
-	if (pkt == ODP_PACKET_INVALID)
-		return -1;
-
-	int ret;
 	odp_packet_hdr_t * pkt_hdr = odp_packet_hdr(pkt);
 	mppa_noc_dnoc_rx_configuration_t conf = {
-		.buffer_base = (unsigned long)packet_map(pkt_hdr, 0, NULL) - sizeof(mppa_ethernet_header_t),
-		.buffer_size = pkt_hdr->frame_len,
+		.buffer_base = (unsigned long)packet_map(pkt_hdr, 0, NULL) -
+		sizeof(mppa_ethernet_header_t),
+		.buffer_size = pkt_hdr->frame_len +
+		2 * sizeof(mppa_ethernet_header_t),
 		.current_offset = 0,
 		.event_counter = 0,
 		.item_counter = 1,
@@ -91,10 +88,18 @@ static int _eth_configure_rx(eth_status_t *eth, int rxId)
 		.counter_id = 0
 	};
 
+	int ret = mppa_noc_dnoc_rx_configure(ifId, rxId, conf);
+	ODP_ASSERT(!ret);
+}
+
+static int _eth_configure_rx(eth_status_t *eth, int rxId)
+{
+	odp_packet_t pkt = _odp_packet_alloc(eth->pool);
+	if (pkt == ODP_PACKET_INVALID)
+		return -1;
+
 	eth->pkts[rxId - eth->min_port] = pkt;
-	ret = mppa_noc_dnoc_rx_configure(eth->dma_if, rxId, conf);
-	if(ret)
-		return ret;
+	_eth_set_rx_conf(eth->dma_if, rxId, pkt);
 
 	mppa_noc_enable_event(eth->dma_if, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
 			      rxId, (1 << BSP_NB_PE_P) - 1);
