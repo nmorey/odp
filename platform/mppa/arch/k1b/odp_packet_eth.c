@@ -310,25 +310,29 @@ static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 	return -1;
 }
 
-static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
-		    odp_packet_t pkt_table[] ODP_UNUSED,
-		    unsigned len ODP_UNUSED)
+static void _eth_reload_rxes(eth_status_t * eth)
 {
+	odp_packet_t pkt;
 
-	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
-	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
+	eth->refresh_rx = 0;
+	for (int i = 0; i < N_RX_PER_PORT && !eth->dropped_pkts; ++i) {
+		if(eth->pkts[i] != ODP_PACKET_INVALID)
+			continue;
+
+		pkt = _eth_reload_rx(eth, eth->min_port + i);
+		if(pkt != ODP_PACKET_INVALID)
+			ODP_ERR("Invalid reloaded packet");
+	}
+}
+
+static unsigned _eth_poll_mask(eth_status_t * eth, odp_packet_t pkt_table[],
+			  unsigned len, mppa_noc_dnoc_rx_bitmask_t *bitmask)
+{
 	unsigned nb_rx = 0;
 
-	odp_spinlock_lock(&eth->rlock);
+	for (int i = eth->min_mask; i <= eth->max_mask && nb_rx < len; ++i) {
+		uint32_t mask = eth->ev_masks[i] & bitmask->bitmask32[i];
 
-	if (eth->dropped_pkts) {
-		eth->dropped_pkts = 0;
-		for (int i = 0; i < N_RX_PER_PORT; ++i)
-			_eth_reload_rx(eth, eth->min_port + i);
-	}
-
-	for (int i = 0; i < 8 && nb_rx < len; ++i) {
-		uint32_t mask = eth->ev_masks[i] & bitmask.bitmask32[i];
 		if (mask == 0ULL)
 			continue;
 
@@ -351,6 +355,23 @@ static int eth_recv(pktio_entry_t *pktio_entry ODP_UNUSED,
 			pkt_table[nb_rx++] = pkt;
 		}
 	}
+	return nb_rx;
+}
+
+static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
+		    unsigned len)
+{
+	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
+	unsigned nb_rx;
+
+	odp_spinlock_lock(&eth->rlock);
+	INVALIDATE(eth);
+
+	if (eth->refresh_rx)
+		_eth_reload_rxes(eth);
+
+	nb_rx = _eth_poll_mask(eth, pkt_table, len, &bitmask);
 
 	odp_spinlock_unlock(&eth->rlock);
 
