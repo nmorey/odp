@@ -383,7 +383,9 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	if (eth->refresh_rx)
 		_eth_reload_rxes(eth);
 
-	eth->bmask = mppa_noc_dnoc_rx_get_events_bitmask(eth->dma_if);
+	for(int i = eth->min_mask >> 1; i <= eth->max_mask >> 1 ; i += 1){
+		*(uint64_t*)(&eth->bmask.bitmask[i]) = mppa_dnoc[eth->dma_if]->rx_global.events[i].dword;
+	}
 
 	nb_rx = _eth_poll_mask(eth, pkt_table, len);
 
