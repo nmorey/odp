@@ -360,8 +360,9 @@ static unsigned _eth_poll_mask(eth_status_t * eth, odp_packet_t pkt_table[],
 				continue;
 
 			odp_packet_t pkt = _eth_reload_rx(eth, rx_id);
-			/* Parse and set packet header data */
-			/* FIXME: odp_packet_pull_tail(pkt, pkt_sock->max_frame_len - recv_bytes); */
+			if (pkt == ODP_PACKET_INVALID)
+				/* Packet was corrupted */
+				continue;
 			_odp_packet_reset_parse(pkt);
 
 			pkt_table[nb_rx++] = pkt;
