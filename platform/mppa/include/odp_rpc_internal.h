@@ -55,6 +55,11 @@ typedef union {
 	struct {
 		uint8_t status;
 	};
+	struct {
+		uint8_t status;
+		uint16_t eth_tx_if;
+		uint8_t eth_tx_tag;
+	} open;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
 
