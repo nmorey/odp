@@ -112,6 +112,7 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 {
 	int rank = rxId - eth->min_port;
 	odp_packet_t pkt = eth->pkts[rank];
+	odp_packet_t new_pkt = ODP_PACKET_INVALID;
 
 	if (pkt != ODP_PACKET_INVALID) {
 		/* Compute real packet length */
@@ -122,7 +123,8 @@ static odp_packet_t _eth_reload_rx(eth_status_t *eth, int rxId)
 		packet_set_len(pkt, header->info._.pkt_size);
 	}
 
-	odp_packet_t new_pkt = _odp_packet_alloc(eth->pool);
+	if(new_pkt == ODP_PACKET_INVALID)
+		new_pkt = _odp_packet_alloc(eth->pool);
 	eth->pkts[rank] = new_pkt;
 
 	if (new_pkt == ODP_PACKET_INVALID) {
