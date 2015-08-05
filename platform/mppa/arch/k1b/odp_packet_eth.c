@@ -15,6 +15,7 @@
 #define N_RX_PER_PORT 10
 
 #include <mppa_noc.h>
+#include <mppa_routing.h>
 
 union mppa_ethernet_header_info_t {
  mppa_uint64 dword;
@@ -53,9 +54,10 @@ static int eth_init(void)
 
 typedef struct eth_status {
 	odp_pool_t pool; 		 /**< pool to alloc packets from */
-	odp_spinlock_t rlock;            /**< Rx lock */
 	odp_spinlock_t wlock;            /**< Tx lock */
 
+	/* Rx Data */
+	odp_spinlock_t rlock;            /**< Rx lock */
 	unsigned ev_masks[8];            /**< Mask to isolate events that belong to us */
 	odp_packet_t pkts[N_RX_PER_PORT];/**< Pointer to PKT mapped to Rx tags */
 	uint64_t dropped_pkts;           /**< Number of droppes pkts */
@@ -69,6 +71,12 @@ typedef struct eth_status {
 	uint8_t min_mask;                /**< Rank of minimum non-null mask */
 	uint8_t max_mask;                /**< Rank of maximum non-null mask */
 	uint8_t refresh_rx;              /**< At least some Rx do not have any registered packets */
+
+	/* Tx data */
+	uint16_t tx_if;                  /**< Remote DMA interface to forward to Eth Egress */
+	uint16_t tx_tag;                 /**< Remote DMA tag to forward to Eth Egress */
+	mppa_dnoc_header_t header;
+	mppa_dnoc_channel_config_t config;
 } eth_status_t;
 
 static void _eth_set_rx_conf(unsigned ifId, int rxId, odp_packet_t pkt)
@@ -277,6 +285,30 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	odp_rpc_t * ack_msg;
 	odp_rpc_wait_ack(&ack_msg, NULL);
 	odp_rpc_cmd_ack_t ack = { .inl_data = ack_msg->inl_data};
+
+	eth->tx_if = ack.open.eth_tx_if;
+	eth->tx_tag = ack.open.eth_tx_tag;
+
+	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
+					    &eth->config, &eth->header);
+
+	eth->config._.loopback_multicast = 0;
+	eth->config._.cfg_pe_en = 1;
+	eth->config._.cfg_user_en = 1;
+	eth->config._.write_pe_en = 1;
+	eth->config._.write_user_en = 1;
+	eth->config._.decounter_id = 0;
+	eth->config._.decounted = 0;
+	eth->config._.payload_min = 0;
+	eth->config._.payload_max = 32;
+	eth->config._.bw_current_credit = 0xff;
+	eth->config._.bw_max_credit     = 0xff;
+	eth->config._.bw_fast_delay     = 0x00;
+	eth->config._.bw_slow_delay     = 0x00;
+
+	eth->header._.tag = eth->tx_tag;
+	eth->header._.valid = 1;
+
 	return ack.status;
 }
 
