@@ -109,6 +109,8 @@ typedef struct {
 
 /** Global pointer to args */
 static args_t *gbl_args;
+/** Global barrier to synchronize main and workers */
+static odp_barrier_t barrier;
 
 /* helper funcs */
 static inline odp_queue_t lookup_dest_q(odp_packet_t pkt);
@@ -136,6 +138,7 @@ static void *pktio_queue_thread(void *arg)
 	thr = odp_thread_id();
 
 	printf("[%02i] QUEUE mode\n", thr);
+	odp_barrier_wait(&barrier);
 
 	/* Loop packets */
 	while (!exit_threads) {
@@ -219,6 +222,7 @@ static void *pktio_ifburst_thread(void *arg)
 	       gbl_args->appl.if_names[src_idx],
 	       gbl_args->appl.if_names[dst_idx],
 	       odp_pktio_to_u64(pktio_src), odp_pktio_to_u64(pktio_dst));
+	odp_barrier_wait(&barrier);
 
 	/* Loop packets */
 	while (!exit_threads) {
@@ -323,13 +327,9 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 	int i, elapsed = 0;
 	int loop_forever = (duration == 0);
 
-	/* Wait for all thread to have configured their stats structure */
-	do {
-		for (i = 0; i < num_workers && LOAD_PTR(thr_stats[i]); i++)
-			;
-	} while (i != num_workers);
+	/* Wait for all threads to be ready*/
+	odp_barrier_wait(&barrier);
 
-	INVALIDATE(thr_stats);
 	do {
 		pkts = 0;
 		drops = 0;
@@ -451,6 +451,8 @@ int main(int argc, char *argv[])
 	memset(thread_tbl, 0, sizeof(thread_tbl));
 
 	stats_t **stats = calloc(1, sizeof(stats_t) * num_workers);
+
+	odp_barrier_init(&barrier, num_workers + 1);
 
 	/* Create worker threads */
 	cpu = odp_cpumask_first(&cpumask);
