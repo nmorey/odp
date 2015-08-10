@@ -173,7 +173,8 @@ static void test_abs_timeouts(int thr, test_globals_t *gbls)
 		uint32_t rx_num = odp_atomic_fetch_dec_u32(&gbls->remain);
 
 		if (!rx_num)
-			EXAMPLE_ABORT("Unexpected timeout received (timer %x, tick %"PRIu64")\n",
+			EXAMPLE_ABORT("Unexpected timeout received (timer %"
+				      PRIx32 ", tick %" PRIu64 ")\n",
 				      ttp->tim, tick);
 		else if (rx_num > num_workers)
 			continue;
