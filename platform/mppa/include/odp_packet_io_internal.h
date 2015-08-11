@@ -172,28 +172,15 @@ static inline
 uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
 			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
 {
-	odp_packet_seg_t seg = odp_packet_first_seg(pkt);
-	uint32_t seg_count = odp_packet_num_segs(pkt);
-	uint32_t seg_id = 0;
-	uint32_t iov_count = 0;
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
-	uint8_t *ptr;
 	uint32_t seglen;
+	uint8_t *ptr = packet_map(pkt_hdr, 0, &seglen);
 
-	for (seg_id = 0; seg_id < seg_count; ++seg_id) {
-		ptr = segment_map(&pkt_hdr->buf_hdr, (odp_buffer_seg_t)seg,
-				  &seglen, pkt_hdr->frame_len,
-				  pkt_hdr->headroom);
-
-		if (ptr) {
-			iovecs[iov_count].iov_base = ptr;
-			iovecs[iov_count].iov_len = seglen;
-			iov_count++;
-		}
-		seg = odp_packet_next_seg(pkt, seg);
+	if (ptr) {
+		iovecs[0].iov_base = ptr;
+		iovecs[0].iov_len = seglen;
 	}
-
-	return iov_count;
+	return 1;
 }
 
 #ifdef __cplusplus

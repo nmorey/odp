@@ -136,14 +136,14 @@ __LIB__libodp_la_LIBADD = -lmppanoc -lmpparouting
 
 __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_barrier.c \
-			   ../linux-generic/odp_buffer.c \
+			   odp_buffer.c \
 			   ../linux-generic/odp_classification.c \
 			   odp_cpumask.c \
 			   ../linux-generic/odp_errno.c \
 			   odp_event.c \
 			   odp_init.c \
 			   ../linux-generic/odp_impl.c \
-			   ../linux-generic/odp_packet.c \
+			   odp_packet.c \
 			   ../linux-generic/odp_packet_flags.c \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
@@ -151,7 +151,7 @@ __LIB__libodp_la_SOURCES = \
 			   pktio/cluster.c \
 			   pktio/drop.c \
 			   pktio/magic.c \
-			   ../linux-generic/pktio/loop.c \
+			   pktio/loop.c \
 			   odp_pool.c \
 			   odp_queue.c \
 			   odp_rpc.c \

@@ -439,7 +439,7 @@ odp_queue_t odp_pktio_outq_getdef(odp_pktio_t id)
 
 int pktout_enqueue(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr)
 {
-	odp_packet_t pkt = _odp_packet_from_buffer(buf_hdr->handle.handle);
+	odp_packet_t pkt = (odp_packet_t)(buf_hdr);
 	int len = 1;
 	int nbr;
 
@@ -461,7 +461,7 @@ int pktout_enq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[],
 	int i;
 
 	for (i = 0; i < num; ++i)
-		pkt_tbl[i] = _odp_packet_from_buffer(buf_hdr[i]->handle.handle);
+		pkt_tbl[i] = (odp_packet_t)(buf_hdr[i]);
 
 	nbr = odp_pktio_send(qentry->s.pktout, pkt_tbl, num);
 	return nbr;
@@ -499,7 +499,7 @@ odp_buffer_hdr_t *pktin_dequeue(queue_entry_t *qentry)
 		return NULL;
 
 	for (i = 0, j = 0; i < pkts; ++i) {
-		buf = _odp_packet_to_buffer(pkt_tbl[i]);
+		buf = (odp_buffer_t)pkt_tbl[i];
 		buf_hdr = odp_buf_to_hdr(buf);
 		if (0 > packet_classifier(qentry->s.pktin, pkt_tbl[i]))
 			tmp_hdr_tbl[j++] = buf_hdr;
@@ -547,7 +547,7 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 		return nbr;
 
 	for (i = 0, j = 0; i < pkts; ++i) {
-		buf = _odp_packet_to_buffer(pkt_tbl[i]);
+		buf = (odp_buffer_t)pkt_tbl[i];
 		tmp_hdr = odp_buf_to_hdr(buf);
 		if (0 > packet_classifier(qentry->s.pktin, pkt_tbl[i]))
 			tmp_hdr_tbl[j++] = tmp_hdr;
@@ -581,7 +581,7 @@ int pktin_poll(pktio_entry_t *entry)
 		odp_buffer_t buf;
 		odp_buffer_hdr_t *hdr;
 
-		buf = _odp_packet_to_buffer(pkt_tbl[i]);
+		buf = (odp_buffer_t)pkt_tbl[i];
 		hdr = odp_buf_to_hdr(buf);
 
 		if (entry->s.cls_enabled) {

@@ -14,7 +14,6 @@ TESTS = pktio/pktio_run \
 	${top_builddir}/test/validation/init/init_main_ok$(EXEEXT) \
 	${top_builddir}/test/validation/init/init_main_abort$(EXEEXT) \
 	${top_builddir}/test/validation/init/init_main_log$(EXEEXT) \
-	${top_builddir}/test/validation/packet/packet_main$(EXEEXT) \
 	${top_builddir}/test/validation/pool/pool_main$(EXEEXT) \
 	${top_builddir}/test/validation/queue/queue_main$(EXEEXT) \
 	${top_builddir}/test/validation/scheduler/scheduler_main$(EXEEXT) \
@@ -24,6 +23,7 @@ TESTS = pktio/pktio_run \
 	${top_builddir}/test/validation/timer/timer_main$(EXEEXT) \
 	${top_builddir}/test/validation/shmem/shmem_main$(EXEEXT) \
 	${top_builddir}/test/validation/system/system_main$(EXEEXT)
+#	${top_builddir}/test/validation/packet/packet_main$(EXEEXT)
 
 SUBDIRS = $(ODP_MODULES)
 if crypto

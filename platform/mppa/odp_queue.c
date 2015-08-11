@@ -542,7 +542,7 @@ int odp_queue_deq_multi(odp_queue_t handle, odp_event_t events[], int num)
 	ret = queue->s.dequeue_multi(queue, buf_hdr, num);
 
 	for (i = 0; i < ret; i++)
-		events[i] = odp_buffer_to_event(buf_hdr[i]->handle.handle);
+		events[i] = odp_buffer_to_event((odp_buffer_t)buf_hdr[i]);
 
 	return ret;
 }
@@ -557,7 +557,7 @@ odp_event_t odp_queue_deq(odp_queue_t handle)
 	buf_hdr = queue->s.dequeue(queue);
 
 	if (buf_hdr)
-		return odp_buffer_to_event(buf_hdr->handle.handle);
+		return odp_buffer_to_event((odp_buffer_t)buf_hdr);
 
 	return ODP_EVENT_INVALID;
 }
