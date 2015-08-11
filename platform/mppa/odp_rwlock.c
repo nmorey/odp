@@ -39,28 +39,50 @@ void odp_rwlock_read_lock(odp_rwlock_t *rwlock)
 
 void odp_rwlock_read_unlock(odp_rwlock_t *rwlock)
 {
+	uint32_t cnt = 1;
+	int  is_locked = 0;
 	__k1_wmb();
-	_odp_atomic_u32_sub_mm(&rwlock->cnt, 1, _ODP_MEMMODEL_RLS);
+	__builtin_k1_wpurge();
+	while (is_locked == 0) {
+		int incr = -1;
+		/* waiting for read lock */
+		if ((int32_t)cnt < 0) {
+			incr = +1;
+		}
+		is_locked = _odp_atomic_u32_cmp_xchg_strong_mm(&rwlock->cnt,
+				&cnt,
+				cnt + incr,
+				_ODP_MEMMODEL_ACQ,
+				_ODP_MEMMODEL_RLX);
+	}
 }
 
 void odp_rwlock_write_lock(odp_rwlock_t *rwlock)
 {
-	uint32_t cnt = 1;
+	int32_t cnt = 1;
 	int is_locked = 0;
 
 	__builtin_k1_wpurge();
 	while (is_locked == 0) {
 		/* lock aquired, wait */
-		if (cnt != 0) {
-			odp_spin();
-			cnt = _odp_atomic_u32_load_mm(&rwlock->cnt, _ODP_MEMMODEL_RLX);
+		if (cnt != 0 && cnt != -2) {
+			if(cnt > 0) {
+				_odp_atomic_u32_cmp_xchg_strong_mm(&rwlock->cnt,
+								   (uint32_t*)&cnt,
+								   (uint32_t)(-cnt - 2),
+								   _ODP_MEMMODEL_ACQ,
+								   _ODP_MEMMODEL_RLX);
+			} else {
+				odp_spin();
+				cnt = _odp_atomic_u32_load_mm(&rwlock->cnt, _ODP_MEMMODEL_RLX);
+			}
 			continue;
 		}
 		is_locked = _odp_atomic_u32_cmp_xchg_strong_mm(&rwlock->cnt,
-				&cnt,
-				(uint32_t)-1,
-				_ODP_MEMMODEL_ACQ,
-				_ODP_MEMMODEL_RLX);
+							       (uint32_t*)&cnt,
+							       (uint32_t)-1,
+							       _ODP_MEMMODEL_ACQ,
+							       _ODP_MEMMODEL_RLX);
 	}
 }
 
