@@ -213,7 +213,6 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 #ifdef POOL_STATS
 	odp_atomic_inc_u64(&pool->poolstats.bufallocs);
 #endif
-	myhead->allocator = odp_thread_id();
 
 	return (void *)myhead;
 }
@@ -228,7 +227,6 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 		}
 	}
 
-	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
 	__builtin_k1_wpurge();
 	uint32_t prod_head, cons_tail, prod_next;
 
@@ -289,7 +287,6 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 #ifdef POOL_STATS
 		buf_cache->bufallocs++;
 #endif
-		buf->allocator = odp_thread_id();  /* Mark buffer allocated */
 	}
 
 	return buf;
@@ -298,7 +295,6 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 static inline void ret_local_buf(local_cache_t *buf_cache,
 				odp_buffer_hdr_t *buf)
 {
-	buf->allocator = ODP_FREEBUF;
 	buf->next = buf_cache->buf_freelist;
 	buf_cache->buf_freelist = buf;
 

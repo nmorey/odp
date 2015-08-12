@@ -71,7 +71,7 @@ static inline odp_buffer_hdr_t *validate_buf(odp_buffer_t buf)
 		return NULL;
 
 	/* Handle is valid, so buffer is valid if it is allocated */
-	return buf_hdr->allocator == ODP_FREEBUF ? NULL : buf_hdr;
+	return buf_hdr;
 }
 
 int odp_buffer_snprint(char *str, uint32_t n, odp_buffer_t buf);

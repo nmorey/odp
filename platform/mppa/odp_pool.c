@@ -343,7 +343,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 				(odp_buffer_hdr_t *)(void *)buf;
 
 			/* Iniitalize buffer metadata */
-			tmp->allocator = ODP_FREEBUF;
 			tmp->flags.all = 0;
 			tmp->flags.zeroized = zeroized;
 			tmp->size = pool->s.seg_size;
