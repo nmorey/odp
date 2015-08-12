@@ -29,7 +29,9 @@ extern "C" {
 #include <odp/shared_memory.h>
 #include <odp/atomic.h>
 #include <odp_atomic_internal.h>
+#include <odp_spin_internal.h>
 #include <string.h>
+#include <stdio.h>
 
 /**
  * Buffer initialization routine prototype
@@ -60,6 +62,7 @@ typedef struct local_cache_t {
 
 /* Use ticketlock instead of spinlock */
 #define POOL_USE_TICKETLOCK
+#define POOL_HAS_LOCAL_CACHE 1
 
 #ifdef POOL_USE_TICKETLOCK
 #include <odp/ticketlock.h>
@@ -121,8 +124,14 @@ struct pool_entry_s {
 	uint32_t                buf_align;
 	uint32_t                buf_stride;
 	odp_buffer_hdr_t       *buf_freelist;
+
+	odp_buffer_hdr_t      **buf_ptrs;
+	odp_atomic_u32_t        prod_head;
+	odp_atomic_u32_t        prod_tail;
+	odp_atomic_u32_t        cons_head;
+	odp_atomic_u32_t        cons_tail;
+
 	void                   *blk_freelist;
-	odp_atomic_u32_t        bufcount;
 	odp_atomic_u32_t        blkcount;
 #ifdef POOL_STATS
 	_odp_pool_stats_t       poolstats;
@@ -154,49 +163,51 @@ extern void *pool_entry_ptr[];
 
 static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 {
-	odp_buffer_hdr_t *myhead, *newhead, *prevhead;
+	odp_buffer_hdr_t *myhead = NULL;
 
-	while(1) {
-		myhead = LOAD_PTR(pool->buf_freelist);
-		if (odp_unlikely(myhead == NULL)) {
+	uint32_t cons_head, prod_tail, cons_next;
+
+	do {
+		cons_head =  odp_atomic_load_u32(&pool->cons_head);
+		prod_tail = odp_atomic_load_u32(&pool->prod_tail);
+		/* No Buf available */
+		if(cons_head == prod_tail){
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.bufempty);
+			odp_atomic_inc_u64(&pool->poolstats.bufempty);
 #endif
 			return NULL;
 		}
-		newhead = LOAD_PTR(myhead->next);
-		if((unsigned long)newhead & 0x1UL){
-			/* Someone is popping this node */
-			continue;
+
+		cons_next = cons_head + 1;
+		if(cons_next > pool->buf_num)
+			cons_next = cons_next - pool->buf_num - 1;
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->cons_head, &cons_head,
+						      cons_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			myhead = LOAD_PTR(pool->buf_ptrs[cons_head]);
+			break;
 		}
-		/* Clear the next field of the first elnt */
-		prevhead = CAS_PTR(&myhead->next, (unsigned long)newhead | 0x1UL, newhead);
+	} while(1);
 
-		if(prevhead != newhead){
-			/* Someone just logically cut the first elnt. Try again */
-			continue;
-		}
-		/* Now switch the list HEAD with our new HEAD */
-		prevhead = CAS_PTR(&pool->buf_freelist, newhead, myhead);
-		if(prevhead != myhead){
-			/* Someone pushed a new elnt ! Revert */
-			STORE_PTR(myhead->next, newhead);
-			continue;
-		}
-		INVALIDATE(myhead);
-		break;
+	while (odp_atomic_load_u32(&pool->cons_tail) != cons_head)
+		odp_spin();
 
-	}
+	odp_atomic_store_u32(&pool->cons_tail, cons_next);
 
-	uint64_t bufcount =
-		odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
+	if (POOL_HAS_LOCAL_CACHE) {
+		/* Check for low watermark condition */
+		uint32_t bufcount = prod_tail - cons_next;
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
 
-	/* Check for low watermark condition */
-	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 1);
+		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 1);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
+			odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
 #endif
+		}
 	}
 
 #ifdef POOL_STATS
@@ -219,26 +230,44 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 
 	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
 	__builtin_k1_wpurge();
+	uint32_t prod_head, cons_tail, prod_next;
 
-	odp_buffer_hdr_t *myhead, *prevhead;
-	myhead = LOAD_PTR(pool->buf_freelist);
-	while(1) {
-		STORE_PTR(buf->next, myhead);
-		prevhead = CAS_PTR(&pool->buf_freelist, buf, myhead);
-		if(myhead == prevhead)
+	do {
+		prod_head =  odp_atomic_load_u32(&pool->prod_head);
+
+		prod_next = prod_head + 1;
+		if(prod_next > pool->buf_num)
+			prod_next = prod_next - pool->buf_num - 1;
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->prod_head, &prod_head,
+						      prod_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			STORE_PTR(pool->buf_ptrs[prod_head], buf);
+			cons_tail = odp_atomic_load_u32(&pool->cons_tail);
 			break;
-		myhead = prevhead;
-	}
-	uint64_t bufcount = odp_atomic_fetch_add_u32(&pool->bufcount, 1) + 1;
 
-	/* Check if low watermark condition should be deasserted */
-	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 0);
+		}
+	} while(1);
+
+	while (odp_atomic_load_u32(&pool->prod_tail) != prod_head)
+		odp_spin();
+
+	odp_atomic_store_u32(&pool->prod_tail, prod_next);
+
+	if(POOL_HAS_LOCAL_CACHE) {
+		/* Check if low watermark condition should be deasserted */
+		uint32_t bufcount = (prod_next - cons_tail);
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
+
+		if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 0);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
+			odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
 #endif
+		}
 	}
-
 #ifdef POOL_STATS
 	odp_atomic_inc_u64(&pool->poolstats.buffrees);
 #endif
