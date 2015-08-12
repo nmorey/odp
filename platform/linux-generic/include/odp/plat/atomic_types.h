@@ -78,6 +78,10 @@ typedef struct odp_atomic_u32_s odp_atomic_u32_t;
 #define INVALIDATE(p) ((void)(p))
 #define LOAD_U32(p) (*(uint32_t*)(&(p)))
 #define STORE_U32(p, val) (*(uint32_t*)(&(p)) = (val))
+#define LOAD_U64(p) (*(uint64_t*)(&(p)))
+#define STORE_U64(p, val) (*(uint64_t*)(&(p)) = (val))
+#define LOAD_PTR(p) (*(void**)(&(p)))
+#define STORE_PTR(p, val) (*(void**)(&(p)) = (val))
 
 
 #ifdef __cplusplus

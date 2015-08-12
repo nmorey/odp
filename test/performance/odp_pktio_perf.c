@@ -123,6 +123,8 @@ typedef struct {
 	odp_pktio_t pktio_rx;
 	pkt_rx_stats_t rx_stats[ODP_CONFIG_MAX_THREADS];
 	pkt_tx_stats_t tx_stats[ODP_CONFIG_MAX_THREADS];
+	uint8_t src_mac[ODPH_ETHADDR_LEN];
+	uint8_t dst_mac[ODPH_ETHADDR_LEN];
 } test_globals_t;
 
 /* Status of max rate search */
@@ -169,7 +171,6 @@ static odp_packet_t pktio_create_packet(void)
 	uint32_t offset;
 	pkt_head_t pkt_hdr;
 	size_t payload_len;
-	uint8_t mac[ODPH_ETHADDR_LEN] = {0};
 
 	payload_len = sizeof(pkt_hdr) + gbl_args->args.pkt_len;
 
@@ -186,8 +187,8 @@ static odp_packet_t pktio_create_packet(void)
 	offset = 0;
 	odp_packet_l2_offset_set(pkt, offset);
 	eth = (odph_ethhdr_t *)buf;
-	memcpy(eth->src.addr, mac, ODPH_ETHADDR_LEN);
-	memcpy(eth->dst.addr, mac, ODPH_ETHADDR_LEN);
+	memcpy(eth->src.addr, gbl_args->src_mac, ODPH_ETHADDR_LEN);
+	memcpy(eth->dst.addr, gbl_args->dst_mac, ODPH_ETHADDR_LEN);
 	eth->type = odp_cpu_to_be_16(ODPH_ETHTYPE_IPV4);
 
 	/* IP */
@@ -543,8 +544,8 @@ static int setup_txrx_masks(odp_cpumask_t *thd_mask_tx,
 	int num_workers, num_tx_workers, num_rx_workers;
 	int i, cpu;
 
-	num_workers = odph_linux_cpumask_default(&cpumask,
-						 gbl_args->args.cpu_count);
+	num_workers = odp_cpumask_def_worker(&cpumask,
+					     gbl_args->args.cpu_count);
 	if (num_workers < 2) {
 		LOG_ERR("Need at least two cores\n");
 		return -1;
@@ -731,6 +732,11 @@ static int test_init(void)
 		gbl_args->pktio_rx = create_pktio(gbl_args->args.ifaces[1]);
 	else
 		gbl_args->pktio_rx = gbl_args->pktio_tx;
+
+	odp_pktio_mac_addr(gbl_args->pktio_tx, gbl_args->src_mac,
+			   ODPH_ETHADDR_LEN);
+	odp_pktio_mac_addr(gbl_args->pktio_rx, gbl_args->dst_mac,
+			   ODPH_ETHADDR_LEN);
 
 	if (gbl_args->pktio_rx == ODP_PKTIO_INVALID ||
 	    gbl_args->pktio_tx == ODP_PKTIO_INVALID) {
@@ -966,7 +972,7 @@ int main(int argc, char **argv)
 	if (odp_init_global(NULL, NULL) != 0)
 		LOG_ABORT("Failed global init.\n");
 
-	if (odp_init_local() != 0)
+	if (odp_init_local(ODP_THREAD_CONTROL) != 0)
 		LOG_ABORT("Failed local init.\n");
 
 	shm = odp_shm_reserve("test_globals",

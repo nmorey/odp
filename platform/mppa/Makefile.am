@@ -1,4 +1,3 @@
-include $(top_srcdir)/Makefile.inc
 include $(top_srcdir)/platform/Makefile.inc
 
 AM_CFLAGS +=  -I$(srcdir)/include
@@ -40,6 +39,7 @@ odpinclude_HEADERS = \
 		  $(srcdir)/include/odp/sync.h \
 		  $(srcdir)/include/odp/system_info.h \
 		  $(srcdir)/include/odp/thread.h \
+		  $(srcdir)/include/odp/thrmask.h \
 		  $(srcdir)/include/odp/ticketlock.h \
 		  $(srcdir)/include/odp/time.h \
 		  $(srcdir)/include/odp/timer.h \
@@ -65,6 +65,7 @@ odpplatinclude_HEADERS = \
 		  $(srcdir)/include/odp/plat/shared_memory_types.h \
 		  $(srcdir)/include/odp/plat/spinlock_types.h \
 		  $(srcdir)/include/odp/plat/strong_types.h \
+		  $(srcdir)/include/odp/plat/thrmask_types.h \
 		  $(srcdir)/include/odp/plat/ticketlock_types.h \
 		  $(srcdir)/include/odp/plat/timer_types.h \
 		  $(srcdir)/include/odp/plat/version_types.h
@@ -101,6 +102,7 @@ odpapiinclude_HEADERS = \
 		  $(top_srcdir)/include/odp/api/sync.h \
 		  $(top_srcdir)/include/odp/api/system_info.h \
 		  $(top_srcdir)/include/odp/api/thread.h \
+		  $(top_srcdir)/include/odp/api/thrmask.h \
 		  $(top_srcdir)/include/odp/api/ticketlock.h \
 		  $(top_srcdir)/include/odp/api/time.h \
 		  $(top_srcdir)/include/odp/api/timer.h \
@@ -129,30 +131,19 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_timer_types_internal.h \
 		  $(srcdir)/Makefile.inc
 
-subdirheadersdir = $(includedir)/odp/helper
-subdirheaders_HEADERS = \
-			$(top_srcdir)/helper/include/odp/helper/chksum.h \
-			$(top_srcdir)/helper/include/odp/helper/eth.h \
-			$(top_srcdir)/helper/include/odp/helper/icmp.h \
-			$(top_srcdir)/helper/include/odp/helper/ip.h \
-			$(top_srcdir)/helper/include/odp/helper/ipsec.h \
-			$(top_srcdir)/helper/include/odp/helper/linux.h \
-			$(top_srcdir)/helper/include/odp/helper/ring.h \
-			$(top_srcdir)/helper/include/odp/helper/tcp.h \
-			$(top_srcdir)/helper/include/odp/helper/udp.h
 
 __LIB__libodp_la_LIBADD = -lmppanoc -lmpparouting
 
 __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_barrier.c \
-			   ../linux-generic/odp_buffer.c \
+			   odp_buffer.c \
 			   ../linux-generic/odp_classification.c \
 			   odp_cpumask.c \
 			   ../linux-generic/odp_errno.c \
 			   odp_event.c \
 			   odp_init.c \
 			   ../linux-generic/odp_impl.c \
-			   ../linux-generic/odp_packet.c \
+			   odp_packet.c \
 			   ../linux-generic/odp_packet_flags.c \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
@@ -160,10 +151,9 @@ __LIB__libodp_la_SOURCES = \
 			   pktio/cluster.c \
 			   pktio/drop.c \
 			   pktio/magic.c \
-			   ../linux-generic/pktio/loop.c \
+			   pktio/loop.c \
 			   odp_pool.c \
 			   odp_queue.c \
-			   ../../helper/ring.c \
 			   odp_rpc.c \
 			   odp_rwlock.c \
 			   odp_schedule.c \
@@ -171,6 +161,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_spinlock.c \
 			   odp_system_info.c \
 			   odp_thread.c \
+			   ../linux-generic/odp_thrmask.c \
 			   odp_ticketlock.c \
 			   ../linux-generic/odp_time.c \
 			   odp_timer.c \

@@ -1,4 +1,6 @@
-include $(top_srcdir)/Makefile.inc
+TESTS_ENVIRONMENT =
+AUTOMAKE_OPTIONS = parallel-tests
+
 include $(top_srcdir)/platform/@with_platform@/Makefile.inc
 LIB   = $(top_builddir)/lib
 
@@ -7,8 +9,7 @@ LIB   = $(top_builddir)/lib
 #before libodp by setting PRE_LDADD before the inclusion.
 LDADD = $(PRE_LDADD) $(LIB)/libodphelper.la $(LIB)/libodp.la
 
-INCFLAGS = -I$(srcdir) \
-	-I$(top_srcdir)/test \
+INCFLAGS = -I$(top_srcdir)/test \
 	-I$(top_srcdir)/platform/@with_platform@/include \
 	-I$(top_srcdir)/platform/linux-generic/include \
 	-I$(top_srcdir)/include \

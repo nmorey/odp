@@ -21,6 +21,7 @@
 
 #define MAX_WORKERS           32            /**< Max worker threads */
 #define NUM_TMOS              10000         /**< Number of timers */
+#define WAIT_NUM	      10    /**< Max tries to rx last tmo per worker */
 
 
 /** Test arguments */
@@ -47,6 +48,7 @@ typedef struct {
 	odp_timer_pool_t tp;		/**< Timer pool handle*/
 	odp_atomic_u32_t remain;	/**< Number of timeouts to receive*/
 	struct test_timer tt[256];	/**< Array of all timer helper structs*/
+	uint32_t num_workers;		/**< Number of threads */
 } test_globals_t;
 
 /** @private Timer set status ASCII strings */
@@ -87,6 +89,7 @@ static void test_abs_timeouts(int thr, test_globals_t *gbls)
 	uint64_t tick;
 	struct test_timer *ttp;
 	odp_timeout_t tmo;
+	uint32_t num_workers = gbls->num_workers;
 
 	EXAMPLE_DBG("  [%i] test_timeouts\n", thr);
 
@@ -115,16 +118,19 @@ static void test_abs_timeouts(int thr, test_globals_t *gbls)
 	ttp->ev = odp_timeout_to_event(tmo);
 	tick = odp_timer_current_tick(gbls->tp);
 
-	while ((int)odp_atomic_load_u32(&gbls->remain) > 0) {
+	while (1) {
+		int wait = 0;
 		odp_event_t ev;
 		odp_timer_set_t rc;
 
-		tick += period;
-		rc = odp_timer_set_abs(ttp->tim, tick, &ttp->ev);
-		if (odp_unlikely(rc != ODP_TIMER_SUCCESS)) {
-			/* Too early or too late timeout requested */
-			EXAMPLE_ABORT("odp_timer_set_abs() failed: %s\n",
-				      timerset2str(rc));
+		if (ttp) {
+			tick += period;
+			rc = odp_timer_set_abs(ttp->tim, tick, &ttp->ev);
+			if (odp_unlikely(rc != ODP_TIMER_SUCCESS)) {
+				/* Too early or too late timeout requested */
+				EXAMPLE_ABORT("odp_timer_set_abs() failed: %s\n",
+					      timerset2str(rc));
+			}
 		}
 
 		/* Get the next expired timeout.
@@ -139,6 +145,9 @@ static void test_abs_timeouts(int thr, test_globals_t *gbls)
 			ev = odp_schedule(&queue, sched_tmo);
 			/* Check if odp_schedule() timed out, possibly there
 			 * are no remaining timeouts to receive */
+			if (++wait > WAIT_NUM &&
+			    odp_atomic_load_u32(&gbls->remain) < num_workers)
+				EXAMPLE_ABORT("At least one TMO was lost\n");
 		} while (ev == ODP_EVENT_INVALID &&
 			 (int)odp_atomic_load_u32(&gbls->remain) > 0);
 
@@ -161,18 +170,19 @@ static void test_abs_timeouts(int thr, test_globals_t *gbls)
 		}
 		EXAMPLE_DBG("  [%i] timeout, tick %"PRIu64"\n", thr, tick);
 
-		odp_atomic_dec_u32(&gbls->remain);
-	}
+		uint32_t rx_num = odp_atomic_fetch_dec_u32(&gbls->remain);
 
-	/* Cancel and free last timer used */
-	(void)odp_timer_cancel(ttp->tim, &ttp->ev);
-	if (ttp->ev != ODP_EVENT_INVALID)
+		if (!rx_num)
+			EXAMPLE_ABORT("Unexpected timeout received (timer %"
+				      PRIx32 ", tick %" PRIu64 ")\n",
+				      ttp->tim, tick);
+		else if (rx_num > num_workers)
+			continue;
+
 		odp_timeout_free(odp_timeout_from_event(ttp->ev));
-	else
-		EXAMPLE_ERR("Lost timeout event at timer cancel\n");
-	/* Since we have cancelled the timer, there is no timeout event to
-	 * return from odp_timer_free() */
-	(void)odp_timer_free(ttp->tim);
+		odp_timer_free(ttp->tim);
+		ttp = NULL;
+	}
 
 	/* Remove any prescheduled events */
 	remove_prescheduled_events();
@@ -331,7 +341,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Init this thread. */
-	if (odp_init_local()) {
+	if (odp_init_local(ODP_THREAD_CONTROL)) {
 		printf("ODP local init failed.\n");
 		return -1;
 	}
@@ -371,11 +381,8 @@ int main(int argc, char *argv[])
 	if (gbls->args.cpu_count)
 		num_workers = gbls->args.cpu_count;
 
-	/*
-	 * By default CPU #0 runs Linux kernel background tasks.
-	 * Start mapping thread from CPU #1
-	 */
-	num_workers = odph_linux_cpumask_default(&cpumask, num_workers);
+	/* Get default worker cpumask */
+	num_workers = odp_cpumask_def_worker(&cpumask, num_workers);
 	(void)odp_cpumask_to_str(&cpumask, cpumaskstr, sizeof(cpumaskstr));
 
 	printf("num worker threads: %i\n", num_workers);
@@ -458,6 +465,8 @@ int main(int argc, char *argv[])
 	}
 
 	printf("\n");
+
+	gbls->num_workers = num_workers;
 
 	/* Initialize number of timeouts to receive */
 	odp_atomic_init_u32(&gbls->remain, gbls->args.tmo_count * num_workers);

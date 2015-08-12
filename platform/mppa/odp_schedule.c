@@ -382,7 +382,7 @@ static inline int copy_events(odp_event_t out_ev[], unsigned int max)
 
 	while (sched_local.num && max) {
 		odp_buffer_hdr_t *hdr = sched_local.buf_hdr[sched_local.index];
-		out_ev[i] = odp_buffer_to_event(hdr->handle.handle);
+		out_ev[i] = odp_buffer_to_event((odp_buffer_t)hdr);
 		sched_local.index++;
 		sched_local.num--;
 		max--;

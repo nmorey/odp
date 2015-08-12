@@ -73,7 +73,7 @@ static int my_nanosleep(struct timespec *ts){
 #endif
 }
 
-static void timer_test_timeout_pool_alloc(void)
+void timer_test_timeout_pool_alloc(void)
 {
 	odp_pool_t pool;
 	const int num = 3;
@@ -117,7 +117,7 @@ static void timer_test_timeout_pool_alloc(void)
 	CU_ASSERT(odp_pool_destroy(pool) == 0);
 }
 
-static void timer_test_timeout_pool_free(void)
+void timer_test_timeout_pool_free(void)
 {
 	odp_pool_t pool;
 	odp_timeout_t tmo;
@@ -148,7 +148,7 @@ static void timer_test_timeout_pool_free(void)
 	CU_ASSERT(odp_pool_destroy(pool) == 0);
 }
 
-static void timer_test_odp_timer_cancel(void)
+void timer_test_odp_timer_cancel(void)
 {
 	odp_pool_t pool;
 	odp_pool_param_t params;
@@ -459,7 +459,7 @@ static void *worker_entrypoint(void *arg TEST_UNUSED)
 }
 
 /* @private Timer test case entrypoint */
-static void timer_test_odp_timer_all(void)
+void timer_test_odp_timer_all(void)
 {
 	int rc;
 	odp_pool_param_t params;
@@ -555,7 +555,7 @@ static void timer_test_odp_timer_all(void)
 	CU_PASS("ODP timer test");
 }
 
-static CU_TestInfo timer_suite[] = {
+CU_TestInfo timer_suite[] = {
 	{"test_timeout_pool_alloc",  timer_test_timeout_pool_alloc},
 	{"test_timeout_pool_free",  timer_test_timeout_pool_free},
 	{"test_odp_timer_cancel",  timer_test_odp_timer_cancel},
@@ -563,7 +563,7 @@ static CU_TestInfo timer_suite[] = {
 	CU_TEST_INFO_NULL,
 };
 
-static CU_SuiteInfo timer_suites[] = {
+CU_SuiteInfo timer_suites[] = {
 	{"Timer", NULL, NULL, NULL, NULL, timer_suite},
 	CU_SUITE_INFO_NULL,
 };

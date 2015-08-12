@@ -1,4 +1,3 @@
-include $(top_srcdir)/Makefile.inc
 include $(top_srcdir)/platform/Makefile.inc
 
 AM_CFLAGS +=  -I$(srcdir)/include
@@ -40,6 +39,7 @@ odpinclude_HEADERS = \
 		  $(srcdir)/include/odp/sync.h \
 		  $(srcdir)/include/odp/system_info.h \
 		  $(srcdir)/include/odp/thread.h \
+		  $(srcdir)/include/odp/thrmask.h \
 		  $(srcdir)/include/odp/ticketlock.h \
 		  $(srcdir)/include/odp/time.h \
 		  $(srcdir)/include/odp/timer.h \
@@ -64,6 +64,7 @@ odpplatinclude_HEADERS = \
 		  $(srcdir)/include/odp/plat/shared_memory_types.h \
 		  $(srcdir)/include/odp/plat/spinlock_types.h \
 		  $(srcdir)/include/odp/plat/strong_types.h \
+		  $(srcdir)/include/odp/plat/thrmask_types.h \
 		  $(srcdir)/include/odp/plat/ticketlock_types.h \
 		  $(srcdir)/include/odp/plat/timer_types.h \
 		  $(srcdir)/include/odp/plat/version_types.h
@@ -100,6 +101,7 @@ odpapiinclude_HEADERS = \
 		  $(top_srcdir)/include/odp/api/sync.h \
 		  $(top_srcdir)/include/odp/api/system_info.h \
 		  $(top_srcdir)/include/odp/api/thread.h \
+		  $(top_srcdir)/include/odp/api/thrmask.h \
 		  $(top_srcdir)/include/odp/api/ticketlock.h \
 		  $(top_srcdir)/include/odp/api/time.h \
 		  $(top_srcdir)/include/odp/api/timer.h \
@@ -152,9 +154,15 @@ __LIB__libodp_la_SOURCES = \
 			   odp_spinlock.c \
 			   odp_system_info.c \
 			   odp_thread.c \
+			   odp_thrmask.c \
 			   odp_ticketlock.c \
 			   odp_time.c \
 			   odp_timer.c \
 			   odp_version.c \
 			   odp_weak.c \
-			   arch/@ARCH@/odp_time.c
+			   arch/@ARCH@/odp_time_cycles.c
+
+EXTRA_DIST = \
+	     arch/linux/odp_time_cycles.c \
+	     arch/mips64/odp_time_cycles.c \
+	     arch/x86/odp_time_cycles.c

@@ -50,10 +50,7 @@ extern "C" {
 	((x) <= 65536 ? 16 : \
 	 (0/0)))))))))))))))))
 
-#define ODP_BUFFER_MAX_SEG 5
-
-/* We can optimize storage of small raw buffers within metadata area */
-#define ODP_MAX_INLINE_BUF     ((sizeof(void *)) * (ODP_BUFFER_MAX_SEG - 1))
+#define ODP_BUFFER_MAX_SEG 1
 
 #define ODP_BUFFER_POOL_BITS   ODP_BITSIZE(ODP_CONFIG_POOLS)
 #define ODP_BUFFER_SEG_BITS    ODP_BITSIZE(ODP_BUFFER_MAX_SEG)
@@ -65,41 +62,13 @@ extern "C" {
 #define ODP_BUFFER_MAX_INDEX     (ODP_BUFFER_MAX_BUFFERS - 2)
 #define ODP_BUFFER_INVALID_INDEX (ODP_BUFFER_MAX_BUFFERS - 1)
 
-typedef union odp_buffer_bits_t {
-	odp_buffer_t handle;
-	union {
-		uint32_t     u32;
-		struct {
-#if ODP_BYTE_ORDER == ODP_BIG_ENDIAN
-			uint32_t pool_id:ODP_BUFFER_POOL_BITS;
-			uint32_t index:ODP_BUFFER_INDEX_BITS;
-			uint32_t seg:ODP_BUFFER_SEG_BITS;
-#else
-			uint32_t seg:ODP_BUFFER_SEG_BITS;
-			uint32_t index:ODP_BUFFER_INDEX_BITS;
-			uint32_t pool_id:ODP_BUFFER_POOL_BITS;
-#endif
-		};
-
-		struct {
-#if ODP_BYTE_ORDER == ODP_BIG_ENDIAN
-			uint32_t prefix:ODP_BUFFER_PREFIX_BITS;
-			uint32_t pfxseg:ODP_BUFFER_SEG_BITS;
-#else
-			uint32_t pfxseg:ODP_BUFFER_SEG_BITS;
-			uint32_t prefix:ODP_BUFFER_PREFIX_BITS;
-#endif
-		};
-	};
-} odp_buffer_bits_t;
-
 /* forward declaration */
 struct odp_buffer_hdr_t;
+union pool_entry_u;
 
 /* Common buffer header */
 typedef struct odp_buffer_hdr_t {
 	struct odp_buffer_hdr_t *next;       /* next buf in a list */
-	odp_buffer_bits_t        handle;     /* handle */
 	union {
 		uint32_t all;
 		struct {
@@ -122,7 +91,7 @@ typedef struct odp_buffer_hdr_t {
 	uint32_t                 uarea_size; /* size of user area */
 	uint32_t                 segcount;   /* segment count */
 	uint32_t                 segsize;    /* segment size */
-	void                    *addr[ODP_BUFFER_MAX_SEG]; /* block addrs */
+	void                    *addr;       /* block addrs */
 } odp_buffer_hdr_t;
 
 /** @internal Compile time assert that the
@@ -133,11 +102,6 @@ _ODP_STATIC_ASSERT(INT16_MAX >= ODP_CONFIG_MAX_THREADS,
 typedef struct odp_buffer_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_buffer_hdr_t))];
 } odp_buffer_hdr_stride;
-
-typedef struct odp_buf_blk_t {
-	struct odp_buf_blk_t *next;
-	struct odp_buf_blk_t *prev;
-} odp_buf_blk_t;
 
 /* Raw buffer header */
 typedef struct {
@@ -159,15 +123,6 @@ odp_buffer_t buffer_alloc(odp_pool_t pool, size_t size);
  * @return Buffer type
  */
 int _odp_buffer_type(odp_buffer_t buf);
-
-/*
- * Buffer type set
- *
- * @param buf      Buffer handle
- * @param type     New type value
- *
- */
-	void _odp_buffer_type_set(odp_buffer_t buf, int type);
 
 #ifdef __cplusplus
 }

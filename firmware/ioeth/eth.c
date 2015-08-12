@@ -12,6 +12,7 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
+#include "io_utils.h"
 #include "rpc-server.h"
 #include "eth.h"
 
@@ -19,6 +20,8 @@ typedef struct {
 	int txId;
 	int min_rx;
 	int max_rx;
+
+	int rx_tag;
 } eth_cluster_status_t;
 typedef struct {
 	eth_cluster_status_t cluster[BSP_NB_CLUSTER_MAX];
@@ -31,6 +34,7 @@ static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
 	cluster->txId = -1;
 	cluster->min_rx = 0;
 	cluster->max_rx = -1;
+	cluster->rx_tag = -1;
 }
 
 static inline void _eth_status_init(eth_status_t * status)
@@ -39,9 +43,9 @@ static inline void _eth_status_init(eth_status_t * status)
 		_eth_cluster_status_init(&status->cluster[i]);
 }
 
-odp_rpc_cmd_ack_t  eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
+odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 {
-	odp_rpc_cmd_ack_t ack = { .status = 0 };
+	odp_rpc_cmd_ack_t ack = { .status = 0};
 	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = get_dma_id(remoteClus);
 	volatile mppa_dnoc_min_max_task_id_t *context;
@@ -110,16 +114,48 @@ odp_rpc_cmd_ack_t  eth_open_rx(unsigned remoteClus, odp_rpc_t *msg)
 						  ETH_MATCHALL_TABLE_ID,
 						  data.ifId, nocIf, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
+
+	/* Now deal with Tx */
+	unsigned rx_port;
+	ret = mppa_noc_dnoc_rx_alloc_auto(data.ifId, &rx_port, MPPA_NOC_NON_BLOCKING);
+	if(ret)
+		goto open_err;
+	mppa_dnoc_queue_event_it_target_t it_targets = {
+		.reg = 0
+	};
+	mppa_noc_dnoc_rx_configuration_t conf = {
+		.buffer_base = (unsigned long)(void*)
+		&mppa_ethernet[0]->tx.fifo_if[0].lane[data.ifId].eth_fifo[remoteClus].push_data,
+		.buffer_size = 8,
+		.current_offset = 0,
+		.event_counter = 0,
+		.item_counter = 1,
+		.item_reload = 1,
+		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF,
+		.activation = MPPA_NOC_ACTIVATED | MPPA_NOC_FIFO_MODE,
+		.counter_id = 0,
+		.event_it_targets = &it_targets,
+	};
+	ret = mppa_noc_dnoc_rx_configure(nocIf, rx_port, conf);
+	if(ret)
+		goto open_err;
+
+	status[data.ifId].cluster[remoteClus].rx_tag = rx_port;
+
+	ack.open.eth_tx_if = __k1_get_cluster_id() + (nocIf % 4);
+	ack.open.eth_tx_tag = rx_port;
+
 	return ack;
 
  open_err:
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
+	status[data.ifId].cluster[remoteClus].txId = -1;
  err:
 	ack.status = 1;
 	return ack;
 }
 
-odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
+odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
@@ -138,10 +174,16 @@ odp_rpc_cmd_ack_t  eth_close_rx(unsigned remoteClus, odp_rpc_t *msg)
 						  (1 << ETH_DEFAULT_CTX));
 	/* Close the Tx */
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
+	/* Close the Rx */
+	mppa_noc_dnoc_tx_free(nocIf, status[data.ifId].cluster[remoteClus].rx_tag);
+	status[data.ifId].cluster[remoteClus].txId = -1;
+
 	return ack;
 }
 void eth_init(void)
 {
+	init_mac();
+
 	/* "MATCH_ALL" Rule */
 	mppabeth_lb_cfg_rule((void *)&(mppa_ethernet[0]->lb),
 			     ETH_MATCHALL_TABLE_ID, ETH_MATCHALL_RULE_ID,
@@ -153,6 +195,8 @@ void eth_init(void)
 
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
 					    ifId, MPPABETHLB_ADD_HEADER);
+		mppabeth_lb_cfg_footer_mode((void *)&(mppa_ethernet[0]->lb),
+					    ifId, MPPABETHLB_ADD_FOOTER);
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
 						   0, 0, MPPABETHLB_DISPATCH_POLICY_RR);
 	}

@@ -109,6 +109,8 @@ typedef struct {
 
 /** Global pointer to args */
 static args_t *gbl_args;
+/** Global barrier to synchronize main and workers */
+static odp_barrier_t barrier;
 
 /* helper funcs */
 static inline odp_queue_t lookup_dest_q(odp_packet_t pkt);
@@ -136,6 +138,7 @@ static void *pktio_queue_thread(void *arg)
 	thr = odp_thread_id();
 
 	printf("[%02i] QUEUE mode\n", thr);
+	odp_barrier_wait(&barrier);
 
 	/* Loop packets */
 	while (!exit_threads) {
@@ -219,6 +222,7 @@ static void *pktio_ifburst_thread(void *arg)
 	       gbl_args->appl.if_names[src_idx],
 	       gbl_args->appl.if_names[dst_idx],
 	       odp_pktio_to_u64(pktio_src), odp_pktio_to_u64(pktio_dst));
+	odp_barrier_wait(&barrier);
 
 	/* Loop packets */
 	while (!exit_threads) {
@@ -323,6 +327,9 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 	int i, elapsed = 0;
 	int loop_forever = (duration == 0);
 
+	/* Wait for all threads to be ready*/
+	odp_barrier_wait(&barrier);
+
 	do {
 		pkts = 0;
 		drops = 0;
@@ -330,8 +337,8 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 		sleep(timeout);
 
 		for (i = 0; i < num_workers; i++) {
-			pkts += thr_stats[i]->packets;
-			drops += thr_stats[i]->drops;
+			pkts += LOAD_U64(thr_stats[i]->packets);
+			drops += LOAD_U64(thr_stats[i]->drops);
 		}
 		pps = (pkts - pkts_prev) / timeout;
 		if (pps > maximum_pps)
@@ -372,7 +379,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Init this thread */
-	if (odp_init_local()) {
+	if (odp_init_local(ODP_THREAD_CONTROL)) {
 		LOG_ERR("Error: ODP local init failed.\n");
 		exit(EXIT_FAILURE);
 	}
@@ -399,11 +406,8 @@ int main(int argc, char *argv[])
 	if (gbl_args->appl.cpu_count)
 		num_workers = gbl_args->appl.cpu_count;
 
-	/*
-	 * By default CPU #0 runs Linux kernel background tasks.
-	 * Start mapping thread from CPU #1
-	 */
-	num_workers = odph_linux_cpumask_default(&cpumask, num_workers);
+	/* Get default worker cpumask */
+	num_workers = odp_cpumask_def_worker(&cpumask, num_workers);
 	(void)odp_cpumask_to_str(&cpumask, cpumaskstr, sizeof(cpumaskstr));
 
 	printf("num worker threads: %i\n", num_workers);
@@ -447,6 +451,8 @@ int main(int argc, char *argv[])
 	memset(thread_tbl, 0, sizeof(thread_tbl));
 
 	stats_t **stats = calloc(1, sizeof(stats_t) * num_workers);
+
+	odp_barrier_init(&barrier, num_workers + 1);
 
 	/* Create worker threads */
 	cpu = odp_cpumask_first(&cpumask);

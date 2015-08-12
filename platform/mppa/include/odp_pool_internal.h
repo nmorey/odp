@@ -101,7 +101,6 @@ struct pool_entry_s {
 	char                    name[ODP_POOL_NAME_LEN];
 	odp_pool_param_t        params;
 	uint32_t                udata_size;
-	odp_pool_t              pool_hdl;
 	uint32_t                pool_id;
 	odp_shm_t               pool_shm;
 	union {
@@ -152,46 +151,6 @@ extern void *pool_entry_ptr[];
 #define buffer_is_secure(buf) 0
 #define pool_is_secure(pool) 0
 #endif
-
-static inline void *get_blk(struct pool_entry_s *pool)
-{
-	void *myhead;
-	POOL_LOCK(&pool->blk_lock);
-
-	myhead = LOAD_PTR(pool->blk_freelist);
-
-	if (odp_unlikely(myhead == NULL)) {
-		POOL_UNLOCK(&pool->blk_lock);
-#ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.blkempty);
-#endif
-	} else {
-		INVALIDATE((odp_buf_blk_t *)myhead);
-		STORE_PTR(pool->blk_freelist, ((odp_buf_blk_t *)myhead)->next);
-		POOL_UNLOCK(&pool->blk_lock);
-#ifdef POOL_STATS
-		odp_atomic_dec_u32(&pool->blkcount);
-		odp_atomic_inc_u64(&pool->poolstats.blkallocs);
-#endif
-	}
-
-	return myhead;
-}
-
-static inline void ret_blk(struct pool_entry_s *pool, void *block)
-{
-	POOL_LOCK(&pool->blk_lock);
-
-	STORE_PTR(((odp_buf_blk_t *)block)->next, LOAD_PTR(pool->blk_freelist));
-	STORE_PTR(pool->blk_freelist, block);
-
-	POOL_UNLOCK(&pool->blk_lock);
-
-#ifdef POOL_STATS
-	odp_atomic_inc_u32(&pool->blkcount);
-	odp_atomic_inc_u64(&pool->poolstats.blkfrees);
-#endif
-}
 
 static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 {
@@ -251,13 +210,11 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 {
 	if (!buf->flags.hdrdata && buf->type != ODP_EVENT_BUFFER) {
-		while (buf->segcount > 0) {
+		if (buf->segcount > 0) {
 			if (buffer_is_secure(buf) || pool_is_secure(pool))
-				memset(buf->addr[buf->segcount - 1],
+				memset(buf->addr,
 				       0, buf->segsize);
-			ret_blk(pool, buf->addr[--buf->segcount]);
 		}
-		buf->size = 0;
 	}
 
 	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
@@ -288,7 +245,7 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 }
 
 static inline void *get_local_buf(local_cache_t *buf_cache,
-				  struct pool_entry_s *pool,
+				  struct pool_entry_s *pool ODP_UNUSED,
 				  size_t totsize)
 {
 	odp_buffer_hdr_t *buf = buf_cache->buf_freelist;
@@ -297,22 +254,7 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 		buf_cache->buf_freelist = buf->next;
 
 		if (odp_unlikely(buf->size < totsize)) {
-			intmax_t needed = totsize - buf->size;
-
-			do {
-				void *blk = get_blk(pool);
-				if (odp_unlikely(blk == NULL)) {
-					ret_buf(pool, buf);
-#ifdef POOL_STATS
-					buf_cache->buffrees--;
-#endif
-					return NULL;
-				}
-				buf->addr[buf->segcount++] = blk;
-				needed -= pool->seg_size;
-			} while (needed > 0);
-
-			buf->size = buf->segcount * pool->seg_size;
+			return NULL;
 		}
 
 #ifdef POOL_STATS
@@ -361,16 +303,6 @@ static inline void flush_cache(local_cache_t *buf_cache,
 	buf_cache->buf_freelist = NULL;
 }
 
-static inline odp_pool_t pool_index_to_handle(uint32_t pool_id)
-{
-	return _odp_cast_scalar(odp_pool_t, pool_id);
-}
-
-static inline uint32_t pool_handle_to_index(odp_pool_t pool_hdl)
-{
-	return _odp_typeval(pool_hdl);
-}
-
 static inline void *get_pool_entry(uint32_t pool_id)
 {
 	return pool_entry_ptr[pool_id];
@@ -378,7 +310,7 @@ static inline void *get_pool_entry(uint32_t pool_id)
 
 static inline pool_entry_t *odp_pool_to_entry(odp_pool_t pool)
 {
-	return (pool_entry_t *)get_pool_entry(pool_handle_to_index(pool));
+	return (pool_entry_t *)pool;
 }
 
 static inline pool_entry_t *odp_buf_to_pool(odp_buffer_hdr_t *buf)

@@ -157,6 +157,7 @@ static int magic_mtu_get(__attribute__ ((unused)) pktio_entry_t *const pktio_ent
 
 const pktio_if_ops_t magic_pktio_ops = {
 	.init = magic_init,
+	.term = NULL,
 	.open = magic_open,
 	.close = magic_close,
 	.recv = magic_recv,

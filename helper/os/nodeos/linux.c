@@ -27,7 +27,7 @@ static void *odp_run_start_routine(void *arg)
 	odp_start_args_t *start_args = arg;
 
 	/* ODP thread local init */
-	if (odp_init_local()) {
+	if (odp_init_local(ODP_THREAD_WORKER)) {
 		ODPH_ERR("Local init failed\n");
 		return NULL;
 	}
@@ -130,41 +130,4 @@ int odph_linux_process_fork(odph_linux_process_t *proc ODP_UNUSED, int cpu ODP_U
 int odph_linux_process_wait_n(odph_linux_process_t *proc_tbl ODP_UNUSED, int num ODP_UNUSED)
 {
 	return -1;
-}
-
-int odph_linux_cpumask_default(odp_cpumask_t *mask, int num_in)
-{
-	int i;
-	int first_cpu = 1;
-	int num = num_in;
-	int cpu_count;
-
-	cpu_count = odp_cpu_count();
-
-	/*
-	 * If no user supplied number or it's too large, then attempt
-	 * to use all CPUs
-	 */
-	if (0 == num)
-		num = cpu_count;
-	if (cpu_count < num)
-		num = cpu_count;
-
-	/*
-	 * Always force "first_cpu" to a valid CPU
-	 */
-	if (first_cpu >= cpu_count)
-		first_cpu = cpu_count - 1;
-
-	/* Build the mask */
-	odp_cpumask_zero(mask);
-	for (i = 0; i < num; i++) {
-		int cpu;
-		/* Add one for the module as odp_cpu_count only
-		 * returned available CPU (ie [1..cpucount]) */
-		cpu = (first_cpu + i) % (cpu_count + 1);
-		odp_cpumask_set(mask, cpu);
-	}
-
-	return num;
 }

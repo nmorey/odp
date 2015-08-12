@@ -38,7 +38,7 @@
 
 /* Test global variables */
 typedef struct {
-	int cpu_count;
+	int num_workers;
 	odp_barrier_t barrier;
 	int buf_count;
 	odp_ticketlock_t lock;
@@ -52,7 +52,7 @@ typedef struct {
 	int num_queues;
 	int num_prio;
 	int num_bufs;
-	int num_cpus;
+	int num_workers;
 	int enable_schd_multi;
 	int enable_excl_atomic;
 } thread_args_t;
@@ -78,7 +78,7 @@ static int exit_schedule_loop(void)
 	return ret;
 }
 
-static void scheduler_test_wait_time(void)
+void scheduler_test_wait_time(void)
 {
 	uint64_t wait_time;
 
@@ -91,7 +91,7 @@ static void scheduler_test_wait_time(void)
 	CU_ASSERT(wait_time > 0);
 }
 
-static void scheduler_test_num_prio(void)
+void scheduler_test_num_prio(void)
 {
 	int prio;
 
@@ -101,7 +101,7 @@ static void scheduler_test_num_prio(void)
 	CU_ASSERT(prio == odp_schedule_num_prio());
 }
 
-static void scheduler_test_queue_destroy(void)
+void scheduler_test_queue_destroy(void)
 {
 	odp_pool_t p;
 	odp_pool_param_t params;
@@ -168,14 +168,12 @@ static void *schedule_common_(void *arg)
 {
 	thread_args_t *args = (thread_args_t *)arg;
 	odp_schedule_sync_t sync;
-	int num_cpus;
 	test_globals_t *globals;
 
 	globals = args->globals;
 	sync = args->sync;
-	num_cpus = args->num_cpus;
 
-	if (num_cpus == globals->cpu_count)
+	if (args->num_workers > 1)
 		odp_barrier_wait(&globals->barrier);
 
 	while (1) {
@@ -324,7 +322,7 @@ static void schedule_common(odp_schedule_sync_t sync, int num_queues,
 	args.num_queues = num_queues;
 	args.num_prio = num_prio;
 	args.num_bufs = TEST_NUM_BUFS;
-	args.num_cpus = 1;
+	args.num_workers = 1;
 	args.enable_schd_multi = enable_schd_multi;
 	args.enable_excl_atomic = 0;	/* Not needed with a single CPU */
 
@@ -359,14 +357,14 @@ static void parallel_execute(odp_schedule_sync_t sync, int num_queues,
 		args->num_bufs = NUM_BUFS_EXCL;
 	else
 		args->num_bufs = TEST_NUM_BUFS;
-	args->num_cpus = globals->cpu_count;
+	args->num_workers = globals->num_workers;
 	args->enable_schd_multi = enable_schd_multi;
 	args->enable_excl_atomic = enable_excl_atomic;
 
 	fill_queues(args);
 
 	/* Create and launch worker threads */
-	args->cu_thr.numthrds = globals->cpu_count;
+	args->cu_thr.numthrds = globals->num_workers;
 	odp_cunit_thread_create(schedule_common_, &args->cu_thr);
 
 	/* Wait for worker threads to terminate */
@@ -374,25 +372,25 @@ static void parallel_execute(odp_schedule_sync_t sync, int num_queues,
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_NONE */
-static void scheduler_test_1q_1t_n(void)
+void scheduler_test_1q_1t_n(void)
 {
 	schedule_common(ODP_SCHED_SYNC_NONE, ONE_Q, ONE_PRIO, SCHD_ONE);
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_ATOMIC */
-static void scheduler_test_1q_1t_a(void)
+void scheduler_test_1q_1t_a(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ATOMIC, ONE_Q, ONE_PRIO, SCHD_ONE);
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_ORDERED */
-static void scheduler_test_1q_1t_o(void)
+void scheduler_test_1q_1t_o(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ORDERED, ONE_Q, ONE_PRIO, SCHD_ONE);
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_NONE */
-static void scheduler_test_mq_1t_n(void)
+void scheduler_test_mq_1t_n(void)
 {
 	/* Only one priority involved in these tests, but use
 	   the same number of queues the more general case uses */
@@ -400,19 +398,19 @@ static void scheduler_test_mq_1t_n(void)
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_ATOMIC */
-static void scheduler_test_mq_1t_a(void)
+void scheduler_test_mq_1t_a(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ATOMIC, MANY_QS, ONE_PRIO, SCHD_ONE);
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_ORDERED */
-static void scheduler_test_mq_1t_o(void)
+void scheduler_test_mq_1t_o(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ORDERED, MANY_QS, ONE_PRIO, SCHD_ONE);
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_NONE */
-static void scheduler_test_mq_1t_prio_n(void)
+void scheduler_test_mq_1t_prio_n(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -420,7 +418,7 @@ static void scheduler_test_mq_1t_prio_n(void)
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_ATOMIC */
-static void scheduler_test_mq_1t_prio_a(void)
+void scheduler_test_mq_1t_prio_a(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -428,7 +426,7 @@ static void scheduler_test_mq_1t_prio_a(void)
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_ORDERED */
-static void scheduler_test_mq_1t_prio_o(void)
+void scheduler_test_mq_1t_prio_o(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -436,7 +434,7 @@ static void scheduler_test_mq_1t_prio_o(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_NONE */
-static void scheduler_test_mq_mt_prio_n(void)
+void scheduler_test_mq_mt_prio_n(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -445,7 +443,7 @@ static void scheduler_test_mq_mt_prio_n(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_ATOMIC */
-static void scheduler_test_mq_mt_prio_a(void)
+void scheduler_test_mq_mt_prio_a(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -454,7 +452,7 @@ static void scheduler_test_mq_mt_prio_a(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_ORDERED */
-static void scheduler_test_mq_mt_prio_o(void)
+void scheduler_test_mq_mt_prio_o(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -463,32 +461,32 @@ static void scheduler_test_mq_mt_prio_o(void)
 }
 
 /* 1 queue many threads check exclusive access on ATOMIC queues */
-static void scheduler_test_1q_mt_a_excl(void)
+void scheduler_test_1q_mt_a_excl(void)
 {
 	parallel_execute(ODP_SCHED_SYNC_ATOMIC, ONE_Q, ONE_PRIO, SCHD_ONE,
 			 ENABLE_EXCL_ATOMIC);
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_NONE multi */
-static void scheduler_test_multi_1q_1t_n(void)
+void scheduler_test_multi_1q_1t_n(void)
 {
 	schedule_common(ODP_SCHED_SYNC_NONE, ONE_Q, ONE_PRIO, SCHD_MULTI);
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_ATOMIC multi */
-static void scheduler_test_multi_1q_1t_a(void)
+void scheduler_test_multi_1q_1t_a(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ATOMIC, ONE_Q, ONE_PRIO, SCHD_MULTI);
 }
 
 /* 1 queue 1 thread ODP_SCHED_SYNC_ORDERED multi */
-static void scheduler_test_multi_1q_1t_o(void)
+void scheduler_test_multi_1q_1t_o(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ORDERED, ONE_Q, ONE_PRIO, SCHD_MULTI);
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_NONE multi */
-static void scheduler_test_multi_mq_1t_n(void)
+void scheduler_test_multi_mq_1t_n(void)
 {
 	/* Only one priority involved in these tests, but use
 	   the same number of queues the more general case uses */
@@ -496,19 +494,19 @@ static void scheduler_test_multi_mq_1t_n(void)
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_ATOMIC multi */
-static void scheduler_test_multi_mq_1t_a(void)
+void scheduler_test_multi_mq_1t_a(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ATOMIC, MANY_QS, ONE_PRIO, SCHD_MULTI);
 }
 
 /* Many queues 1 thread ODP_SCHED_SYNC_ORDERED multi */
-static void scheduler_test_multi_mq_1t_o(void)
+void scheduler_test_multi_mq_1t_o(void)
 {
 	schedule_common(ODP_SCHED_SYNC_ORDERED, MANY_QS, ONE_PRIO, SCHD_MULTI);
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_NONE multi */
-static void scheduler_test_multi_mq_1t_prio_n(void)
+void scheduler_test_multi_mq_1t_prio_n(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -516,7 +514,7 @@ static void scheduler_test_multi_mq_1t_prio_n(void)
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_ATOMIC multi */
-static void scheduler_test_multi_mq_1t_prio_a(void)
+void scheduler_test_multi_mq_1t_prio_a(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -524,7 +522,7 @@ static void scheduler_test_multi_mq_1t_prio_a(void)
 }
 
 /* Many queues 1 thread check priority ODP_SCHED_SYNC_ORDERED multi */
-static void scheduler_test_multi_mq_1t_prio_o(void)
+void scheduler_test_multi_mq_1t_prio_o(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -532,7 +530,7 @@ static void scheduler_test_multi_mq_1t_prio_o(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_NONE multi */
-static void scheduler_test_multi_mq_mt_prio_n(void)
+void scheduler_test_multi_mq_mt_prio_n(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -540,7 +538,7 @@ static void scheduler_test_multi_mq_mt_prio_n(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_ATOMIC multi */
-static void scheduler_test_multi_mq_mt_prio_a(void)
+void scheduler_test_multi_mq_mt_prio_a(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -548,7 +546,7 @@ static void scheduler_test_multi_mq_mt_prio_a(void)
 }
 
 /* Many queues many threads check priority ODP_SCHED_SYNC_ORDERED multi */
-static void scheduler_test_multi_mq_mt_prio_o(void)
+void scheduler_test_multi_mq_mt_prio_o(void)
 {
 	int prio = odp_schedule_num_prio();
 
@@ -556,13 +554,13 @@ static void scheduler_test_multi_mq_mt_prio_o(void)
 }
 
 /* 1 queue many threads check exclusive access on ATOMIC queues multi */
-static void scheduler_test_multi_1q_mt_a_excl(void)
+void scheduler_test_multi_1q_mt_a_excl(void)
 {
 	parallel_execute(ODP_SCHED_SYNC_ATOMIC, ONE_Q, ONE_PRIO, SCHD_MULTI,
 			 ENABLE_EXCL_ATOMIC);
 }
 
-static void scheduler_test_pause_resume(void)
+void scheduler_test_pause_resume(void)
 {
 	odp_queue_t queue;
 	odp_buffer_t buf;
@@ -668,8 +666,9 @@ static int create_queues(void)
 	return 0;
 }
 
-static int scheduler_suite_init(void)
+int scheduler_suite_init(void)
 {
+	odp_cpumask_t mask;
 	odp_shm_t shm;
 	odp_pool_t pool;
 	test_globals_t *globals;
@@ -700,9 +699,9 @@ static int scheduler_suite_init(void)
 
 	memset(globals, 0, sizeof(test_globals_t));
 
-	globals->cpu_count = odp_cpu_count();
-	if (globals->cpu_count > MAX_WORKERS)
-		globals->cpu_count = MAX_WORKERS;
+	globals->num_workers = odp_cpumask_def_worker(&mask, 0);
+	if (globals->num_workers > MAX_WORKERS)
+		globals->num_workers = MAX_WORKERS;
 
 	shm = odp_shm_reserve(SHM_THR_ARGS_NAME, sizeof(thread_args_t),
 			      ODP_CACHE_LINE_SIZE, 0);
@@ -716,7 +715,7 @@ static int scheduler_suite_init(void)
 	memset(args, 0, sizeof(thread_args_t));
 
 	/* Barrier to sync test case execution */
-	odp_barrier_init(&globals->barrier, globals->cpu_count);
+	odp_barrier_init(&globals->barrier, globals->num_workers);
 	odp_ticketlock_init(&globals->lock);
 	odp_spinlock_init(&globals->atomic_lock);
 
@@ -765,7 +764,7 @@ static int destroy_queues(void)
 	return 0;
 }
 
-static int scheduler_suite_term(void)
+int scheduler_suite_term(void)
 {
 	odp_pool_t pool;
 
@@ -781,7 +780,7 @@ static int scheduler_suite_term(void)
 	return 0;
 }
 
-static struct CU_TestInfo scheduler_suite[] = {
+CU_TestInfo scheduler_suite[] = {
 	{"schedule_wait_time",		scheduler_test_wait_time},
 	{"schedule_num_prio",		scheduler_test_num_prio},
 	{"schedule_queue_destroy",	scheduler_test_queue_destroy},
@@ -815,7 +814,7 @@ static struct CU_TestInfo scheduler_suite[] = {
 	CU_TEST_INFO_NULL,
 };
 
-static CU_SuiteInfo scheduler_suites[] = {
+CU_SuiteInfo scheduler_suites[] = {
 	{"Scheduler",
 	 scheduler_suite_init, scheduler_suite_term, NULL, NULL, scheduler_suite
 	},
