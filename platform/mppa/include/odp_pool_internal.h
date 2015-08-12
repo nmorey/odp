@@ -161,13 +161,14 @@ extern void *pool_entry_ptr[];
 #define pool_is_secure(pool) 0
 #endif
 
-static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
+static inline int get_buf_multi(struct pool_entry_s *pool,
+				odp_buffer_hdr_t *buffers[],
+				const unsigned n_buffers)
 {
-	odp_buffer_hdr_t *myhead = NULL;
-
 	uint32_t cons_head, prod_tail, cons_next;
-
+	unsigned n_bufs;
 	do {
+		n_bufs = n_buffers;
 		cons_head =  odp_atomic_load_u32(&pool->cons_head);
 		prod_tail = odp_atomic_load_u32(&pool->prod_tail);
 		/* No Buf available */
@@ -175,21 +176,36 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 #ifdef POOL_STATS
 			odp_atomic_inc_u64(&pool->poolstats.bufempty);
 #endif
-			return NULL;
+			return 0;
 		}
 
-		cons_next = cons_head + 1;
+		if(prod_tail > cons_head) {
+			/* Linear buffer list */
+			if(prod_tail - cons_head < n_bufs)
+				n_bufs = prod_tail - cons_head;
+		} else {
+			/* Go to the end of the buffer and look for more */
+			unsigned avail = prod_tail + (pool->buf_num + 1) - cons_head;
+			if(avail < n_bufs)
+				n_bufs = avail;
+		}
+		cons_next = cons_head + n_bufs;
 		if(cons_next > pool->buf_num)
-			cons_next = cons_next - pool->buf_num - 1;
+			cons_next = cons_next - (pool->buf_num + 1);
 
 		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->cons_head, &cons_head,
 						      cons_next,
 						      _ODP_MEMMODEL_ACQ,
 						      _ODP_MEMMODEL_RLX)){
-			myhead = LOAD_PTR(pool->buf_ptrs[cons_head]);
 			break;
 		}
 	} while(1);
+
+	for (unsigned i = 0, idx = cons_head; i < n_buffers; ++i, ++idx){
+		if(idx > pool->buf_num)
+			idx = idx - (pool->buf_num + 1);
+		buffers[i] = LOAD_PTR(pool->buf_ptrs[idx]);
+	}
 
 	while (odp_atomic_load_u32(&pool->cons_tail) != cons_head)
 		odp_spin();
@@ -211,10 +227,10 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 	}
 
 #ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->poolstats.bufallocs);
+	odp_atomic_add_u32(&pool->poolstats.bufallocs, n_bufs);
 #endif
 
-	return (void *)myhead;
+	return n_bufs;
 }
 
 static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)

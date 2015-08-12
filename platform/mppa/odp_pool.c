@@ -482,9 +482,9 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 
 	/* If cache is empty, satisfy request from the pool */
 	if (odp_unlikely(buf == NULL)) {
-		buf = (odp_anybuf_t *)(void *)get_buf(&pool->s);
+		int n_buf = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)&buf, 1);
 
-		if (odp_unlikely(buf == NULL))
+		if (odp_unlikely(n_buf == 0))
 			return ODP_BUFFER_INVALID;
 
 		/* Get blocks for this buffer, if pool uses application data */
