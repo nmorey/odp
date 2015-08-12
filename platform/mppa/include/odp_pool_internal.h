@@ -62,6 +62,7 @@ typedef struct local_cache_t {
 
 /* Use ticketlock instead of spinlock */
 #define POOL_USE_TICKETLOCK
+#define POOL_HAS_LOCAL_CACHE 1
 
 #ifdef POOL_USE_TICKETLOCK
 #include <odp/ticketlock.h>
@@ -195,16 +196,18 @@ static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
 
 	odp_atomic_store_u32(&pool->cons_tail, cons_next);
 
-	/* Check for low watermark condition */
-	uint32_t bufcount = prod_tail - cons_next;
-	if(bufcount > pool->buf_num)
-		bufcount += pool->buf_num;
+	if (POOL_HAS_LOCAL_CACHE) {
+		/* Check for low watermark condition */
+		uint32_t bufcount = prod_tail - cons_next;
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
 
-	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 1);
+		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 1);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
+			odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
 #endif
+		}
 	}
 
 #ifdef POOL_STATS
@@ -252,18 +255,19 @@ static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
 
 	odp_atomic_store_u32(&pool->prod_tail, prod_next);
 
-	/* Check if low watermark condition should be deasserted */
-	uint32_t bufcount = (prod_next - cons_tail);
-	if(bufcount > pool->buf_num)
-		bufcount += pool->buf_num;
+	if(POOL_HAS_LOCAL_CACHE) {
+		/* Check if low watermark condition should be deasserted */
+		uint32_t bufcount = (prod_next - cons_tail);
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
 
-	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 0);
+		if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 0);
 #ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
+			odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
 #endif
+		}
 	}
-
 #ifdef POOL_STATS
 	odp_atomic_inc_u64(&pool->poolstats.buffrees);
 #endif

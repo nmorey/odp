@@ -58,7 +58,7 @@ static const char SHM_DEFAULT_NAME[] = "odp_buffer_pools";
 void *pool_entry_ptr[ODP_CONFIG_POOLS];
 
 /* Local cache for buffer alloc/free acceleration */
-static __thread local_cache_t local_cache[ODP_CONFIG_POOLS];
+static __thread local_cache_t local_cache[POOL_HAS_LOCAL_CACHE * ODP_CONFIG_POOLS];
 
 int odp_pool_init_global(void)
 {
@@ -447,7 +447,8 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	}
 
 	/* Make sure local cache is empty */
-	flush_cache(&local_cache[pool->s.pool_id], &pool->s);
+	if(POOL_HAS_LOCAL_CACHE)
+		flush_cache(&local_cache[pool->s.pool_id], &pool->s);
 
 	/* Call fails if pool has allocated buffers */
 	uint32_t bufcount = odp_atomic_load_u32(&pool->s.prod_tail) - odp_atomic_load_u32(&pool->s.cons_tail);
@@ -467,7 +468,7 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
-	odp_anybuf_t *buf;
+	odp_anybuf_t *buf = NULL;
 
 	/* Reject oversized allocation requests */
 	if ((pool->s.flags.unsegmented && totsize > pool->s.seg_size) ||
@@ -476,8 +477,9 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 		return ODP_BUFFER_INVALID;
 
 	/* Try to satisfy request from the local cache */
-	buf = (odp_anybuf_t *)(void *)
-		get_local_buf(&local_cache[pool->s.pool_id], &pool->s, totsize);
+	if(POOL_HAS_LOCAL_CACHE)
+		buf = (odp_anybuf_t *)(void *)
+			get_local_buf(&local_cache[pool->s.pool_id], &pool->s, totsize);
 
 	/* If cache is empty, satisfy request from the pool */
 	if (odp_unlikely(buf == NULL)) {
@@ -512,7 +514,7 @@ void odp_buffer_free(odp_buffer_t buf)
 	odp_buffer_hdr_t *buf_hdr = odp_buf_to_hdr(buf);
 	pool_entry_t *pool = odp_buf_to_pool(buf_hdr);
 
-	if (odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
+	if (!POOL_HAS_LOCAL_CACHE || odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
 		ret_buf(&pool->s, buf_hdr);
 	else
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
@@ -521,10 +523,11 @@ void odp_buffer_free(odp_buffer_t buf)
 void _odp_flush_caches(void)
 {
 	int i;
-
-	for (i = 0; i < ODP_CONFIG_POOLS; i++) {
-		pool_entry_t *pool = get_pool_entry(i);
-		flush_cache(&local_cache[i], &pool->s);
+	if (POOL_HAS_LOCAL_CACHE) {
+		for (i = 0; i < ODP_CONFIG_POOLS; i++) {
+			pool_entry_t *pool = get_pool_entry(i);
+			flush_cache(&local_cache[i], &pool->s);
+		}
 	}
 }
 
