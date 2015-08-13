@@ -185,7 +185,7 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 		}
 	} while(1);
 
-	for (unsigned i = 0, idx = cons_head; i < n_buffers; ++i, ++idx){
+	for (unsigned i = 0, idx = cons_head; i < n_bufs; ++i, ++idx){
 		if(odp_unlikely(idx > pool->buf_num))
 			idx = idx - (pool->buf_num + 1);
 		buffers[i] = LOAD_PTR(pool->buf_ptrs[idx]);
@@ -202,7 +202,9 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 		if(bufcount > pool->buf_num)
 			bufcount += pool->buf_num;
 
-		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+		if (bufcount <= pool->low_wm &&
+		    bufcount + n_buffers > pool->low_wm &&
+		    !LOAD_U32(pool->low_wm_assert)) {
 			STORE_U32(pool->low_wm_assert, 1);
 		}
 	}
@@ -251,7 +253,9 @@ static inline void ret_buf(struct pool_entry_s *pool,
 		if(bufcount > pool->buf_num)
 			bufcount += pool->buf_num;
 
-		if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
+		if (bufcount >= pool->high_wm &&
+		    bufcount - n_buffers < pool->high_wm &&
+		    LOAD_U32(pool->low_wm_assert)) {
 			STORE_U32(pool->low_wm_assert, 0);
 		}
 	}
