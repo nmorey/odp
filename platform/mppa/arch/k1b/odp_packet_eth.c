@@ -429,15 +429,35 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	unsigned i;
+	unsigned i, nocTx, sent = 0;
+	int ret;
 	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
-	odp_spinlock_lock(&eth->wlock);
-	odp_spinlock_unlock(&eth->wlock);
 
-	for (i = 0; i < len; i++)
+	odp_spinlock_lock(&eth->wlock);
+
+	ret = mppa_noc_dnoc_tx_alloc_auto(0, &nocTx, MPPA_NOC_NON_BLOCKING);
+	if(ret != MPPA_ROUTING_RET_SUCCESS)
+		goto err_unlock;
+
+	ret = mppa_noc_dnoc_tx_configure(0, nocTx, eth->header, eth->config);
+	if (ret != MPPA_NOC_RET_SUCCESS)
+		goto err_opened;
+
+	for (i = 0; i < len; i++) {
+		odp_packet_hdr_t * pkt_hdr = (odp_packet_hdr_t*)pkt_table[i];
+		mppa_noc_dnoc_tx_send_data_eot(0, nocTx, pkt_hdr->frame_len,
+					       packet_map(pkt_hdr, 0, NULL));
+		sent++;
+	}
+
+ err_opened:
+	mppa_noc_dnoc_tx_free(0, nocTx);
+err_unlock:
+	odp_spinlock_unlock(&eth->wlock);
+	for (i = 0; i < sent; i++)
 		odp_packet_free(pkt_table[i]);
 
-	return len;
+	return sent;
 }
 
 static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
