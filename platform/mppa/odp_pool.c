@@ -359,7 +359,7 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			tmp->addr = blk;
 
 			/* Push buffer onto pool's freelist */
-			ret_buf(&pool->s, tmp);
+			ret_buf(&pool->s, &tmp, 1);
 			buf  -= buf_stride;
 			udat -= udata_stride;
 			blk -= pool->s.seg_size;
@@ -514,7 +514,7 @@ void odp_buffer_free(odp_buffer_t buf)
 	pool_entry_t *pool = odp_buf_to_pool(buf_hdr);
 
 	if (!POOL_HAS_LOCAL_CACHE || odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
-		ret_buf(&pool->s, buf_hdr);
+		ret_buf(&pool->s, &buf_hdr, 1);
 	else
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
 }

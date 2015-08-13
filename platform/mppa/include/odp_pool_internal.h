@@ -63,6 +63,7 @@ typedef struct local_cache_t {
 /* Use ticketlock instead of spinlock */
 #define POOL_USE_TICKETLOCK
 #define POOL_HAS_LOCAL_CACHE 1
+#define POOL_MULTI_MAX 16
 
 #ifdef POOL_USE_TICKETLOCK
 #include <odp/ticketlock.h>
@@ -163,10 +164,13 @@ extern void *pool_entry_ptr[];
 
 static inline int get_buf_multi(struct pool_entry_s *pool,
 				odp_buffer_hdr_t *buffers[],
-				const unsigned n_buffers)
+				unsigned n_buffers)
 {
 	uint32_t cons_head, prod_tail, cons_next;
 	unsigned n_bufs;
+	if(n_buffers > POOL_MULTI_MAX)
+		n_buffers = POOL_MULTI_MAX;
+
 	do {
 		n_bufs = n_buffers;
 		cons_head =  odp_atomic_load_u32(&pool->cons_head);
@@ -202,7 +206,7 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 	} while(1);
 
 	for (unsigned i = 0, idx = cons_head; i < n_buffers; ++i, ++idx){
-		if(idx > pool->buf_num)
+		if(odp_unlikely(idx > pool->buf_num))
 			idx = idx - (pool->buf_num + 1);
 		buffers[i] = LOAD_PTR(pool->buf_ptrs[idx]);
 	}
@@ -233,37 +237,36 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 	return n_bufs;
 }
 
-static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
+static inline void ret_buf(struct pool_entry_s *pool,
+			   odp_buffer_hdr_t *buffers[],
+			   const unsigned n_buffers)
 {
-	if (!buf->flags.hdrdata && buf->type != ODP_EVENT_BUFFER) {
-		if (buf->segcount > 0) {
-			if (buffer_is_secure(buf) || pool_is_secure(pool))
-				memset(buf->addr,
-				       0, buf->segsize);
-		}
-	}
-
 	__builtin_k1_wpurge();
 	uint32_t prod_head, cons_tail, prod_next;
 
 	do {
 		prod_head =  odp_atomic_load_u32(&pool->prod_head);
 
-		prod_next = prod_head + 1;
+		prod_next = prod_head + n_buffers;
 		if(prod_next > pool->buf_num)
-			prod_next = prod_next - pool->buf_num - 1;
+			prod_next = prod_next - (pool->buf_num + 1);
 
 		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->prod_head, &prod_head,
 						      prod_next,
 						      _ODP_MEMMODEL_ACQ,
 						      _ODP_MEMMODEL_RLX)){
-			STORE_PTR(pool->buf_ptrs[prod_head], buf);
 			cons_tail = odp_atomic_load_u32(&pool->cons_tail);
 			break;
 
 		}
 	} while(1);
 
+	for (unsigned i = 0, idx = prod_head; i < n_buffers; ++i, ++idx) {
+		if(odp_unlikely(idx > pool->buf_num))
+			idx = idx - (pool->buf_num + 1);
+
+		STORE_PTR(pool->buf_ptrs[idx], buffers[i]);
+	}
 	while (odp_atomic_load_u32(&pool->prod_tail) != prod_head)
 		odp_spin();
 
@@ -324,14 +327,21 @@ static inline void flush_cache(local_cache_t *buf_cache,
 {
 	odp_buffer_hdr_t *buf = buf_cache->buf_freelist;
 	uint32_t flush_count = 0;
+	odp_buffer_hdr_t *bufs[POOL_MULTI_MAX];
+	int n_bufs = 0;
 
 	while (buf != NULL) {
 		odp_buffer_hdr_t *next = buf->next;
-		ret_buf(pool, buf);
+		bufs[n_bufs++] = buf;
+		if(n_bufs == POOL_MULTI_MAX) {
+			ret_buf(pool, bufs, n_bufs);
+			n_bufs = 0;
+		}
 		buf = next;
 		flush_count++;
 	}
-
+	if(n_bufs)
+		ret_buf(pool, bufs, n_bufs);
 #ifdef POOL_STATS
 	odp_atomic_add_u64(&pool->poolstats.bufallocs, buf_cache->bufallocs);
 	odp_atomic_add_u64(&pool->poolstats.buffrees,
