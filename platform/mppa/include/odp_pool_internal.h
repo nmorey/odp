@@ -29,7 +29,9 @@ extern "C" {
 #include <odp/shared_memory.h>
 #include <odp/atomic.h>
 #include <odp_atomic_internal.h>
+#include <odp_spin_internal.h>
 #include <string.h>
+#include <stdio.h>
 
 /**
  * Buffer initialization routine prototype
@@ -60,6 +62,8 @@ typedef struct local_cache_t {
 
 /* Use ticketlock instead of spinlock */
 #define POOL_USE_TICKETLOCK
+#define POOL_HAS_LOCAL_CACHE 1
+#define POOL_MULTI_MAX 16
 
 #ifdef POOL_USE_TICKETLOCK
 #include <odp/ticketlock.h>
@@ -72,20 +76,6 @@ typedef struct local_cache_t {
 #define POOL_UNLOCK(a)    odp_spinlock_unlock(a)
 #define POOL_LOCK_INIT(a) odp_spinlock_init(a)
 #endif
-
-/**
- * ODP Pool stats - Maintain some useful stats regarding pool utilization
- */
-typedef struct {
-	odp_atomic_u64_t bufallocs;     /**< Count of successful buf allocs */
-	odp_atomic_u64_t buffrees;      /**< Count of successful buf frees */
-	odp_atomic_u64_t blkallocs;     /**< Count of successful blk allocs */
-	odp_atomic_u64_t blkfrees;      /**< Count of successful blk frees */
-	odp_atomic_u64_t bufempty;      /**< Count of unsuccessful buf allocs */
-	odp_atomic_u64_t blkempty;      /**< Count of unsuccessful blk allocs */
-	odp_atomic_u64_t high_wm_count; /**< Count of high wm conditions */
-	odp_atomic_u64_t low_wm_count;  /**< Count of low wm conditions */
-} _odp_pool_stats_t;
 
 struct pool_entry_s {
 #ifdef POOL_USE_TICKETLOCK
@@ -121,12 +111,15 @@ struct pool_entry_s {
 	uint32_t                buf_align;
 	uint32_t                buf_stride;
 	odp_buffer_hdr_t       *buf_freelist;
+
+	odp_buffer_hdr_t      **buf_ptrs;
+	odp_atomic_u32_t        prod_head;
+	odp_atomic_u32_t        prod_tail;
+	odp_atomic_u32_t        cons_head;
+	odp_atomic_u32_t        cons_tail;
+
 	void                   *blk_freelist;
-	odp_atomic_u32_t        bufcount;
 	odp_atomic_u32_t        blkcount;
-#ifdef POOL_STATS
-	_odp_pool_stats_t       poolstats;
-#endif
 	uint32_t                buf_num;
 	uint32_t                seg_size;
 	uint32_t                blk_size;
@@ -152,96 +145,116 @@ extern void *pool_entry_ptr[];
 #define pool_is_secure(pool) 0
 #endif
 
-static inline odp_buffer_hdr_t *get_buf(struct pool_entry_s *pool)
+static inline int get_buf_multi(struct pool_entry_s *pool,
+				odp_buffer_hdr_t *buffers[],
+				unsigned n_buffers)
 {
-	odp_buffer_hdr_t *myhead, *newhead, *prevhead;
+	uint32_t cons_head, prod_tail, cons_next;
+	unsigned n_bufs;
+	if(n_buffers > POOL_MULTI_MAX)
+		n_buffers = POOL_MULTI_MAX;
 
-	while(1) {
-		myhead = LOAD_PTR(pool->buf_freelist);
-		if (odp_unlikely(myhead == NULL)) {
-#ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.bufempty);
-#endif
-			return NULL;
+	do {
+		n_bufs = n_buffers;
+		cons_head =  odp_atomic_load_u32(&pool->cons_head);
+		prod_tail = odp_atomic_load_u32(&pool->prod_tail);
+		/* No Buf available */
+		if(cons_head == prod_tail){
+			return 0;
 		}
-		newhead = LOAD_PTR(myhead->next);
-		if((unsigned long)newhead & 0x1UL){
-			/* Someone is popping this node */
-			continue;
-		}
-		/* Clear the next field of the first elnt */
-		prevhead = CAS_PTR(&myhead->next, (unsigned long)newhead | 0x1UL, newhead);
 
-		if(prevhead != newhead){
-			/* Someone just logically cut the first elnt. Try again */
-			continue;
+		if(prod_tail > cons_head) {
+			/* Linear buffer list */
+			if(prod_tail - cons_head < n_bufs)
+				n_bufs = prod_tail - cons_head;
+		} else {
+			/* Go to the end of the buffer and look for more */
+			unsigned avail = prod_tail + (pool->buf_num + 1) - cons_head;
+			if(avail < n_bufs)
+				n_bufs = avail;
 		}
-		/* Now switch the list HEAD with our new HEAD */
-		prevhead = CAS_PTR(&pool->buf_freelist, newhead, myhead);
-		if(prevhead != myhead){
-			/* Someone pushed a new elnt ! Revert */
-			STORE_PTR(myhead->next, newhead);
-			continue;
-		}
-		INVALIDATE(myhead);
-		break;
+		cons_next = cons_head + n_bufs;
+		if(cons_next > pool->buf_num)
+			cons_next = cons_next - (pool->buf_num + 1);
 
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->cons_head, &cons_head,
+						      cons_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			break;
+		}
+	} while(1);
+
+	for (unsigned i = 0, idx = cons_head; i < n_buffers; ++i, ++idx){
+		if(odp_unlikely(idx > pool->buf_num))
+			idx = idx - (pool->buf_num + 1);
+		buffers[i] = LOAD_PTR(pool->buf_ptrs[idx]);
 	}
 
-	uint64_t bufcount =
-		odp_atomic_fetch_sub_u32(&pool->bufcount, 1) - 1;
+	while (odp_atomic_load_u32(&pool->cons_tail) != cons_head)
+		odp_spin();
 
-	/* Check for low watermark condition */
-	if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 1);
-#ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
-#endif
+	odp_atomic_store_u32(&pool->cons_tail, cons_next);
+
+	if (POOL_HAS_LOCAL_CACHE) {
+		/* Check for low watermark condition */
+		uint32_t bufcount = prod_tail - cons_next;
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
+
+		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 1);
+		}
 	}
 
-#ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->poolstats.bufallocs);
-#endif
-	myhead->allocator = odp_thread_id();
-
-	return (void *)myhead;
+	return n_bufs;
 }
 
-static inline void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buf)
+static inline void ret_buf(struct pool_entry_s *pool,
+			   odp_buffer_hdr_t *buffers[],
+			   const unsigned n_buffers)
 {
-	if (!buf->flags.hdrdata && buf->type != ODP_EVENT_BUFFER) {
-		if (buf->segcount > 0) {
-			if (buffer_is_secure(buf) || pool_is_secure(pool))
-				memset(buf->addr,
-				       0, buf->segsize);
+	__builtin_k1_wpurge();
+	uint32_t prod_head, cons_tail, prod_next;
+
+	do {
+		prod_head =  odp_atomic_load_u32(&pool->prod_head);
+
+		prod_next = prod_head + n_buffers;
+		if(prod_next > pool->buf_num)
+			prod_next = prod_next - (pool->buf_num + 1);
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->prod_head, &prod_head,
+						      prod_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			cons_tail = odp_atomic_load_u32(&pool->cons_tail);
+			break;
+
+		}
+	} while(1);
+
+	for (unsigned i = 0, idx = prod_head; i < n_buffers; ++i, ++idx) {
+		if(odp_unlikely(idx > pool->buf_num))
+			idx = idx - (pool->buf_num + 1);
+
+		STORE_PTR(pool->buf_ptrs[idx], buffers[i]);
+	}
+	while (odp_atomic_load_u32(&pool->prod_tail) != prod_head)
+		odp_spin();
+
+	odp_atomic_store_u32(&pool->prod_tail, prod_next);
+
+	if(POOL_HAS_LOCAL_CACHE) {
+		/* Check if low watermark condition should be deasserted */
+		uint32_t bufcount = (prod_next - cons_tail);
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
+
+		if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 0);
 		}
 	}
-
-	buf->allocator = ODP_FREEBUF;  /* Mark buffer free */
-	__builtin_k1_wpurge();
-
-	odp_buffer_hdr_t *myhead, *prevhead;
-	myhead = LOAD_PTR(pool->buf_freelist);
-	while(1) {
-		STORE_PTR(buf->next, myhead);
-		prevhead = CAS_PTR(&pool->buf_freelist, buf, myhead);
-		if(myhead == prevhead)
-			break;
-		myhead = prevhead;
-	}
-	uint64_t bufcount = odp_atomic_fetch_add_u32(&pool->bufcount, 1) + 1;
-
-	/* Check if low watermark condition should be deasserted */
-	if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
-		STORE_U32(pool->low_wm_assert, 0);
-#ifdef POOL_STATS
-		odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
-#endif
-	}
-
-#ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->poolstats.buffrees);
-#endif
 }
 
 static inline void *get_local_buf(local_cache_t *buf_cache,
@@ -256,11 +269,6 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 		if (odp_unlikely(buf->size < totsize)) {
 			return NULL;
 		}
-
-#ifdef POOL_STATS
-		buf_cache->bufallocs++;
-#endif
-		buf->allocator = odp_thread_id();  /* Mark buffer allocated */
 	}
 
 	return buf;
@@ -269,13 +277,8 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 static inline void ret_local_buf(local_cache_t *buf_cache,
 				odp_buffer_hdr_t *buf)
 {
-	buf->allocator = ODP_FREEBUF;
 	buf->next = buf_cache->buf_freelist;
 	buf_cache->buf_freelist = buf;
-
-#ifdef POOL_STATS
-	buf_cache->buffrees++;
-#endif
 }
 
 static inline void flush_cache(local_cache_t *buf_cache,
@@ -283,22 +286,21 @@ static inline void flush_cache(local_cache_t *buf_cache,
 {
 	odp_buffer_hdr_t *buf = buf_cache->buf_freelist;
 	uint32_t flush_count = 0;
+	odp_buffer_hdr_t *bufs[POOL_MULTI_MAX];
+	int n_bufs = 0;
 
 	while (buf != NULL) {
 		odp_buffer_hdr_t *next = buf->next;
-		ret_buf(pool, buf);
+		bufs[n_bufs++] = buf;
+		if(n_bufs == POOL_MULTI_MAX) {
+			ret_buf(pool, bufs, n_bufs);
+			n_bufs = 0;
+		}
 		buf = next;
 		flush_count++;
 	}
-
-#ifdef POOL_STATS
-	odp_atomic_add_u64(&pool->poolstats.bufallocs, buf_cache->bufallocs);
-	odp_atomic_add_u64(&pool->poolstats.buffrees,
-			   buf_cache->buffrees - flush_count);
-
-	buf_cache->bufallocs = 0;
-	buf_cache->buffrees = 0;
-#endif
+	if(n_bufs)
+		ret_buf(pool, bufs, n_bufs);
 
 	buf_cache->buf_freelist = NULL;
 }

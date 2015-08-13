@@ -58,7 +58,7 @@ static const char SHM_DEFAULT_NAME[] = "odp_buffer_pools";
 void *pool_entry_ptr[ODP_CONFIG_POOLS];
 
 /* Local cache for buffer alloc/free acceleration */
-static __thread local_cache_t local_cache[ODP_CONFIG_POOLS];
+static __thread local_cache_t local_cache[POOL_HAS_LOCAL_CACHE * ODP_CONFIG_POOLS];
 
 int odp_pool_init_global(void)
 {
@@ -84,20 +84,7 @@ int odp_pool_init_global(void)
 		POOL_LOCK_INIT(&pool->s.blk_lock);
 		pool->s.pool_id = i;
 		pool_entry_ptr[i] = pool;
-		odp_atomic_init_u32(&pool->s.bufcount, 0);
 		odp_atomic_init_u32(&pool->s.blkcount, 0);
-
-#ifdef POOL_STATS
-		/* Initialize pool statistics counters */
-		odp_atomic_init_u64(&pool->s.poolstats.bufallocs, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.buffrees, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.blkallocs, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.blkfrees, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.bufempty, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.blkempty, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.high_wm_count, 0);
-		odp_atomic_init_u64(&pool->s.poolstats.low_wm_count, 0);
-#endif
 	}
 
 	ODP_DBG("\nPool init global\n");
@@ -261,7 +248,7 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		}
 
 		/* found free pool */
-		size_t block_size, pad_size, mdata_size, udata_size;
+		size_t block_size, pad_size, mdata_size, udata_size, ring_size;
 
 		pool->s.flags.all = 0;
 
@@ -284,9 +271,10 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pad_size = ODP_CACHE_LINE_SIZE_ROUNDUP(block_size) - block_size;
 		mdata_size = buf_num * buf_stride;
 		udata_size = buf_num * udata_stride;
-
+		ring_size = (buf_num + 1) * sizeof(void*);
 		pool->s.buf_num   = buf_num;
-		pool->s.pool_size = ODP_PAGE_SIZE_ROUNDUP(block_size +
+		pool->s.pool_size = ODP_PAGE_SIZE_ROUNDUP(ring_size +
+							  block_size +
 							  pad_size +
 							  mdata_size +
 							  udata_size);
@@ -309,7 +297,8 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pool->s.seg_size = unseg ? blk_size : seg_len;
 		pool->s.blk_size = blk_size;
 
-		uint8_t *block_base_addr = pool->s.pool_base_addr;
+		odp_buffer_hdr_t **ring_base_addr = (odp_buffer_hdr_t**)pool->s.pool_base_addr;
+		uint8_t *block_base_addr = ((uint8_t*)ring_base_addr) + ring_size;
 		uint8_t *mdata_base_addr =
 			block_base_addr + block_size + pad_size;
 		uint8_t *udata_base_addr = mdata_base_addr + mdata_size;
@@ -319,11 +308,15 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		pool->s.udata_size = p_udata_size;
 
 		pool->s.buf_stride = buf_stride;
-		pool->s.buf_freelist = NULL;
 		pool->s.blk_freelist = NULL;
 
+		pool->s.buf_ptrs = ring_base_addr;
+		odp_atomic_init_u32(&pool->s.prod_head, 0);
+		odp_atomic_init_u32(&pool->s.prod_tail, 0);
+		odp_atomic_init_u32(&pool->s.cons_head, 0);
+		odp_atomic_init_u32(&pool->s.cons_tail, 0);
+
 		/* Initialization will increment these to their target vals */
-		odp_atomic_store_u32(&pool->s.bufcount, 0);
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
 
 		uint8_t *buf = udata_base_addr - buf_stride;
@@ -338,7 +331,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 				(odp_buffer_hdr_t *)(void *)buf;
 
 			/* Iniitalize buffer metadata */
-			tmp->allocator = ODP_FREEBUF;
 			tmp->flags.all = 0;
 			tmp->flags.zeroized = zeroized;
 			tmp->size = pool->s.seg_size;
@@ -355,23 +347,11 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			tmp->addr = blk;
 
 			/* Push buffer onto pool's freelist */
-			ret_buf(&pool->s, tmp);
+			ret_buf(&pool->s, &tmp, 1);
 			buf  -= buf_stride;
 			udat -= udata_stride;
 			blk -= pool->s.seg_size;
 		} while (buf >= mdata_base_addr && blk >= block_base_addr);
-
-#ifdef POOL_STATS
-		/* Initialize pool statistics counters */
-		odp_atomic_store_u64(&pool->s.poolstats.bufallocs, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.buffrees, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.blkallocs, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.blkfrees, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.bufempty, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.blkempty, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.high_wm_count, 0);
-		odp_atomic_store_u64(&pool->s.poolstats.low_wm_count, 0);
-#endif
 
 		/* Reset other pool globals to initial state */
 		pool->s.low_wm_assert = 0;
@@ -442,10 +422,12 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	}
 
 	/* Make sure local cache is empty */
-	flush_cache(&local_cache[pool->s.pool_id], &pool->s);
+	if(POOL_HAS_LOCAL_CACHE)
+		flush_cache(&local_cache[pool->s.pool_id], &pool->s);
 
 	/* Call fails if pool has allocated buffers */
-	if (odp_atomic_load_u32(&pool->s.bufcount) < pool->s.buf_num) {
+	uint32_t bufcount = odp_atomic_load_u32(&pool->s.prod_tail) - odp_atomic_load_u32(&pool->s.cons_tail);
+	if (bufcount < pool->s.buf_num) {
 		POOL_UNLOCK(&pool->s.lock);
 		return -1;
 	}
@@ -461,7 +443,7 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
-	odp_anybuf_t *buf;
+	odp_anybuf_t *buf = NULL;
 
 	/* Reject oversized allocation requests */
 	if ((pool->s.flags.unsegmented && totsize > pool->s.seg_size) ||
@@ -470,14 +452,15 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 		return ODP_BUFFER_INVALID;
 
 	/* Try to satisfy request from the local cache */
-	buf = (odp_anybuf_t *)(void *)
-		get_local_buf(&local_cache[pool->s.pool_id], &pool->s, totsize);
+	if(POOL_HAS_LOCAL_CACHE)
+		buf = (odp_anybuf_t *)(void *)
+			get_local_buf(&local_cache[pool->s.pool_id], &pool->s, totsize);
 
 	/* If cache is empty, satisfy request from the pool */
 	if (odp_unlikely(buf == NULL)) {
-		buf = (odp_anybuf_t *)(void *)get_buf(&pool->s);
+		int n_buf = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)&buf, 1);
 
-		if (odp_unlikely(buf == NULL))
+		if (odp_unlikely(n_buf == 0))
 			return ODP_BUFFER_INVALID;
 
 		/* Get blocks for this buffer, if pool uses application data */
@@ -506,8 +489,8 @@ void odp_buffer_free(odp_buffer_t buf)
 	odp_buffer_hdr_t *buf_hdr = odp_buf_to_hdr(buf);
 	pool_entry_t *pool = odp_buf_to_pool(buf_hdr);
 
-	if (odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
-		ret_buf(&pool->s, buf_hdr);
+	if (!POOL_HAS_LOCAL_CACHE || odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
+		ret_buf(&pool->s, &buf_hdr, 1);
 	else
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
 }
@@ -515,10 +498,11 @@ void odp_buffer_free(odp_buffer_t buf)
 void _odp_flush_caches(void)
 {
 	int i;
-
-	for (i = 0; i < ODP_CONFIG_POOLS; i++) {
-		pool_entry_t *pool = get_pool_entry(i);
-		flush_cache(&local_cache[i], &pool->s);
+	if (POOL_HAS_LOCAL_CACHE) {
+		for (i = 0; i < ODP_CONFIG_POOLS; i++) {
+			pool_entry_t *pool = get_pool_entry(i);
+			flush_cache(&local_cache[i], &pool->s);
+		}
 	}
 }
 
@@ -526,29 +510,8 @@ void odp_pool_print(odp_pool_t pool_hdl)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 
-	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.bufcount);
+	uint32_t bufcount  = odp_atomic_load_u32(&pool->s.prod_tail) - odp_atomic_load_u32(&pool->s.cons_tail);
 	uint32_t blkcount  = odp_atomic_load_u32(&pool->s.blkcount);
-#ifdef POOL_STATS
-	uint64_t bufallocs = odp_atomic_load_u64(&pool->s.poolstats.bufallocs);
-	uint64_t buffrees  = odp_atomic_load_u64(&pool->s.poolstats.buffrees);
-	uint64_t blkallocs = odp_atomic_load_u64(&pool->s.poolstats.blkallocs);
-	uint64_t blkfrees  = odp_atomic_load_u64(&pool->s.poolstats.blkfrees);
-	uint64_t bufempty  = odp_atomic_load_u64(&pool->s.poolstats.bufempty);
-	uint64_t blkempty  = odp_atomic_load_u64(&pool->s.poolstats.blkempty);
-	uint64_t hiwmct    =
-		odp_atomic_load_u64(&pool->s.poolstats.high_wm_count);
-	uint64_t lowmct    =
-		odp_atomic_load_u64(&pool->s.poolstats.low_wm_count);
-#else
-	uint64_t bufallocs = 0;
-	uint64_t buffrees  = 0;
-	uint64_t blkallocs = 0;
-	uint64_t blkfrees  = 0;
-	uint64_t bufempty  = 0;
-	uint64_t blkempty  = 0;
-	uint64_t hiwmct    = 0;
-	uint64_t lowmct    = 0;
-#endif
 
 	ODP_DBG("Pool info\n");
 	ODP_DBG("---------\n");
@@ -590,18 +553,10 @@ void odp_pool_print(odp_pool_t pool_hdl)
 	ODP_DBG(" bufs available  %u %s\n", bufcount,
 		pool->s.low_wm_assert ? " **low wm asserted**" : "");
 	ODP_DBG(" bufs in use     %u\n",  pool->s.buf_num - bufcount);
-	ODP_DBG(" buf allocs      %lu\n", bufallocs);
-	ODP_DBG(" buf frees       %lu\n", buffrees);
-	ODP_DBG(" buf empty       %lu\n", bufempty);
 	ODP_DBG(" blk size        %zu\n", pool->s.seg_size);
 	ODP_DBG(" blks available  %u\n",  blkcount);
-	ODP_DBG(" blk allocs      %lu\n", blkallocs);
-	ODP_DBG(" blk frees       %lu\n", blkfrees);
-	ODP_DBG(" blk empty       %lu\n", blkempty);
 	ODP_DBG(" high wm value   %lu\n", pool->s.high_wm);
-	ODP_DBG(" high wm count   %lu\n", hiwmct);
 	ODP_DBG(" low wm value    %lu\n", pool->s.low_wm);
-	ODP_DBG(" low wm count    %lu\n", lowmct);
 }
 
 
