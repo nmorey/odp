@@ -77,20 +77,6 @@ typedef struct local_cache_t {
 #define POOL_LOCK_INIT(a) odp_spinlock_init(a)
 #endif
 
-/**
- * ODP Pool stats - Maintain some useful stats regarding pool utilization
- */
-typedef struct {
-	odp_atomic_u64_t bufallocs;     /**< Count of successful buf allocs */
-	odp_atomic_u64_t buffrees;      /**< Count of successful buf frees */
-	odp_atomic_u64_t blkallocs;     /**< Count of successful blk allocs */
-	odp_atomic_u64_t blkfrees;      /**< Count of successful blk frees */
-	odp_atomic_u64_t bufempty;      /**< Count of unsuccessful buf allocs */
-	odp_atomic_u64_t blkempty;      /**< Count of unsuccessful blk allocs */
-	odp_atomic_u64_t high_wm_count; /**< Count of high wm conditions */
-	odp_atomic_u64_t low_wm_count;  /**< Count of low wm conditions */
-} _odp_pool_stats_t;
-
 struct pool_entry_s {
 #ifdef POOL_USE_TICKETLOCK
 	odp_ticketlock_t        lock ODP_ALIGNED_CACHE;
@@ -134,9 +120,6 @@ struct pool_entry_s {
 
 	void                   *blk_freelist;
 	odp_atomic_u32_t        blkcount;
-#ifdef POOL_STATS
-	_odp_pool_stats_t       poolstats;
-#endif
 	uint32_t                buf_num;
 	uint32_t                seg_size;
 	uint32_t                blk_size;
@@ -177,9 +160,6 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 		prod_tail = odp_atomic_load_u32(&pool->prod_tail);
 		/* No Buf available */
 		if(cons_head == prod_tail){
-#ifdef POOL_STATS
-			odp_atomic_inc_u64(&pool->poolstats.bufempty);
-#endif
 			return 0;
 		}
 
@@ -224,15 +204,8 @@ static inline int get_buf_multi(struct pool_entry_s *pool,
 
 		if (bufcount == pool->low_wm && !LOAD_U32(pool->low_wm_assert)) {
 			STORE_U32(pool->low_wm_assert, 1);
-#ifdef POOL_STATS
-			odp_atomic_inc_u64(&pool->poolstats.low_wm_count);
-#endif
 		}
 	}
-
-#ifdef POOL_STATS
-	odp_atomic_add_u32(&pool->poolstats.bufallocs, n_bufs);
-#endif
 
 	return n_bufs;
 }
@@ -280,14 +253,8 @@ static inline void ret_buf(struct pool_entry_s *pool,
 
 		if (bufcount == pool->high_wm && LOAD_U32(pool->low_wm_assert)) {
 			STORE_U32(pool->low_wm_assert, 0);
-#ifdef POOL_STATS
-			odp_atomic_inc_u64(&pool->poolstats.high_wm_count);
-#endif
 		}
 	}
-#ifdef POOL_STATS
-	odp_atomic_inc_u64(&pool->poolstats.buffrees);
-#endif
 }
 
 static inline void *get_local_buf(local_cache_t *buf_cache,
@@ -302,10 +269,6 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 		if (odp_unlikely(buf->size < totsize)) {
 			return NULL;
 		}
-
-#ifdef POOL_STATS
-		buf_cache->bufallocs++;
-#endif
 	}
 
 	return buf;
@@ -316,10 +279,6 @@ static inline void ret_local_buf(local_cache_t *buf_cache,
 {
 	buf->next = buf_cache->buf_freelist;
 	buf_cache->buf_freelist = buf;
-
-#ifdef POOL_STATS
-	buf_cache->buffrees++;
-#endif
 }
 
 static inline void flush_cache(local_cache_t *buf_cache,
@@ -342,14 +301,6 @@ static inline void flush_cache(local_cache_t *buf_cache,
 	}
 	if(n_bufs)
 		ret_buf(pool, bufs, n_bufs);
-#ifdef POOL_STATS
-	odp_atomic_add_u64(&pool->poolstats.bufallocs, buf_cache->bufallocs);
-	odp_atomic_add_u64(&pool->poolstats.buffrees,
-			   buf_cache->buffrees - flush_count);
-
-	buf_cache->bufallocs = 0;
-	buf_cache->buffrees = 0;
-#endif
 
 	buf_cache->buf_freelist = NULL;
 }
