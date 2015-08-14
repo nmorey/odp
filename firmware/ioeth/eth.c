@@ -107,19 +107,17 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
 	/* Configure dispatcher so that the defaulat "MATCH ALL" also
 	 * sends packet to our cluster */
-	mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
-						  ETH_MATCHALL_TABLE_ID,
-						  data.ifId, 1);
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
 						  ETH_MATCHALL_TABLE_ID,
-						  data.ifId, nocIf, nocTx,
+						  data.ifId, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 
 	/* Now deal with Tx */
 	unsigned rx_port;
-	ret = mppa_noc_dnoc_rx_alloc_auto(data.ifId, &rx_port, MPPA_NOC_NON_BLOCKING);
+	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
 	if(ret)
 		goto open_err;
+
 	mppa_dnoc_queue_event_it_target_t it_targets = {
 		.reg = 0
 	};
@@ -170,7 +168,7 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 	/* Deconfigure DMA/Tx in the RR bitmask */
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
 						  ETH_MATCHALL_TABLE_ID,
-						  data.ifId, nocIf, nocTx,
+						  data.ifId, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 	/* Close the Tx */
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
@@ -199,6 +197,10 @@ void eth_init(void)
 					    ifId, MPPABETHLB_ADD_FOOTER);
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
 						   0, 0, MPPABETHLB_DISPATCH_POLICY_RR);
+		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
+							  ETH_MATCHALL_TABLE_ID,
+							  ifId, 1);
+
 	}
 }
 
