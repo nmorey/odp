@@ -82,8 +82,12 @@ configs = (options["configs"].split(" ")).uniq
 configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
-artifacts = File.expand_path(options["output-dir"])
-artifacts = File.join(workspace,"artifacts") if(options["output-dir"].empty?)
+
+if options["output-dir"] != nil then
+    artifacts = File.expand_path(options["output-dir"])
+else
+    artifacts = File.join(workspace,"artifacts")
+end
 mkdir_p artifacts unless File.exists?(artifacts)
 
 b.target("build") do
