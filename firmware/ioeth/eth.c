@@ -180,7 +180,10 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 }
 void eth_init(void)
 {
-	init_mac();
+
+	for (int ifId = 0; ifId < 4; ++ifId) {
+		init_mac(ifId);
+	}
 
 	/* "MATCH_ALL" Rule */
 	mppabeth_lb_cfg_rule((void *)&(mppa_ethernet[0]->lb),
