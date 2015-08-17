@@ -463,6 +463,7 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	    ODP_PKTIO_MAX_PKT_COUNT) {
 		return 1;
 	}
+
 	/* Get and configure route */
 #ifdef __k1a__
 	config.word = 0;
@@ -483,8 +484,8 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	config._.bw_slow_delay     = 0x00;
 #endif
 
-
 	header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
+	header._.valid = 1;
 
 	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
 						   pktio_clus->clus_id,
