@@ -824,7 +824,8 @@ endef
 
 # Generate simulator command line
 define gen_sim_test_cmd
-$(1)_$(2)_runner_opts += $(if $($(1)-multibinary),--multibinary=$($(1)-multibinary),) $(__sim_$(3)_clus_opt) --
+$(1)_$(2)_runner_opts += $(__sim_$(3)_clus_opt) --
+$(1)-$(2)-cmd = $(if $($(1)-multibinary),$($(1)-multibinary) $(wordlist 2, $(words $($(1)-$(2)-cmd)), $($(1)-$(2)-cmd)),$($(1)-$(2)-cmd))
 endef
 
 # Generate command lines for sim and jtag tests
