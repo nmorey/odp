@@ -77,8 +77,7 @@ AS_CASE([$host],
   [k1*-nodeos*], [OS=nodeos],
   [k1*-mos*],    [OS=mos],
   [k1*-rtems*],  [OS=rtems],
-  [*],           [AM_LDFLAGS="$AM_LDFLAGS  -pthread -lrt"
-  				  OS=linux]
+  [*],           [OS=linux]
 )
 AS_CASE([$host],
   [k1*simu], [k1_hw=no
@@ -148,16 +147,6 @@ AC_ARG_ENABLE([cunit_support],
     fi])
 
 ##########################################################################
-# Enable/disable crypto support
-##########################################################################
-crypto=yes
-AC_ARG_ENABLE([crypto],
-    [  --disable-crypto        disable crypto support],
-    [if test x$enableval = xno; then
-        crypto=no
-    fi])
-
-##########################################################################
 # Setup doxygen documentation
 ##########################################################################
 DX_HTML_FEATURE(ON)
@@ -200,8 +189,6 @@ AC_ARG_ENABLE([test-helper],
     fi])
 
 AM_CONDITIONAL([test_helper], [test x$test_helper = xyes ])
-
-##########################################################################
 
 ##########################################################################
 # Enable/disable test-cpp
@@ -264,15 +251,28 @@ fi
 AM_CONDITIONAL([HAVE_DOXYGEN], [test "x${DOXYGEN}" = "xdoxygen"])
 
 ##########################################################################
-# Set optional OpenSSL path
+# Check for asciidoc availability
 ##########################################################################
-AC_ARG_WITH([openssl-path],
-AC_HELP_STRING([--with-openssl-path=DIR path to openssl libs and headers],
-               [(or in the default path if not specified).]),
-    [OPENSSL_PATH=$withval
-    AM_CPPFLAGS="$AM_CPPFLAGS -I$OPENSSL_PATH/include"
-    AM_LDFLAGS="$AM_LDFLAGS -L$OPENSSL_PATH/lib"
-    ],[])
+AC_CHECK_PROGS([ASCIIDOC], [asciidoc])
+if test -z "$ASCIIDOC";
+   then AC_MSG_WARN([asciidoc not found - continuing without asciidoc support])
+fi
+
+##########################################################################
+# Enable/disable user guide generation
+##########################################################################
+user_guides=no
+AC_ARG_ENABLE([user-guides],
+    [  --enable-user-guides    generate supplemental users guides],
+    [if test "x$enableval" = "xyes"; then
+        if test -z "$ASCIIDOC";
+           then AC_MSG_ERROR([cannot generate user guides without asciidoc])
+        else
+           user_guides=yes
+        fi
+    fi])
+
+AM_CONDITIONAL([user_guide], [test "x${user_guides}" = "xyes" ])
 
 ##########################################################################
 # Save and set temporary compilation flags
@@ -298,27 +298,6 @@ fi
 AM_CONDITIONAL([cunit_support], [test x$cunit_support = xyes ])
 
 ##########################################################################
-# Check for OpenSSL availability
-##########################################################################
-if test x$crypto = xyes
-then
-    AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-        [crypto=no])
-    AC_CHECK_HEADERS([openssl/des.h openssl/rand.h openssl/hmac.h openssl/evp.h], [],
-        [crypto=no])
-else
-    crypto=no
-fi
-
-AM_CONDITIONAL([crypto], [test x$crypto = xyes])
-
-if test x$crypto = xno
-then
-    AM_CPPFLAGS="$AM_CPPFLAGS -DNO_CRYPTO"
-    AM_CFLAGS="$AM_CFLAGS -DNO_CRYPTO"
-fi
-
-##########################################################################
 # Restore old saved variables
 ##########################################################################
 LDFLAGS=$OLD_LDFLAGS
@@ -341,6 +320,7 @@ AM_CXXFLAGS="-std=c++11"
 
 AC_CONFIG_FILES([Makefile
 		 doc/Makefile
+		 doc/implementers-guide/Makefile
 		 example/Makefile
 		 example/classifier/Makefile
 		 example/generator/Makefile
@@ -351,10 +331,6 @@ AC_CONFIG_FILES([Makefile
 		 helper/test/Makefile
 		 pkgconfig/libodp.pc
 		 pkgconfig/libodphelper.pc
-		 platform/linux-generic/Makefile
-		 platform/mppa/Makefile
-		 platform/linux-generic/test/pktio/Makefile
-		 platform/mppa/test/pktio/Makefile
 		 scripts/Makefile
 		 test/Makefile
 		 test/api_test/Makefile
@@ -421,7 +397,6 @@ AC_MSG_RESULT([
 	am_ldflags:		${AM_LDFLAGS}
 	libs:			${LIBS}
 	cunit:			${cunit_support}
-	crypto:			${crypto}
 	test_vald:		${test_vald}
 	test_perf:		${test_perf}
 	test_cpp:		${test_cpp}

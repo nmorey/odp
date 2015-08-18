@@ -25,6 +25,11 @@ How to build:
     To execute all the testcases, assuming CUnit is installed for the validation tests:
         make valid
 
+    To generate the users guides:
+        ./bootstrap
+        ./configure --enable-user-guide
+        make
+
 Patches tracking system:
     http://patches.opendataplane.org/project/lng-odp/list/
 
