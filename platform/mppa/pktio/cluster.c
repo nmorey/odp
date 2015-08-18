@@ -12,26 +12,16 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
-/* FIXME when noc is ready */
-#ifdef __k1a__
-#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, 0, 0, NULL}
-#else
-#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, {0}, {0}, NULL, NULL}
-#endif
-
 #include <unistd.h>
 
 #define DNOC_CLUS_BASE_RX	0
-#define DNOC_CLUS_TX_ID		0
-#define DNOC_CLUS_UC_ID		0
 
 #define CNOC_CLUS_SYNC_RX_ID	16
-#define CNOC_CLUS_TX_ID		0
 #define CNOC_CLUS_BASE_RX_ID	0
 
 #define NOC_CLUS_IFACE_ID	0
 
-#define NOC_UC_COUNT		4
+#define NOC_UC_COUNT		2
 
 #define NOC_IODDR0_ID		128
 
@@ -65,7 +55,10 @@ static uint8_t *g_pkt_recv_buf[BSP_NB_CLUSTER_MAX];
 /**
  * UCore status
  */
-static volatile unsigned int g_uc_is_running[NOC_UC_COUNT] = {0};
+static unsigned int g_uc_is_running[NOC_UC_COUNT] = {0};
+static unsigned int g_dnoc_tx_id[NOC_UC_COUNT] = {0};
+static unsigned int g_dnoc_uc_id[NOC_UC_COUNT] = {0};
+static unsigned int g_cnoc_tx_id = 0;
 
 /**
  * Fill the list of available clusters
@@ -196,7 +189,7 @@ extern char _heap_start, _heap_end;
 
 static int cluster_init_noc_tx(void)
 {
-	int tx_id, uc_id, i;
+	int i;
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
@@ -205,29 +198,28 @@ static int cluster_init_noc_tx(void)
 	uc_conf.buffer_size = &_heap_end - &_heap_start;
 
 	for (i = 0; i < NOC_UC_COUNT; i++) {
-		tx_id = DNOC_CLUS_TX_ID + i;
-		uc_id = DNOC_CLUS_UC_ID + i;
-		/* We will only use events */
-		mppa_noc_disable_interrupt_handler(NOC_CLUS_IFACE_ID,
-			MPPA_NOC_INTERRUPT_LINE_DNOC_TX, tx_id);
 
 		/* DNoC */
-		ret = mppa_noc_dnoc_tx_alloc(NOC_CLUS_IFACE_ID, tx_id);
+		ret = mppa_noc_dnoc_tx_alloc_auto(NOC_CLUS_IFACE_ID, &g_dnoc_tx_id[i], MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
-		ret = mppa_noc_dnoc_uc_alloc(NOC_CLUS_IFACE_ID, uc_id);
+		/* We will only use events */
+		mppa_noc_disable_interrupt_handler(NOC_CLUS_IFACE_ID,
+			MPPA_NOC_INTERRUPT_LINE_DNOC_TX, g_dnoc_tx_id[i]);
+
+		ret = mppa_noc_dnoc_uc_alloc_auto(NOC_CLUS_IFACE_ID, &g_dnoc_uc_id[i], MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
-		ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, uc_id,
-					    tx_id, uc_conf);
+		ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, g_dnoc_uc_id[i],
+					    g_dnoc_tx_id[i], uc_conf);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 	}
 
 	/* CnoC */
-	ret = mppa_noc_cnoc_tx_alloc(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID);
+	ret = mppa_noc_cnoc_tx_alloc_auto(NOC_CLUS_IFACE_ID, &g_cnoc_tx_id, MPPA_NOC_BLOCKING);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -249,7 +241,7 @@ static int cluster_configure_cnoc_tx(int clus_id, int tag)
 
 	header._.tag = tag;
 
-	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, g_cnoc_tx_id,
 					  config, header);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
@@ -264,7 +256,7 @@ static int cluster_io_sync(void)
 	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID, CNOC_CLUS_SYNC_RX_ID) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, value);
+	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, g_cnoc_tx_id, value);
 
 	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
 
@@ -339,7 +331,7 @@ static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + __k1_get_cluster_id()) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, g_cnoc_tx_id,
 			      pktio_clus->recv_pkt_count);
 
 	return 0;
@@ -518,11 +510,11 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 		/* FIXME asynchronous */
 		mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID,
 					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-					  DNOC_CLUS_TX_ID + tx_index);
+					  g_dnoc_tx_id[tx_index]);
 	}
 	
 
-	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID + tx_index,
+	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, g_dnoc_uc_id[tx_index],
 					  uc_conf, header, config
 #ifdef __k1a__
 		, event_line
@@ -531,7 +523,7 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID + tx_index,
+	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, g_dnoc_uc_id[tx_index],
 					 program_run);
 
 	g_uc_is_running[tx_index] = 1;
