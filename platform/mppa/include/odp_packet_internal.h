@@ -71,7 +71,7 @@ _ODP_STATIC_ASSERT(sizeof(input_flags_t) == sizeof(uint32_t),
  */
 typedef union {
 	/* All error flags */
-	uint32_t all;
+	uint16_t all;
 
 	struct {
 		/* Bitfield flags for each detected error */
@@ -93,7 +93,7 @@ _ODP_STATIC_ASSERT(sizeof(error_flags_t) == sizeof(uint32_t),
  */
 typedef union {
 	/* All output flags */
-	uint32_t all;
+	uint16_t all;
 
 	struct {
 		/* Bitfield flags for each output option */
@@ -118,21 +118,21 @@ typedef struct {
 	error_flags_t  error_flags;
 	output_flags_t output_flags;
 
-	uint32_t l2_offset; /**< offset to L2 hdr, e.g. Eth */
-	uint32_t l3_offset; /**< offset to L3 hdr, e.g. IPv4, IPv6 */
-	uint32_t l4_offset; /**< offset to L4 hdr (TCP, UDP, SCTP, also ICMP) */
-	uint32_t payload_offset; /**< offset to payload */
+	uint16_t l2_offset; /**< offset to L2 hdr, e.g. Eth */
+	uint16_t l3_offset; /**< offset to L3 hdr, e.g. IPv4, IPv6 */
+	uint16_t l4_offset; /**< offset to L4 hdr (TCP, UDP, SCTP, also ICMP) */
+	uint16_t payload_offset; /**< offset to payload */
 
-	uint32_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
-	uint32_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
-	uint32_t l3_protocol;    /**< Parsed L3 protocol */
-	uint32_t l3_len;         /**< Layer 3 length */
-	uint32_t l4_protocol;    /**< Parsed L4 protocol */
-	uint32_t l4_len;         /**< Layer 4 length */
+	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
+	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
+	uint16_t l3_protocol;    /**< Parsed L3 protocol */
+	uint16_t l3_len;         /**< Layer 3 length */
+	uint16_t l4_protocol;    /**< Parsed L4 protocol */
+	uint16_t l4_len;         /**< Layer 4 length */
 
-	uint32_t frame_len;
-	uint32_t headroom;
-	uint32_t tailroom;
+	uint16_t frame_len;
+	uint16_t headroom;
+	uint16_t tailroom;
 
 	odp_pktio_t input;
 
