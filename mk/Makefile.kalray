@@ -37,21 +37,21 @@ DEFAULT_DYN_CFLAGS      := -fPIC -fno-builtin -fno-stack-check -g0
 ################################################################################
 
 ifeq ($(strip $(K1_TOOLCHAIN_DIR)),)
-  $(error K1_TOOLCHAIN_DIR is not set)
+  dummy := $(error K1_TOOLCHAIN_DIR is not set)
 endif
 
 ifneq ($(NO_TOOLS_CHECK),1)
   ifeq ($(wildcard $(K1CC)),)
-	$(error Can not find K1CC: $(K1CC))
+    dummy := $(error Can not find K1CC: $(K1CC))
   endif
   ifeq ($(wildcard $(K1CXX)),)
-	$(error Can not find K1CXX: $(K1CXX))
+    dummy := $(error Can not find K1CXX: $(K1CXX))
   endif
   ifeq ($(wildcard $(K1FC)),)
-	$(error Can not find K1FC: $(K1FC))
+    dummy := $(error Can not find K1FC: $(K1FC))
   endif
   ifeq ($(wildcard $(CREATE_MULTIBIN)),)
-	$(error Can not find CREATE_MULTIBIN: $(CREATE_MULTIBIN))
+    dummy := $(error Can not find CREATE_MULTIBIN: $(CREATE_MULTIBIN))
   endif
 endif
 
@@ -603,13 +603,13 @@ define k1_useobjs_rules
 # FIXME: error when inherited binary does not exist
 $(1)_inherited_bin := $($(1)-use-objs)
 
-k1_objslist += $(BUILD_DIR)/$(1)
+k1_objslist += $(BIN_DIR)/$(1)
 
-$(BUILD_DIR)/$(1): $$($$($(1)_inherited_bin)_cobjs) $$($$($(1)_inherited_bin)_sobjs) $$($$($(1)_inherited_bin)_cppobjs) $$($$($(1)_inherited_bin)_fobjs) FORCE
+$(BIN_DIR)/$(1): $$($$($(1)_inherited_bin)_cobjs) $$($$($(1)_inherited_bin)_sobjs) $$($$($(1)_inherited_bin)_cppobjs) $$($$($(1)_inherited_bin)_fobjs) FORCE
 	$$(call build_if_changed,k1_useobjs,$(2),$(1),$$($(1)_inherited_bin))
 
 PHONY += $(1)
-$(1): $(BUILD_DIR)/$(1) FORCE
+$(1): $(BIN_DIR)/$(1) FORCE
 
 endef
 
@@ -798,7 +798,7 @@ __$(1)_rem_$(2)_remote_outfile := $(if $($(1)-$(2)-remote-output-files),--downlo
 __$(1)_rem_multibinary := $(if $($(1)-multibinary),--multibinary $($(1)-multibinary),--nomultibinary)
 
 $(1)_rem_$(2)_runner_opts := $$(__$(1)_rem_$(2)_remote_infile) $$(__$(1)_rem_$(2)_remote_outfile)
-$(1)-rem_$(2)_runner_opts += $$(__$(1)_rem_multibinary) $$(__$(1)_rem_$(2)_exec) --
+$(1)_rem_$(2)_runner_opts += $$(__$(1)_rem_multibinary) $$(__$(1)_rem_$(2)_exec) --
 $(1)-rem_$(2)-timeout := $($(1)-$(2)-timeout)
 $(1)-rem_$(2)-cmd := $($(1)-$(2)-cmd)
 
@@ -818,14 +818,13 @@ define gen_jtag_test_cmd
 $(1)-$(2)-node-exec ?= $(4)
 
 $(1)_$(2)_runner_opts := $(if $($(1)-multibinary),--multibinary=$($(1)-multibinary))
-$(1)_$(2)_runner_opts += --exec-$(if $($(1)-multibinary),multibinary,file)=$(3):$(firstword $($(1)-$(2)-cmd)) -- 
+$(1)_$(2)_runner_opts += --exec-$(if $($(1)-multibinary),multibin,file)=$(3):$(firstword $($(1)-$(2)-cmd)) -- 
 $(1)-$(2)-cmd = $(wordlist 2, $(words $($(1)-$(2)-cmd)), $($(1)-$(2)-cmd))
 endef
 
 # Generate simulator command line
 define gen_sim_test_cmd
-$(1)_$(2)_runner_opts += --
-$(1)-$(2)-cmd = $(if $($(1)-multibinary),$($(1)-multibinary) $(wordlist 2, $(words $($(1)-$(2)-cmd)), $($(1)-$(2)-cmd)),$($(1)-$(2)-cmd))
+$(1)_$(2)_runner_opts += $(if $($(1)-multibinary),--multibinary=$($(1)-multibinary),) $(__sim_$(3)_clus_opt) --
 endef
 
 # Generate command lines for sim and jtag tests
