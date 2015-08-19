@@ -8,11 +8,15 @@
 #include <odp/errno.h>
 #include <errno.h>
 #include "odp_rpc_internal.h"
+#include "ucode_fw/ucode_eth.h"
 
 
-#define MAX_ETH_SLOTS 2
-#define MAX_ETH_PORTS 4
-#define N_RX_PER_PORT 10
+#define MAX_ETH_SLOTS		2
+#define MAX_ETH_PORTS		4
+#define N_RX_PER_PORT		10
+#define NOC_UC_COUNT		2
+#define MAX_PKT_PER_UC		3
+#define DNOC_CLUS_IFACE_ID	0
 
 #include <mppa_noc.h>
 #include <mppa_routing.h>
@@ -32,6 +36,17 @@ union mppa_ethernet_header_info_t {
   } _;
 };
 
+struct mppa_ethernet_uc_ctx {
+	unsigned int dnoc_tx_id;
+	unsigned int dnoc_uc_id;
+	bool is_running;
+	odp_packet_t pkt_table[MAX_PKT_PER_UC];
+	unsigned int pkt_count;
+};
+
+static struct mppa_ethernet_uc_ctx g_uc_ctx[NOC_UC_COUNT] = {{0}};
+static unsigned int g_last_uc_used = 0;
+
 typedef struct mppa_ethernet_header_s {
   mppa_uint64 timestamp;
   union mppa_ethernet_header_info_t info;
@@ -47,8 +62,45 @@ static inline int MAX(int a, int b)
 	return b > a ? b : a;
 }
 
+extern char _heap_start, _heap_end;
+
+static int cluster_init_dnoc_tx(void)
+{
+	int i;
+	mppa_noc_ret_t ret;
+	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
+
+	uc_conf.program_start = (uintptr_t) ucode_eth;
+	uc_conf.buffer_base = (uintptr_t) &_heap_start;
+	uc_conf.buffer_size = &_heap_end - &_heap_start;
+
+	for (i = 0; i < NOC_UC_COUNT; i++) {
+
+		/* DNoC */
+		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID, &g_uc_ctx[i].dnoc_uc_id, MPPA_NOC_BLOCKING);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
+
+		/* We will only use events */
+		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
+			MPPA_NOC_INTERRUPT_LINE_DNOC_TX, g_uc_ctx[i].dnoc_uc_id);
+
+		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID, &g_uc_ctx[i].dnoc_uc_id, MPPA_NOC_BLOCKING);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
+
+		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID, g_uc_ctx[i].dnoc_uc_id,
+					    g_uc_ctx[i].dnoc_tx_id, uc_conf);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
+	}
+
+	return 0;
+}
+
 static int eth_init(void)
 {
+	cluster_init_dnoc_tx();
 	return 0;
 }
 
@@ -426,36 +478,71 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return nb_rx;
 }
 
+
+static inline int
+eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_count)
+{
+	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
+	mppa_noc_uc_program_run_t program_run = {{1, 1}};
+	mppa_noc_ret_t nret;
+	odp_packet_hdr_t * pkt_hdr;
+	unsigned int i;
+
+	uc_conf.pointers = NULL;
+	uc_conf.event_counter = 0;
+
+	if (g_uc_ctx[g_last_uc_used].is_running) {
+		mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
+					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
+					  g_uc_ctx[g_last_uc_used].dnoc_tx_id);
+		/* Free previous packets */
+		for(i = 0; i < pkt_count; i++)
+			odp_packet_free(g_uc_ctx[g_last_uc_used].pkt_table[i]);
+	}
+
+	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, g_uc_ctx[g_last_uc_used].dnoc_uc_id,
+					  uc_conf, eth->header, eth->config);
+	if (nret != MPPA_NOC_RET_SUCCESS)
+		return 1;
+
+	for(i = 0; i < pkt_count; i++) {
+		pkt_hdr = odp_packet_hdr(pkt_table[i]);
+		/* FIXME */
+		uc_conf.parameters[i * 2] = pkt_hdr->frame_len / 8;
+		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len % 8;
+		/* Store current packet to free them later */
+		g_uc_ctx[g_last_uc_used].pkt_table[i] = pkt_table[i];
+	}
+
+	g_uc_ctx[g_last_uc_used].pkt_count = pkt_count;
+	g_uc_ctx[g_last_uc_used].is_running = 1;
+
+	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, g_uc_ctx[g_last_uc_used].dnoc_uc_id,
+					 program_run);
+
+	g_last_uc_used++;
+	g_last_uc_used %= NOC_UC_COUNT;
+
+	return 0;
+}
+
 static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	unsigned i, nocTx, sent = 0;
-	int ret;
+	unsigned int sent = 0;
 	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	unsigned int pkt_count;
 
 	odp_spinlock_lock(&eth->wlock);
 
-	ret = mppa_noc_dnoc_tx_alloc_auto(0, &nocTx, MPPA_NOC_NON_BLOCKING);
-	if(ret != MPPA_ROUTING_RET_SUCCESS)
-		goto err_unlock;
+	while(sent < len) {
+		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC : (len - sent);
 
-	ret = mppa_noc_dnoc_tx_configure(0, nocTx, eth->header, eth->config);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		goto err_opened;
-
-	for (i = 0; i < len; i++) {
-		odp_packet_hdr_t * pkt_hdr = (odp_packet_hdr_t*)pkt_table[i];
-		mppa_noc_dnoc_tx_send_data_eot(0, nocTx, pkt_hdr->frame_len,
-					       packet_map(pkt_hdr, 0, NULL));
-		sent++;
+		eth_send_packets(eth, &pkt_table[sent], pkt_count);
+		sent += pkt_count;
 	}
 
- err_opened:
-	mppa_noc_dnoc_tx_free(0, nocTx);
-err_unlock:
 	odp_spinlock_unlock(&eth->wlock);
-	for (i = 0; i < sent; i++)
-		odp_packet_free(pkt_table[i]);
 
 	return sent;
 }

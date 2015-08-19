@@ -148,6 +148,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
 			   arch/@ARCH@/odp_packet_eth.c \
+			   arch/@ARCH@/ucode_fw/ucode_eth.c \
 			   pktio/cluster.c \
 			   pktio/drop.c \
 			   pktio/magic.c \
