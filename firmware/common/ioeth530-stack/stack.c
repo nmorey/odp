@@ -1,0 +1,12 @@
+extern int RM_STACK_START;
+
+void * __rm4_stack_start[8] = {
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START,
+	&RM_STACK_START
+};
