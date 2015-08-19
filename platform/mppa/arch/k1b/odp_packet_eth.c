@@ -508,8 +508,8 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 	for(i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 		/* FIXME */
-		uc_conf.parameters[i * 2] = pkt_hdr->frame_len / 8;
-		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len % 8;
+		uc_conf.parameters[i * 2] = pkt_hdr->frame_len / sizeof(uint64_t);
+		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len % sizeof(uint64_t);
 		/* Store current packet to free them later */
 		g_uc_ctx[g_last_uc_used].pkt_table[i] = pkt_table[i];
 	}
