@@ -374,7 +374,7 @@ void *odp_packet_seg_data(odp_packet_t pkt,
 	odp_packet_hdr_t *pkt_hdr = (odp_packet_hdr_t *)pkt;
 
 	return buffer_map(&pkt_hdr->buf_hdr, pkt_hdr->headroom, NULL,
-			  pkt_hdr->frame_len);
+			  pkt_hdr->headroom + pkt_hdr->frame_len);
 }
 
 uint32_t odp_packet_seg_data_len(odp_packet_t pkt,
@@ -383,7 +383,7 @@ uint32_t odp_packet_seg_data_len(odp_packet_t pkt,
 	odp_packet_hdr_t *pkt_hdr = (odp_packet_hdr_t *)pkt;
 	uint32_t seglen = 0;
 
-	buffer_map(&pkt_hdr->buf_hdr, 0, &seglen,
+	buffer_map(&pkt_hdr->buf_hdr, pkt_hdr->headroom, &seglen,
 		   pkt_hdr->headroom + pkt_hdr->frame_len);
 
 	return seglen;
