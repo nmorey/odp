@@ -9,15 +9,15 @@
 #include <getopt.h>
 #include "hal_delay.h"
 
-#define MPPA_PLATFORM   __MPPA_ETH_FPGA
-#define DEFAULT_ETHERNET_INTERFACE  0
-#define DEFAULT_CLUSTER_NOC_INTERFACE 0
 #define MTU                         1600
 #define MBUF_SIZE                   MTU
 #define ETH_IO_MODE     2
-#define PHY				0
-#define CHIP_ID			0
 #define CYCLE_FOR_IN_SEC 4000000
+#define I2C_BITRATE      100000
+#define GPIO_RATE     200000000
+#define PHY				0
+#define I2C				1
+#define CHIP_ID			0x40
 #define TIMEOUT			(0xFFFFFFFF)
 #ifndef _K1_NOCV2_DECR_NOTIF_RELOAD_ETH
 #define _K1_NOCV2_DECR_NOTIF_RELOAD_ETH 0x7
@@ -97,10 +97,8 @@ static __inline__ void init_proc()
 	if (__k1_is_rm()) {
 		__k1_dnoc_initialize();
 		__k1_cnoc_initialize(0);
-		mppa_dnoc[0]->rx_global.rx_ctrl._.error_noc_fifo_full_en =
-		    0;
-		while (mppa_dnoc[0]->dma_global.error_lac.word !=
-		       0x07000000) {
+		mppa_dnoc[0]->rx_global.rx_ctrl._.error_noc_fifo_full_en = 0;
+		while (mppa_dnoc[0]->dma_global.error_lac.word != 0x07000000) {
 		};
 	}
 
@@ -168,12 +166,10 @@ static __inline__ void my_array_display(uint32_t * array, uint32_t size)
 }
 
 static __inline__ float convert_throughput(float avg_cycles,
-					   int pkt_size_in_bytes,
-					   int target_freq_in_mhz)
+					   int pkt_size_in_bytes, int target_freq_in_mhz)
 {
 	float bits_per_cycles = (pkt_size_in_bytes * 8) / avg_cycles;
-	float gigabits_per_sec =
-	    ((float) target_freq_in_mhz / 1000.0) * bits_per_cycles;
+	float gigabits_per_sec = ((float) target_freq_in_mhz / 1000.0) * bits_per_cycles;
 	return gigabits_per_sec;
 
 }
@@ -184,12 +180,8 @@ static __inline__ void send_data(uint32_t interface,
 				 uint32_t client_cluster_id,
 				 uint64_t data_to_send, uint32_t mailbox)
 {
-	unsigned int route =
-	    __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
+	unsigned int route = __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
 	    [__bsp_get_router_id(client_cluster_id)];
-	if (__bsp_flavour == BSP_EXPLORER || __bsp_flavour == BSP_ETH_530) {
-		route |= (0x1111 << 3);
-	}
 
 	mppa_cnoc_config_t cfg;
 	cfg.dword = 0x0ULL;
@@ -207,51 +199,41 @@ static __inline__ void send_data(uint32_t interface,
 
 static __inline__ uint64_t get_data(uint32_t mailbox)
 {
-	uint64_t temp =
-	    __k1_umem_read64((void *)
-			     &(mppa_cnoc[0]->message_ram[mailbox]));
-	__k1_umem_write64((void *) &(mppa_cnoc[0]->message_ram[mailbox]),
-			  0);
+	uint64_t temp = __k1_umem_read64((void *)
+					 &(mppa_cnoc[0]->message_ram[mailbox]));
+	__k1_umem_write64((void *) &(mppa_cnoc[0]->message_ram[mailbox]), 0);
 	return temp;
 
 }
 
 static __inline__ void sync_initiator(uint32_t interface, uint32_t mailbox,
-				      uint32_t initiator_cluster_id,
-				      uint32_t client_cluster_id,
-				      uint64_t attended_value)
+				      uint32_t initiator_cluster_id
+				      __attribute__ ((unused)),
+				      uint32_t client_cluster_id, uint64_t attended_value)
 {
-	(void)initiator_cluster_id;
 	__k1_umem_write64((void *)
-			  &(mppa_cnoc[interface]->message_ram[mailbox]),
-			  0x0ULL);
+			  &(mppa_cnoc[interface]->message_ram[mailbox]), 0x0ULL);
 	send_data(interface, client_cluster_id, attended_value, mailbox);
 	DMSG("Waiting %d with %x\n", client_cluster_id, attended_value);
 	while (__k1_umem_read64
-	       ((void *) &(mppa_cnoc[interface]->message_ram[mailbox])) !=
-	       attended_value) {
+	       ((void *) &(mppa_cnoc[interface]->message_ram[mailbox])) != attended_value) {
 	};
 	DMSG("Sync over with %d\n", client_cluster_id);
 }
 
 static __inline__ void sync_client(uint32_t interface, uint32_t mailbox,
 				   uint32_t initiator_cluster_id,
-				   uint32_t client_cluster_id,
-				   uint64_t attended_value)
+				   uint32_t client_cluster_id
+				   __attribute__ ((unused)), uint64_t attended_value)
 {
-	(void)client_cluster_id;
 	/* Waiting for the initiator */
-	DMSG("Client waiting %d with %x\n", initiator_cluster_id,
-	     attended_value);
+	DMSG("Client waiting %d with %x\n", initiator_cluster_id, attended_value);
 	while (__k1_umem_read64
-	       ((void *) &(mppa_cnoc[interface]->message_ram[mailbox])) !=
-	       attended_value) {
+	       ((void *) &(mppa_cnoc[interface]->message_ram[mailbox])) != attended_value) {
 	};
 	__k1_umem_write64((void *)
-			  &(mppa_cnoc[interface]->message_ram[mailbox]),
-			  0x0ULL);
-	send_data(interface, initiator_cluster_id, attended_value,
-		  mailbox);
+			  &(mppa_cnoc[interface]->message_ram[mailbox]), 0x0ULL);
+	send_data(interface, initiator_cluster_id, attended_value, mailbox);
 	/*Sending to initiator */
 	DMSG("Sync over with %d\n", initiator_cluster_id);
 }
@@ -266,24 +248,19 @@ send_packets(uint32_t nb_packets, uint32_t packet_size,
 	unsigned long long header_cnt = 0;
 	unsigned long long idx_in_group = 0;
 	unsigned long long packet_group = 0;
-	const uint32_t nb_group_packet =
-	    (nb_packets / nb_packets_per_group);
+	const uint32_t nb_group_packet = (nb_packets / nb_packets_per_group);
 
-	for (header_cnt = 0, packet_group = 0;
-	     packet_group < nb_group_packet; packet_group++) {
+	for (header_cnt = 0, packet_group = 0; packet_group < nb_group_packet; packet_group++) {
 		start_timer(0);
 		for (idx_in_group = 0; idx_in_group < nb_packets_per_group;
 		     idx_in_group++, header_cnt =
 		     idx_in_group + packet_group * nb_packets_per_group) {
-			mppa_dnoc[0]->tx_ports[tx_chan].address.word =
-			    0xA0000000;
-			for (data_cnt = 0; data_cnt < (packet_size >> 3);
-			     data_cnt++) {
-				mppa_dnoc[0]->tx_ports[tx_chan].push_data.
-				    reg = (header_cnt << 32) | data_cnt;
+			mppa_dnoc[0]->tx_ports[tx_chan].address.word = 0xA0000000;
+			for (data_cnt = 0; data_cnt < (packet_size >> 3); data_cnt++) {
+				mppa_dnoc[0]->tx_ports[tx_chan].push_data.reg =
+				    (header_cnt << 32) | data_cnt;
 			}
-			mppa_dnoc[0]->tx_ports[tx_chan].push_mask.reg =
-			    packet_size & 0x7;
+			mppa_dnoc[0]->tx_ports[tx_chan].push_mask.reg = packet_size & 0x7;
 			mppa_dnoc[0]->tx_ports[tx_chan].push_data_eot.reg =
 			    (header_cnt << 32) | data_cnt;
 			mppa_cycle_delay(cycles_to_wait);
@@ -294,9 +271,7 @@ send_packets(uint32_t nb_packets, uint32_t packet_size,
 	}
 }
 
-static __inline__ int
-send_single_packet(void *ptr, int len, uint32_t interface_id,
-		   uint32_t tx_id)
+static __inline__ int send_single_packet(void *ptr, int len, uint32_t interface_id, uint32_t tx_id)
 {
 	assert(len != 0);
 #ifdef DEBUG_MESSAGE
@@ -316,23 +291,21 @@ send_single_packet(void *ptr, int len, uint32_t interface_id,
 static inline uint32_t wait_packet(uint32_t interface_id, uint32_t rx_id)
 {
 	DMSG("Im' waiting in %d : %d\n", interface_id, rx_id);
-	//256 RX divided in 4 registers : select the correct register
-	// identify the correct rx between the 63 others in this register
+	//256 RX divided in 4 registers : select the correct register           // identify the correct rx between the 63 others in this register                       
 	DMSG("Event received %d != Attended %d => %llx\n",
 	     (__builtin_k1_ctzdl
 	      (mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].reg)),
 	     __builtin_k1_ctz((0x1 << (0x3F & rx_id))),
-	     ((mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].
-	       reg) & (0x1ULL << (0x3FULL & rx_id))));
+	     ((mppa_dnoc[interface_id]->rx_global.
+	       events[rx_id >> 6].reg) & (0x1ULL << (0x3FULL & rx_id))));
 
-	while ((((mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].
-		  reg) & (0x1 << (0x3F & rx_id))) == 0)) {
+	while ((((mppa_dnoc[interface_id]->rx_global.
+		  events[rx_id >> 6].reg) & (0x1 << (0x3F & rx_id))) == 0)) {
 		//Wait for notification RX on interface interface_id //0x2 : EV1 only
 		__builtin_k1_waitany(0x01000000 << interface_id, 0x2);
 	}
 	__k1_dnoc_event_clear1_rx(interface_id);
-	return __k1_dnoc_event_cntr_load_and_clear_ext(interface_id,
-						       rx_id);
+	return __k1_dnoc_event_cntr_load_and_clear_ext(interface_id, rx_id);
 }
 
 static inline
@@ -346,32 +319,26 @@ static inline
 	while (timer_start + cycle_before_timeout < timer_start) {
 		timer_start = get_timer(0);
 	}
-	//256 RX divided in 4 registers : select the correct register
-	// identify the correct rx between the 63 others in this register
+	//256 RX divided in 4 registers : select the correct register           // identify the correct rx between the 63 others in this register                       
 	uint32_t end_timer = timer_start + cycle_before_timeout;
-	while ((((mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].
-		  reg) & (0x1ULL << (0x3FULL & rx_id))) == 0)) {
+	while ((((mppa_dnoc[interface_id]->rx_global.
+		  events[rx_id >> 6].reg) & (0x1ULL << (0x3FULL & rx_id))) == 0)) {
 		uint32_t current_timer = get_timer(0);
 		if (current_timer > end_timer) {
 			printf
 			    (" %llx 1rst Event received %u != Attended %u => %llx\n",
-			     mppa_dnoc[interface_id]->rx_global.
-			     events[rx_id >> 6].reg,
+			     mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].reg,
 			     (__builtin_k1_ctzdl
-			      (mppa_dnoc[interface_id]->rx_global.
-			       events[rx_id >> 6].reg)),
+			      (mppa_dnoc[interface_id]->rx_global.events[rx_id >> 6].reg)),
 			     __builtin_k1_ctz((0x1 << (0x3F & rx_id))),
-			     ((mppa_dnoc[interface_id]->rx_global.
-			       events[rx_id >> 6].
-			       reg) & (0x1ULL << (0x3FULL & rx_id))));
-			DMSG("current = %u end_timer = %u\n",
-			     current_timer,
+			     ((mppa_dnoc[interface_id]->
+			       rx_global.events[rx_id >> 6].reg) & (0x1ULL << (0x3FULL & rx_id))));
+			DMSG("current = %u end_timer = %u\n", current_timer,
 			     timer_start + cycle_before_timeout);
 			return TIMEOUT;
 		}
 	}
-	return __k1_dnoc_event_cntr_load_and_clear_ext(interface_id,
-						       rx_id);
+	return __k1_dnoc_event_cntr_load_and_clear_ext(interface_id, rx_id);
 }
 
 uint64_t build_uint64(uint8_t * byte_field)
@@ -385,8 +352,7 @@ uint64_t build_uint64(uint8_t * byte_field)
 	return result;
 }
 
-static inline
-    void my_memswap(uint8_t * first, uint8_t * second, uint32_t size)
+static inline void my_memswap(uint8_t * first, uint8_t * second, uint32_t size)
 {
 	uint32_t i;
 	uint8_t tmp;
@@ -418,16 +384,15 @@ static inline void print_packet(uint8_t * packet, uint32_t packet_size)
 	printf("\n");
 }
 
-int32_t parse_my_mac_and_my_ip(int argc, char *argv[], uint8_t * my_mac,
-			       uint8_t * my_ip)
+int32_t parse_my_mac_and_my_ip(int argc, char *argv[], uint8_t * my_mac, uint8_t * my_ip)
 {
 	uint32_t tmp[6];
+	static struct option long_options[] = {
+		{"ip", no_argument, NULL, 'i'},
+		{"mac", required_argument, 0, 'm'},
+		{0, 0, 0, 0}
+	};
 	while (argc > 1) {
-		static struct option long_options[] = {
-			{"ip", no_argument, NULL, 'i'},
-			{"mac", required_argument, 0, 'm'},
-			{0, 0, 0, 0}
-		};
 		/* getopt_long stores the option index here. */
 		int option_index = 0;
 
@@ -440,9 +405,8 @@ int32_t parse_my_mac_and_my_ip(int argc, char *argv[], uint8_t * my_mac,
 
 		switch (ret) {
 		case 'i':
-			ret =
-			    sscanf(optarg, "%lu.%lu.%lu.%lu", &(tmp[0]),
-				   &(tmp[1]), &(tmp[2]), &(tmp[3]));
+			ret = sscanf(optarg, "%lu.%lu.%lu.%lu",
+				     &(tmp[0]), &(tmp[1]), &(tmp[2]), &(tmp[3]));
 			if ((tmp[0] > 255) || (tmp[1] > 255)
 			    || (tmp[2] > 255) || (tmp[3] > 255)) {
 				printf
@@ -458,7 +422,8 @@ int32_t parse_my_mac_and_my_ip(int argc, char *argv[], uint8_t * my_mac,
 
 		case 'm':
 			ret =
-			    sscanf(optarg, "%02lx:%02lx:%02lx:%02lx:%02lx:%02lx",
+			    sscanf(optarg,
+				   "%02lx:%02lx:%02lx:%02lx:%02lx:%02lx",
 				   &(tmp[0]), &(tmp[1]), &(tmp[2]),
 				   &(tmp[3]), &(tmp[4]), &(tmp[5]));
 			if (ret != 6) {
@@ -486,15 +451,13 @@ int32_t parse_my_mac_and_my_ip(int argc, char *argv[], uint8_t * my_mac,
 
 uint64_t route_to_cluster(uint32_t cluster_id)
 {
-	return
-	    __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
+	return __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
 	    [__bsp_get_router_id(cluster_id)] >> 3;
 }
 
 uint64_t first_to_cluster(uint32_t cluster_id)
 {
-	return
-	    __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
+	return __bsp_routing_table[__bsp_get_router_id(__k1_get_cluster_id())]
 	    [__bsp_get_router_id(cluster_id)] & 0x7;
 }
 
@@ -540,7 +503,8 @@ uint8_t reverse_byte(uint8_t x)
 }
 
 uint16_t compute_hash(uint8_t * packet_to_send,
-		      uint32_t current_packet_size,
+		      uint32_t current_packet_size
+		      __attribute__ ((unused)),
 		      uint16_t * current_offset_per_field,
 		      uint8_t * current_hash_mask_per_field,
 		      uint8_t * current_min_max_mask, uint32_t nb_fields)
@@ -552,21 +516,15 @@ uint16_t compute_hash(uint8_t * packet_to_send,
 	uint8_t xor_flags;
 	uint16_t crc = 0xFFFF;
 
-	(void)current_packet_size;
 	//Generate buffer of containing the value to hash
 	for (i = nb_fields - 1; i >= 0; i--) {
 		//Extract 64bits of the message at the correct offset
-		extracted_values[i] =
-		    build_uint64(&
-				 (packet_to_send
-				  [current_offset_per_field[i]]));
+		extracted_values[i] = build_uint64(&(packet_to_send[current_offset_per_field[i]]));
 		//Apply the hash_mask on the extracted value
-		extracted_values[i] &=
-		    bytemask_to_bitmask(current_hash_mask_per_field[i]);
+		extracted_values[i] &= bytemask_to_bitmask(current_hash_mask_per_field[i]);
 		//Insert into hash_values buffer the masked extracted values
 		for (j = 7; j >= 0; j--) {
-			hash_values[i * 8 + j] =
-			    ((uint8_t *) & (extracted_values[i]))[j];
+			hash_values[i * 8 + j] = ((uint8_t *) & (extracted_values[i]))[j];
 		}
 	}
 
@@ -580,16 +538,12 @@ uint16_t compute_hash(uint8_t * packet_to_send,
 				if ((min_max_mask & 0x1) != 0x0) {
 					//Should this byte be swapped ?
 					if (hash_values[(i * 8) + j] >
-					    hash_values[((i + 1) * 8) +
-							j]) {
+					    hash_values[((i + 1) * 8) + j]) {
 						//Swap the byte in the 2 extracted word64
 						my_memswap(&
 							   (hash_values
 							    [(i * 8) + j]),
-							   &(hash_values
-							     [((i +
-								1) * 8) +
-							      j]), 1);
+							   &(hash_values[((i + 1) * 8) + j]), 1);
 					}
 				}
 				//Get next byte mask

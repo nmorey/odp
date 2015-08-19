@@ -35,35 +35,21 @@ int dump_registers()
 			if ((page_reg[j]) & (1 << i)) {
 				/* Select Pages */
 				if (i < 30) {
-					status |=
-					    mppa_eth_mdio_write(PHY,
-								CHIP_ID,
-								22,
-								j & 0x7F);
+					status |= mppa_eth_mdio_write(PHY, CHIP_ID, 22, j & 0x7F);
 				} else {
-					status |=
-					    mppa_eth_mdio_write(PHY,
-								CHIP_ID,
-								29,
-								j & 0x7F);
+					status |= mppa_eth_mdio_write(PHY, CHIP_ID, 29, j & 0x7F);
 				}
 				if (status != 0) {
-					printf
-					    ("[88E1111 0x] 88E1111 register dump failed.\n");
+					printf("[88E1111 0x] 88E1111 register dump failed.\n");
 					return -1;
 				}
-				status |=
-				    mppa_eth_mdio_read(PHY, CHIP_ID, i,
-						       &val);
+				status |= mppa_eth_mdio_read(PHY, CHIP_ID, i, &val);
 				if (status != 0) {
-					printf
-					    ("[88E1111 0x] 88E1111 register dump failed.\n");
+					printf("[88E1111 0x] 88E1111 register dump failed.\n");
 					return -1;
 				}
 				if (val != 0)
-					printf
-					    ("[88E1111 0x] Register %d: 0x%.4x\n",
-					     i, val);
+					printf("[88E1111 0x] Register %d: 0x%.4x\n", i, val);
 			}
 		}
 	}

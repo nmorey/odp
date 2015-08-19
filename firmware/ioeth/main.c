@@ -40,8 +40,10 @@ int main()
 	eth_init();
 
 	ret = odp_rpc_server_start(NULL);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "Failed to start server\n");
 		exit(EXIT_FAILURE);
+	}
 
 
 	while (1) {

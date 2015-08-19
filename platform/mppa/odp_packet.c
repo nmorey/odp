@@ -589,18 +589,17 @@ void odp_packet_print(odp_packet_t pkt)
 	len += snprintf(&str[len], n - len,
 			"  input_flags  0x%" PRIx32 "\n", hdr->input_flags.all);
 	len += snprintf(&str[len], n - len,
-			"  error_flags  0x%" PRIx32 "\n", hdr->error_flags.all);
+			"  error_flags  0x%x\n", hdr->error_flags.all);
 	len += snprintf(&str[len], n - len,
-			"  output_flags 0x%" PRIx32 "\n",
-			hdr->output_flags.all);
+			"  output_flags 0x%x\n", hdr->output_flags.all);
 	len += snprintf(&str[len], n - len,
-			"  l2_offset    %" PRIu32 "\n", hdr->l2_offset);
+			"  l2_offset    %u\n", hdr->l2_offset);
 	len += snprintf(&str[len], n - len,
-			"  l3_offset    %" PRIu32 "\n", hdr->l3_offset);
+			"  l3_offset    %u\n", hdr->l3_offset);
 	len += snprintf(&str[len], n - len,
-			"  l4_offset    %" PRIu32 "\n", hdr->l4_offset);
+			"  l4_offset    %u\n", hdr->l4_offset);
 	len += snprintf(&str[len], n - len,
-			"  frame_len    %" PRIu32 "\n", hdr->frame_len);
+			"  frame_len    %u\n", hdr->frame_len);
 	len += snprintf(&str[len], n - len,
 			"  input        %" PRIu64 "\n",
 			odp_pktio_to_u64(hdr->input));
@@ -813,8 +812,8 @@ static inline void parse_udp(odp_packet_hdr_t *pkt_hdr,
 	uint32_t udplen = odp_be_to_cpu_16(udp->length);
 
 	if (udplen < sizeof(odph_udphdr_t) ||
-	    udplen > (pkt_hdr->l3_len +
-		      pkt_hdr->l3_offset - pkt_hdr->l4_offset)) {
+	    udplen > (uint32_t)(pkt_hdr->l3_len +
+				pkt_hdr->l3_offset - pkt_hdr->l4_offset)) {
 		pkt_hdr->error_flags.udp_err = 1;
 	}
 

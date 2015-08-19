@@ -36,15 +36,13 @@
 #define MII_COMMAND_WRITE 1
 
 
-static int get_platform_half_period_delay(int phy)
+static int get_platform_half_period_delay(int phy __attribute__((unused)))
 {
-	(void)phy;
 	return MDIO_HALF_PERIOD / 50000;
 }
 
-static int get_platform_read_cycle_delay(int phy)
+static int get_platform_read_cycle_delay(int phy __attribute__((unused)))
 {
-	(void)phy;
 	return MDIO_READ_DELAY / 50000;
 }
 

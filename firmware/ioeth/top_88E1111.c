@@ -15,131 +15,131 @@
 #define CHIP_88E1111_LED_BLINK 1
 #define CHIP_88E1111_LED_AUTO  0
 
-int mppa_88E1111_get_mode(mppa_88E1111_interface_t* interface, uint8_t* mode)
-{
-  int status = 0;
-  uint16_t reg;
+	int mppa_88E1111_get_mode(mppa_88E1111_interface_t* interface, uint8_t* mode)
+	{
+	  int status = 0;
+	  uint16_t reg;
 
-  // Read bit 3:0 of register 27, whatever the page is.
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
-  *mode = ((uint8_t)(reg)) & 0x0f;  
+	  // Read bit 3:0 of register 27, whatever the page is.
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
+	  *mode = ((uint8_t)(reg)) & 0x0f;  
 #ifdef VERBOSE
-  printf("[88E1111 0x%.2x] Mode is : ", interface->chip_id);
-  switch(*mode) {
-  case 0:
-    printf("SGMII with Clock with SGMII Auto-Neg to copper.\n");
-    break;
-  case 3:
-    printf("RGMII to Fiber.\n");
-    break;
-  case 4:
-    printf("SGMII without Clock with SGMII Auto-Neg to copper.\n");
-    break;
-  case 6:
-    printf("RGMII to SGMII.\n");
-    break;
-  case 7:
-    printf("GMII to Fiber.\n");
-    break;
-  case 8:
-    printf("1000BASE-X without Clock with 1000BASE-X Auto-Neg to copper (GBIC).\n");
-    break;
-  case 9:
-    printf("RTBI to Copper.\n");
-    break;
-  case 11:
-    printf("RGMII/Modified MII to Copper.\n");
-    break;
-  case 12:
-    printf("1000BASE-X without Clock without 1000BASE-X Auto-Neg to copper (GBIC).\n");
-    break;
-  case 13:
-    printf("TBI to Copper.\n");
-    break;
-  case 14:
-    printf("GMII to SGMII.\n");
-    break;
-  case 15:
-    printf("GMII to Copper.\n");
-    break;
-  default:
-    printf("Reserved.\n");
-    break;
-  }
+	  printf("[88E1111 0x%.2x] Mode is : ", interface->chip_id);
+	  switch(*mode) {
+	  case 0:
+		printf("SGMII with Clock with SGMII Auto-Neg to copper.\n");
+		break;
+	  case 3:
+		printf("RGMII to Fiber.\n");
+		break;
+	  case 4:
+		printf("SGMII without Clock with SGMII Auto-Neg to copper.\n");
+		break;
+	  case 6:
+		printf("RGMII to SGMII.\n");
+		break;
+	  case 7:
+		printf("GMII to Fiber.\n");
+		break;
+	  case 8:
+		printf("1000BASE-X without Clock with 1000BASE-X Auto-Neg to copper (GBIC).\n");
+		break;
+	  case 9:
+		printf("RTBI to Copper.\n");
+		break;
+	  case 11:
+		printf("RGMII/Modified MII to Copper.\n");
+		break;
+	  case 12:
+		printf("1000BASE-X without Clock without 1000BASE-X Auto-Neg to copper (GBIC).\n");
+		break;
+	  case 13:
+		printf("TBI to Copper.\n");
+		break;
+	  case 14:
+		printf("GMII to SGMII.\n");
+		break;
+	  case 15:
+		printf("GMII to Copper.\n");
+		break;
+	  default:
+		printf("Reserved.\n");
+		break;
+	  }
 #endif
-  return status;
-}
+	  return status;
+	}
 
-int mppa_88E1111_set_mode(mppa_88E1111_interface_t* interface, uint8_t mode)
-{
-  int status = 0;
-  uint16_t reg;
-
-#ifdef VERBOSE
-  printf("[88E1111 0x%.2x] Updating mode to 0x%.2x\n", interface->chip_id, mode);
-#endif
-  // Set bit 3:0 of register 27, whatever the page is.
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
-  reg = (reg & 0xfff0) | (((uint16_t)(mode)) & 0x000f);
-  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 27, reg);
-  status |= mppa_88E1111_copper_reset(interface);
-  status |= mppa_88E1111_fiber_reset(interface);
-  return status;
-}
-
-int mppa_88E1111_fiber_get_duplex_mode(mppa_88E1111_interface_t* interface, uint8_t* duplex)
-{
-  int status = 0;
-  uint16_t reg;
-
-  // Select page 1
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
-  reg = (reg & 0xff00) | 0x0001;
-  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
-  // Get bit 8 of register 0
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
-  *duplex = (reg >> 8) & 0x0001;
-#ifdef VERBOSE
-  if(*duplex == 0) {
-    printf("[88E1111 0x%.2x] Fiber is working in half duplex mode.\n", interface->chip_id);
-  } else {
-    printf("[88E1111 0x%.2x] Fiber is working in full duplex mode.\n", interface->chip_id);
-  }
-#endif
-  return status;
-}
-
-int mppa_88E1111_copper_get_duplex_mode(mppa_88E1111_interface_t* interface, uint8_t* duplex)
-{
-  int status = 0;
-  uint16_t reg;
-
-  // Select page 0
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
-  reg = reg & 0xff00;
-  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
-  // Get bit 8 of register 0
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
-  *duplex = (reg >> 8) & 0x0001;
-#ifdef VERBOSE
-  if(*duplex == 0) {
-    printf("[88E1111 0x%.2x] Copper is working in half duplex mode.\n", interface->chip_id);
-  } else {
-    printf("[88E1111 0x%.2x] Copper is working in full duplex mode.\n", interface->chip_id);
-  }
-#endif
-  return status;
-}
-
-int mppa_88E1111_copper_full_duplex_enable(mppa_88E1111_interface_t* interface)
-{
-  int status = 0;
-  uint16_t reg;
+	int mppa_88E1111_set_mode(mppa_88E1111_interface_t* interface, uint8_t mode)
+	{
+	  int status = 0;
+	  uint16_t reg;
 
 #ifdef VERBOSE
-  printf("[88E1111 0x%.2x] Activating copper full duplex mode.\n", interface->chip_id);
+	  printf("[88E1111 0x%.2x] Updating mode to 0x%.2x\n", interface->chip_id, mode);
 #endif
-  status |= mppa_88E1111_copper_autoneg_disable(interface);
+	  // Set bit 3:0 of register 27, whatever the page is.
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
+	  reg = (reg & 0xfff0) | (((uint16_t)(mode)) & 0x000f);
+	  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 27, reg);
+	  status |= mppa_88E1111_copper_reset(interface);
+	  status |= mppa_88E1111_fiber_reset(interface);
+	  return status;
+	}
+
+	int mppa_88E1111_fiber_get_duplex_mode(mppa_88E1111_interface_t* interface, uint8_t* duplex)
+	{
+	  int status = 0;
+	  uint16_t reg;
+
+	  // Select page 1
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
+	  reg = (reg & 0xff00) | 0x0001;
+	  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
+	  // Get bit 8 of register 0
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
+	  *duplex = (reg >> 8) & 0x0001;
+#ifdef VERBOSE
+	  if(*duplex == 0) {
+		printf("[88E1111 0x%.2x] Fiber is working in half duplex mode.\n", interface->chip_id);
+	  } else {
+		printf("[88E1111 0x%.2x] Fiber is working in full duplex mode.\n", interface->chip_id);
+	  }
+#endif
+	  return status;
+	}
+
+	int mppa_88E1111_copper_get_duplex_mode(mppa_88E1111_interface_t* interface, uint8_t* duplex)
+	{
+	  int status = 0;
+	  uint16_t reg;
+
+	  // Select page 0
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
+	  reg = reg & 0xff00;
+	  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
+	  // Get bit 8 of register 0
+	  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
+	  *duplex = (reg >> 8) & 0x0001;
+#ifdef VERBOSE
+	  if(*duplex == 0) {
+		printf("[88E1111 0x%.2x] Copper is working in half duplex mode.\n", interface->chip_id);
+	  } else {
+		printf("[88E1111 0x%.2x] Copper is working in full duplex mode.\n", interface->chip_id);
+	  }
+#endif
+	  return status;
+	}
+
+	int mppa_88E1111_copper_full_duplex_enable(mppa_88E1111_interface_t* interface)
+	{
+	  int status = 0;
+	  uint16_t reg;
+
+#ifdef VERBOSE
+	  printf("[88E1111 0x%.2x] Activating copper full duplex mode.\n", interface->chip_id);
+#endif
+	//  status |= mppa_88E1111_copper_autoneg_disable(interface);
   // Select page 0
   status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
   reg = reg & 0xff00;
@@ -150,7 +150,7 @@ int mppa_88E1111_copper_full_duplex_enable(mppa_88E1111_interface_t* interface)
     reg |= 0x0100;
     status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 0, reg);
     // Perform a soft reset
-    status |= mppa_88E1111_fiber_reset(interface);
+    status |= mppa_88E1111_copper_reset(interface);
   }
   return status;
 }
@@ -174,7 +174,7 @@ int mppa_88E1111_copper_full_duplex_disable(mppa_88E1111_interface_t* interface)
     reg &= 0xfeff;
     status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 0, reg);
     // Perform a soft reset
-    status |= mppa_88E1111_fiber_reset(interface);
+    status |= mppa_88E1111_copper_reset(interface);
   }
   return status;
 }
@@ -511,7 +511,7 @@ int mppa_88E1111_open(__mppa_platform_type_t platform, mppa_88E1111_interface_li
     /* Setup the two 1GB Ethernet interface */
     interface_list->interface_nb = 2;
 
-    i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, 0);
+    i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, 0x0LL);
 
     interface_list->interface[0].i2c_master      = i2c_master;
     interface_list->interface[0].i2c_bus         = 2;
@@ -644,9 +644,13 @@ int mppa_88E1111_copper_autoneg_enable(mppa_88E1111_interface_t* interface)
   reg = reg & 0xff00;
   status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
   // Set bit 12 & 15 of register 0
-  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
+  status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
   reg |= 0x9000;
-  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 27, reg);
+  status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 0, reg);
+  // Perform a soft reset
+  status |= mppa_88E1111_copper_reset(interface);
+
+
   return status;
 }
 
@@ -685,6 +689,9 @@ int mppa_88E1111_copper_autoneg_disable(mppa_88E1111_interface_t* interface)
   status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
   reg = (reg & 0xefff) | 0x8000;
   status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 27, reg);
+  // Perform a soft reset
+//  status |= mppa_88E1111_copper_reset(interface);
+
   return status;
 }
 
@@ -1036,7 +1043,6 @@ int mppa_88E1111_copper_get_rate(mppa_88E1111_interface_t* interface, uint8_t* r
 int mppa_88E1111_configure(mppa_88E1111_interface_t* interface)
 {
   if(mppa_88E1111_check_phy_identifier(interface) != 0) return -1;
-
   if(mppa_88E1111_set_mdi_crossover_auto_mode(interface) != 0) return -1;
   if(mppa_88E1111_led_auto(interface) != 0) return -1;
   if(mppa_88E1111_fiber_autoneg_disable(interface) != 0) return -1;
@@ -1059,7 +1065,7 @@ int mppa_88E1111_synchronize(mppa_88E1111_interface_t* interface)
   uint16_t reg;
   int status = 0;
 
-  // Select page 1
+  //Select page 1
   status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
   reg = (reg & 0xff00) | 0x0001;
   status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
@@ -1073,8 +1079,8 @@ int mppa_88E1111_synchronize(mppa_88E1111_interface_t* interface)
 #ifdef VERBOSE
       printf("[88E1111 0x%.2x] Link up.\n", interface->chip_id);
 #endif
-      break;
-    }
+	  break;
+	}
   }
   return status;
 }
