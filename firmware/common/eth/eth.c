@@ -16,6 +16,12 @@
 #include "rpc-server.h"
 #include "eth.h"
 
+#ifdef K1B_EXPLORER
+#define N_ETH_LANE 1
+#else
+#define N_ETH_LANE 4
+#endif
+
 typedef struct {
 	int txId;
 	int min_rx;
@@ -27,7 +33,7 @@ typedef struct {
 	eth_cluster_status_t cluster[BSP_NB_CLUSTER_MAX];
 } eth_status_t;
 
-eth_status_t status[4];
+eth_status_t status[N_ETH_LANE];
 
 static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
 {
@@ -53,6 +59,9 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	mppa_dnoc_channel_config_t config = { 0 };
 	unsigned nocTx;
 	int ret;
+
+	if(data.ifId >= N_ETH_LANE)
+		goto err;
 
 	if(status[data.ifId].cluster[remoteClus].txId >= 0)
 		goto err;
@@ -181,7 +190,7 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 void eth_init(void)
 {
 
-	for (int ifId = 0; ifId < 4; ++ifId) {
+	for (int ifId = 0; ifId < N_ETH_LANE; ++ifId) {
 		init_mac(ifId);
 	}
 
@@ -191,7 +200,7 @@ void eth_init(void)
 			     /* offset */ 0, /* Cmp Mask */0,
 			     /* Espected Value */ 0, /* Hash. Unused */0);
 
-	for (int ifId = 0; ifId < 4; ++ifId) {
+	for (int ifId = 0; ifId < N_ETH_LANE; ++ifId) {
 		_eth_status_init(&status[ifId]);
 
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
@@ -213,7 +222,7 @@ void eth_send_pkts(void){
 	memset(&buf, 0, sizeof(buf));
 	buf.pkt_type = ODP_RPC_CMD_BAS_PING;
 
-	for (int ethIf = 0; ethIf < 4; ++ethIf) {
+	for (int ethIf = 0; ethIf < N_ETH_LANE; ++ethIf) {
 		for (int clus = 0; clus < BSP_NB_CLUSTER_MAX; ++clus) {
 			const int nocTx = status[ethIf].cluster[clus].txId;
 
