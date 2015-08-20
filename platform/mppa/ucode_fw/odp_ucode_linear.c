@@ -11,7 +11,7 @@ unsigned long long odp_ucode_linear[] __attribute__((aligned(128) )) = {
 0x0000001000600000ULL,  /* C_0: dcnt0=R[0];*/
 0x0000005640000000ULL,  /* C_1: ptr_1=R[2];*/
 0x0000009243e80000ULL,  /* C_2: SEND_OFFSET(ptr_1,chan_0); dcnt1=R[4];*/
-0x000000b400000000ULL,  /* C_3: ptr_0=R[5];*/
+0x000000b400480000ULL,  /* C_3: ptr_0=R[5]; dcnt1--;*/
 0x0000000803c80013ULL,  /* C_4: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt1!=0) goto C_4; dcnt1--;*/
 0x000000740040001eULL,  /* C_5: ptr_0=R[3]; if(dcnt0==0) goto C_7; dcnt0--;*/
 0x0000000803c0001bULL,  /* C_6: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt0!=0) goto C_6; dcnt0--;*/

@@ -26,6 +26,7 @@ dma_write_bundle
 
 ## Load packet header addr
 dma_load rd0 r5
+dma_incr dcnt1
 dma_write_bundle
 
 ## Send Packet header

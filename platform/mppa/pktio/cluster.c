@@ -197,7 +197,7 @@ static int cluster_init_noc_rx(void)
 	return 0;
 }
 
-extern char _heap_start, _heap_end;
+extern char _heap_end;
 
 static int cluster_init_noc_tx(void)
 {
@@ -206,8 +206,8 @@ static int cluster_init_noc_tx(void)
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
 	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
-	uc_conf.buffer_base = (uintptr_t) &_heap_start;
-	uc_conf.buffer_size = &_heap_end - &_heap_start;
+	uc_conf.buffer_base = (uintptr_t) &_data_start;
+	uc_conf.buffer_size = (uintptr_t) &_heap_end - (uintptr_t) &_data_start;
 
 	for (i = 0; i < NOC_UC_COUNT; i++) {
 
@@ -472,7 +472,6 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	uintptr_t remote_offset;
 	int tx_index = pktio_clus->clus_id % NOC_UC_COUNT;
 	odp_packet_hdr_t * pkt_hdr = odp_packet_hdr(pkt);
-	unsigned int real_size;
 	void *pkt_addr = packet_map(pkt_hdr, 0, NULL);
 
 #ifdef __k1a__
@@ -499,9 +498,8 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
 		ODP_PKTIO_MAX_PKT_SIZE;
 
-	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p, offset: %d, tx_index: %d\n", pkt_hdr->frame_len, pkt, remote_offset, tx_index);
-
 	if (g_uc_ctx[tx_index].is_running) {
+
 		mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID,
 					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
 					  g_uc_ctx[tx_index].dnoc_tx_id);
@@ -509,18 +507,21 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 		odp_packet_free(g_uc_ctx[tx_index].pkt);
 	}
 
+	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p, offset: %d, tx_index: %d, header\n", pkt_hdr->frame_len, pkt_addr, remote_offset, tx_index);
+
 	/* Fill informations for transfer */
 	g_uc_ctx[tx_index].pkt = pkt;
 	g_uc_ctx[tx_index].pkt_hdr.pkt_size = pkt_hdr->frame_len;
+	
 
-	real_size = pkt_hdr->frame_len + sizeof(struct cluster_pkt_header);
-	uc_conf.parameters[0] = real_size / sizeof(uint64_t);
-	uc_conf.parameters[1] = real_size % sizeof(uint64_t);
+	uc_conf.parameters[0] = pkt_hdr->frame_len / sizeof(uint64_t);
+	uc_conf.parameters[1] = pkt_hdr->frame_len % sizeof(uint64_t);
 	uc_conf.parameters[2] = remote_offset | MPPA_NOC_UCORE_USE_ABSOLUTE_OFFSET;
-	uc_conf.parameters[3] = (uintptr_t) pkt_addr - (uintptr_t) &_heap_start;
+	uc_conf.parameters[3] = (uintptr_t) pkt_addr - (uintptr_t) &_data_start;
 	/* Header size and address */
+	assert((sizeof(struct cluster_pkt_header) % sizeof(uint64_t)) == 0);
 	uc_conf.parameters[4] = sizeof(struct cluster_pkt_header) / sizeof(uint64_t);
-	uc_conf.parameters[5] = (uintptr_t) &g_uc_ctx[tx_index].pkt_hdr - (uintptr_t) &_heap_start;
+	uc_conf.parameters[5] = (uintptr_t) &g_uc_ctx[tx_index].pkt_hdr - (uintptr_t) &_data_start;
 
 	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID,  g_uc_ctx[tx_index].dnoc_uc_id,
 					  uc_conf, pktio_clus->header, pktio_clus->config
