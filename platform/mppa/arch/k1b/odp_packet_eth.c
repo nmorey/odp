@@ -299,7 +299,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->config._.write_user_en = 1;
 	eth->config._.decounter_id = 0;
 	eth->config._.decounted = 0;
-	eth->config._.payload_min = 0;
+	eth->config._.payload_min = 1;
 	eth->config._.payload_max = 32;
 	eth->config._.bw_current_credit = 0xff;
 	eth->config._.bw_max_credit     = 0xff;

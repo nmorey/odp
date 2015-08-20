@@ -87,7 +87,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	config._.write_user_en = 1;
 	config._.decounter_id = 0;
 	config._.decounted = 0;
-	config._.payload_min = 0;
+	config._.payload_min = 1;
 	config._.payload_max = 32;
 	config._.bw_current_credit = 0xff;
 	config._.bw_max_credit     = 0xff;

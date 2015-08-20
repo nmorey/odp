@@ -118,7 +118,7 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	config._.write_user_en = 1;
 	config._.decounter_id = 0;
 	config._.decounted = 0;
-	config._.payload_min = 0;
+	config._.payload_min = 1;
 	config._.payload_max = 32;
 	config._.bw_current_credit = 0xff;
 	config._.bw_max_credit     = 0xff;
