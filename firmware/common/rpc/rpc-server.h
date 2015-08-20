@@ -8,7 +8,7 @@ int odp_rpc_server_poll_msg(odp_rpc_t **msg, uint8_t **payload);
 int odp_rpc_server_ack(odp_rpc_t * msg, odp_rpc_cmd_ack_t ack);
 
 
-static inline int get_tag_id(unsigned cluster_id)
+static inline int get_rpc_tag_id(unsigned cluster_id)
 {
 #if defined(__ioddr__)
 	return odp_rpc_get_ioddr_tag_id(0, cluster_id);
@@ -19,7 +19,7 @@ static inline int get_tag_id(unsigned cluster_id)
 #endif
 }
 
-static inline int get_dma_id(unsigned cluster_id)
+static inline int get_rpc_dma_id(unsigned cluster_id)
 {
 #if defined(__ioddr__)
 	return odp_rpc_get_ioddr_dma_id(0, cluster_id) - 128;
@@ -34,5 +34,6 @@ static inline int get_dma_id(unsigned cluster_id)
 #error "Neither ioddr nor ioeth"
 #endif
 }
+
 
 #endif /* RPC_SERVER__H */

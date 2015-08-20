@@ -63,34 +63,6 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
 
-static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_id){
-	unsigned offset = cluster_id / 4;
-#if defined(K1B_EXPLORER)
-	/* Only DMA4 available on explorer + eth530 */
-	offset = 0;
-#endif
-	switch(eth_slot){
-	case 0:
-		/* East */
-		return 160 + offset;
-	case 1:
-		/* West */
-		return 224 + offset;
-	default:
-		return -1;
-	}
-}
-
-static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_id){
-	(void) eth_slot;
-	unsigned offset = cluster_id % 4;
-#if defined(K1B_EXPLORER)
-	/* Only DMA4 available on explorer + eth530 */
-	offset = cluster_id;
-#endif
-	return RPC_BASE_RX + offset;
-}
-
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
 	switch(ddr_id){
 	case 0:
@@ -107,6 +79,37 @@ static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id)
 static inline int odp_rpc_get_ioddr_tag_id(unsigned ddr_id, unsigned cluster_id){
 	(void) ddr_id;
 	return RPC_BASE_RX + (cluster_id / 4);
+}
+
+static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_id){
+#if defined(K1B_EXPLORER)
+	(void)cluster_id;
+	/* Only DMA4 available on explorer + eth530 */
+	switch(eth_slot){
+	case 0:
+		/* East */
+		return 160;
+	case 1:
+		/* West */
+		return 224;
+	default:
+		return -1;
+	}
+#else
+	/* IO is unified so send IODDR coordinates instead */
+	return odp_rpc_get_ioddr_dma_id(eth_slot, cluster_id);
+#endif
+}
+
+static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_id){
+#if defined(K1B_EXPLORER)
+	/* Only DMA4 available on explorer + eth530 */
+	(void) eth_slot;
+	return RPC_BASE_RX + cluster_id;
+#else
+	/* IO is unified so send IODDR coordinates instead */
+	return odp_rpc_get_ioddr_tag_id(eth_slot, cluster_id);
+#endif
 }
 
 int odp_rpc_client_init(void);
