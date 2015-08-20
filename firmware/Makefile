@@ -1,11 +1,11 @@
 BUILDDIR   := $(shell pwd)
 MAKEFILE   := $(shell echo $(MAKEFILE_LIST) | awk '{ print $$NF}')
 TOP_SRCDIR := $(shell readlink -f $$(dirname $(MAKEFILE))/..)
-SRCFILES   += $(shell find $(SRCDIR) -name "[^.]*.c")
-HDRFILES   += $(shell find $(SRCDIR) -name "[^.]*.h")
+SRCFILES   += $(shell find $(SRCDIRS) -name "[^.]*.c")
+HDRFILES   += $(shell find $(SRCDIRS) -name "[^.]*.h")
 OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
-_CFLAGS    += $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99
+_CFLAGS    += $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
 _LDFLAGS   += $(LDFLAGS)
 
 BIN      := $(BUILDDIR)/$(FIRMDIR).kelf

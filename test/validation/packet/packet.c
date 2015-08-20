@@ -21,8 +21,8 @@ static odp_pool_t packet_pool;
 static const uint32_t packet_len = PACKET_BUF_LEN -
 				PACKET_TAILROOM_RESERVE;
 
-static const uint32_t segmented_packet_len = PACKET_BUF_LEN * 5 -
-	PACKET_TAILROOM_RESERVE;
+static uint32_t   segmented_packet_len = ODP_CONFIG_PACKET_BUF_LEN_MAX;
+static odp_bool_t segmentation_supported = true;
 
 odp_packet_t test_packet, segmented_test_packet;
 
@@ -55,11 +55,7 @@ int packet_suite_init(void)
 		return -1;
 
 	test_packet = odp_packet_alloc(packet_pool, packet_len);
-	segmented_test_packet = odp_packet_alloc(packet_pool,
-						 segmented_packet_len);
-
-	if (odp_packet_is_valid(test_packet) == 0 ||
-	    odp_packet_is_valid(segmented_test_packet) == 0)
+	if (odp_packet_is_valid(test_packet) == 0)
 		return -1;
 
 	udat = odp_packet_user_area(test_packet);
@@ -68,6 +64,20 @@ int packet_suite_init(void)
 		return -1;
 	odp_pool_print(packet_pool);
 	memcpy(udat, &test_packet_udata, sizeof(struct udata_struct));
+
+	/* Try to allocate the largest possible packet to see
+	 * if segmentation is supported  */
+	do {
+		segmented_test_packet = odp_packet_alloc(packet_pool,
+							 segmented_packet_len);
+		if (segmented_test_packet == ODP_PACKET_INVALID)
+			segmented_packet_len -= ODP_CONFIG_BUFFER_ALIGN_MIN;
+	} while (segmented_test_packet == ODP_PACKET_INVALID);
+
+	if (odp_packet_is_valid(segmented_test_packet) == 0)
+		return -1;
+	if (!odp_packet_is_segmented(segmented_test_packet))
+		segmentation_supported = false;
 
 	udat = odp_packet_user_area(segmented_test_packet);
 	udat_size = odp_packet_user_area_size(segmented_test_packet);
@@ -134,7 +144,8 @@ void packet_test_alloc_segmented(void)
 	pkt = odp_packet_alloc(packet_pool, len);
 	CU_ASSERT_FATAL(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(odp_packet_len(pkt) == len);
-	CU_ASSERT(odp_packet_is_segmented(pkt) == 1);
+	if (segmentation_supported)
+		CU_ASSERT(odp_packet_is_segmented(pkt) == 1);
 	odp_packet_free(pkt);
 }
 
@@ -405,7 +416,8 @@ void packet_test_segments(void)
 	}
 
 	CU_ASSERT(odp_packet_is_segmented(pkt) == 0);
-	CU_ASSERT(odp_packet_is_segmented(seg_pkt) == 1);
+	if (segmentation_supported)
+		CU_ASSERT(odp_packet_is_segmented(seg_pkt) == 1);
 
 	seg = odp_packet_first_seg(pkt);
 	buf_len = 0;
@@ -567,9 +579,16 @@ void packet_test_add_rem_data(void)
 		  sizeof(struct udata_struct));
 	memcpy(udat, &test_packet_udata, sizeof(struct udata_struct));
 
-	/* Insert one more packet length in the middle of a packet */
 	offset = pkt_len / 2;
-	add_len = pkt_len;
+
+	if (segmentation_supported) {
+		/* Insert one more packet length in the middle of a packet */
+		add_len = pkt_len;
+	} else {
+		/* Add diff between largest and smaller packets
+		 * which is at least tailroom */
+		add_len = segmented_packet_len - packet_len;
+	}
 
 	new_pkt = odp_packet_add_data(pkt, offset, add_len);
 	CU_ASSERT(new_pkt != ODP_PACKET_INVALID);
