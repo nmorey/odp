@@ -15,7 +15,7 @@
 #define MAX_ETH_PORTS		4
 #define N_RX_PER_PORT		10
 #define NOC_UC_COUNT		2
-#define MAX_PKT_PER_UC		3
+#define MAX_PKT_PER_UC		4
 #define DNOC_CLUS_IFACE_ID	0
 
 #include <mppa_noc.h>
@@ -62,7 +62,7 @@ static inline int MAX(int a, int b)
 	return b > a ? b : a;
 }
 
-extern char _heap_start, _heap_end;
+extern char _heap_end;
 
 static int cluster_init_dnoc_tx(void)
 {
@@ -71,8 +71,8 @@ static int cluster_init_dnoc_tx(void)
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
 	uc_conf.program_start = (uintptr_t) ucode_eth;
-	uc_conf.buffer_base = (uintptr_t) &_heap_start;
-	uc_conf.buffer_size = &_heap_end - &_heap_start;
+	uc_conf.buffer_base = (uintptr_t) &_data_start;
+	uc_conf.buffer_size = (uintptr_t) &_heap_end - (uintptr_t) &_data_start;
 
 	for (i = 0; i < NOC_UC_COUNT; i++) {
 
@@ -487,10 +487,9 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 	mppa_noc_ret_t nret;
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
+	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
 
-	uc_conf.pointers = NULL;
-	uc_conf.event_counter = 0;
-
+	/* Wait for previous run to complete */
 	if (g_uc_ctx[g_last_uc_used].is_running) {
 		mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
 					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
@@ -507,12 +506,17 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 
 	for(i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
-		/* FIXME */
+		/* Setup parameters and pointers */
 		uc_conf.parameters[i * 2] = pkt_hdr->frame_len / sizeof(uint64_t);
 		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len % sizeof(uint64_t);
+		uc_pointers.thread_pointers[i] = (uintptr_t) packet_map(pkt_hdr, 0, NULL) - (uintptr_t) &_data_start;
+
 		/* Store current packet to free them later */
 		g_uc_ctx[g_last_uc_used].pkt_table[i] = pkt_table[i];
 	}
+
+	uc_conf.pointers = &uc_pointers;
+	uc_conf.event_counter = 0;
 
 	g_uc_ctx[g_last_uc_used].pkt_count = pkt_count;
 	g_uc_ctx[g_last_uc_used].is_running = 1;
