@@ -45,7 +45,6 @@ struct mppa_ethernet_uc_ctx {
 };
 
 static struct mppa_ethernet_uc_ctx g_uc_ctx[NOC_UC_COUNT] = {{0}};
-static unsigned int g_last_uc_used = 0;
 
 typedef struct mppa_ethernet_header_s {
   mppa_uint64 timestamp;
@@ -488,18 +487,19 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
+	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
 
 	/* Wait for previous run to complete */
-	if (g_uc_ctx[g_last_uc_used].is_running) {
+	if (g_uc_ctx[tx_index].is_running) {
 		mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
 					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-					  g_uc_ctx[g_last_uc_used].dnoc_tx_id);
+					  g_uc_ctx[tx_index].dnoc_tx_id);
 		/* Free previous packets */
 		for(i = 0; i < pkt_count; i++)
-			odp_packet_free(g_uc_ctx[g_last_uc_used].pkt_table[i]);
+			odp_packet_free(g_uc_ctx[tx_index].pkt_table[i]);
 	}
 
-	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, g_uc_ctx[g_last_uc_used].dnoc_uc_id,
+	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, g_uc_ctx[tx_index].dnoc_uc_id,
 					  uc_conf, eth->header, eth->config);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
@@ -512,20 +512,17 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		uc_pointers.thread_pointers[i] = (uintptr_t) packet_map(pkt_hdr, 0, NULL) - (uintptr_t) &_data_start;
 
 		/* Store current packet to free them later */
-		g_uc_ctx[g_last_uc_used].pkt_table[i] = pkt_table[i];
+		g_uc_ctx[tx_index].pkt_table[i] = pkt_table[i];
 	}
 
 	uc_conf.pointers = &uc_pointers;
 	uc_conf.event_counter = 0;
 
-	g_uc_ctx[g_last_uc_used].pkt_count = pkt_count;
-	g_uc_ctx[g_last_uc_used].is_running = 1;
+	g_uc_ctx[tx_index].pkt_count = pkt_count;
+	g_uc_ctx[tx_index].is_running = 1;
 
-	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, g_uc_ctx[g_last_uc_used].dnoc_uc_id,
+	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, g_uc_ctx[tx_index].dnoc_uc_id,
 					 program_run);
-
-	g_last_uc_used++;
-	g_last_uc_used %= NOC_UC_COUNT;
 
 	return 0;
 }
