@@ -12,25 +12,16 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
-/* FIXME when noc is ready */
-#ifdef __k1a__
-#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, 0, 0, NULL}
-#else
-#  define MPPA_NOC_DNOC_UC_CONFIGURATION_INIT {{0}, 0, 0, 0, 0, {0}, {0}, NULL, NULL}
-#endif
-
 #include <unistd.h>
 
 #define DNOC_CLUS_BASE_RX	0
-#define DNOC_CLUS_TX_ID		0
-#define DNOC_CLUS_UC_ID		0
 
 #define CNOC_CLUS_SYNC_RX_ID	16
-#define CNOC_CLUS_TX_ID		0
 #define CNOC_CLUS_BASE_RX_ID	0
 
 #define NOC_CLUS_IFACE_ID	0
 
+#define NOC_UC_COUNT		2
 
 #define NOC_IODDR0_ID		128
 
@@ -38,8 +29,15 @@
 #define ODP_PKTIO_MAX_PKT_COUNT		5
 #define ODP_PKTIO_PKT_BUF_SIZE		(ODP_PKTIO_MAX_PKT_COUNT * ODP_PKTIO_MAX_PKT_SIZE)
 
+#ifdef __k1a__
+	/// Mask of the destination offset to use for sending with absolute offset.
+#define MPPA_NOC_UCORE_USE_ABSOLUTE_OFFSET	0xA0000000
+#else
+#define MPPA_NOC_UCORE_USE_ABSOLUTE_OFFSET	0xA000000000000000ULL
+#endif
+
 struct cluster_pkt_header {
-	uint32_t pkt_size;
+	uint64_t pkt_size;
 };
 
 #define ODP_CLUS_DBG(fmt, ...)	ODP_DBG("[Clus %d] " fmt, __k1_get_cluster_id(), ##__VA_ARGS__)
@@ -64,7 +62,18 @@ static uint8_t *g_pkt_recv_buf[BSP_NB_CLUSTER_MAX];
 /**
  * UCore status
  */
-static volatile unsigned int g_uc_is_running = 0;
+struct mppa_ethernet_uc_ctx {
+	unsigned int dnoc_tx_id;
+	unsigned int dnoc_uc_id;
+	bool is_running;
+	odp_packet_t pkt;
+	struct cluster_pkt_header pkt_hdr;
+};
+
+static struct mppa_ethernet_uc_ctx g_uc_ctx[NOC_UC_COUNT] = {{0}};
+
+
+static unsigned int g_cnoc_tx_id = 0;
 
 /**
  * Fill the list of available clusters
@@ -138,9 +147,6 @@ static int cluster_init_cnoc_rx(int clus_id)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	//~ mppa_noc_register_interrupt_handler(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
-	//~ rx_id, 0xFFFF, mppa_noc_callback_t callback, void *arg);
-
 	return 0;
 }
 
@@ -191,37 +197,43 @@ static int cluster_init_noc_rx(void)
 	return 0;
 }
 
-extern char _heap_start, _heap_end;
+extern char _heap_end;
 
 static int cluster_init_noc_tx(void)
 {
+	int i;
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
 	uc_conf.program_start = (uintptr_t) odp_ucode_linear;
-	uc_conf.buffer_base = (uintptr_t) &_heap_start;
-	uc_conf.buffer_size = &_heap_end - &_heap_start;
+	uc_conf.buffer_base = (uintptr_t) &_data_start;
+	uc_conf.buffer_size = (uintptr_t) &_heap_end - (uintptr_t) &_data_start;
 
-	/* We will only use events */
-	mppa_noc_disable_interrupt_handler(NOC_CLUS_IFACE_ID,
-		MPPA_NOC_INTERRUPT_LINE_DNOC_TX, DNOC_CLUS_TX_ID);
+	for (i = 0; i < NOC_UC_COUNT; i++) {
 
-	/* DNoC */
-	ret = mppa_noc_dnoc_tx_alloc(NOC_CLUS_IFACE_ID, DNOC_CLUS_TX_ID);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		return 1;
+		/* DNoC */
+		ret = mppa_noc_dnoc_tx_alloc_auto(NOC_CLUS_IFACE_ID, &g_uc_ctx[i].dnoc_tx_id, MPPA_NOC_BLOCKING);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
 
-	ret = mppa_noc_dnoc_uc_alloc(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		return 1;
+		/* We will only use events */
+		mppa_noc_disable_interrupt_handler(NOC_CLUS_IFACE_ID,
+			MPPA_NOC_INTERRUPT_LINE_DNOC_TX, g_uc_ctx[i].dnoc_tx_id);
 
-	ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
-				    DNOC_CLUS_TX_ID, uc_conf);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		return 1;
+		ret = mppa_noc_dnoc_uc_alloc_auto(NOC_CLUS_IFACE_ID, &g_uc_ctx[i].dnoc_uc_id, MPPA_NOC_BLOCKING);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
+
+		ret = mppa_noc_dnoc_uc_link(NOC_CLUS_IFACE_ID, g_uc_ctx[i].dnoc_uc_id,
+					    g_uc_ctx[i].dnoc_tx_id, uc_conf);
+		if (ret != MPPA_NOC_RET_SUCCESS)
+			return 1;
+
+		g_uc_ctx[i].is_running = 0;		
+	}
 
 	/* CnoC */
-	ret = mppa_noc_cnoc_tx_alloc(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID);
+	ret = mppa_noc_cnoc_tx_alloc_auto(NOC_CLUS_IFACE_ID, &g_cnoc_tx_id, MPPA_NOC_BLOCKING);
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
@@ -243,7 +255,7 @@ static int cluster_configure_cnoc_tx(int clus_id, int tag)
 
 	header._.tag = tag;
 
-	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	nret = mppa_noc_cnoc_tx_configure(NOC_CLUS_IFACE_ID, g_cnoc_tx_id,
 					  config, header);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
@@ -258,11 +270,13 @@ static int cluster_io_sync(void)
 	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID, CNOC_CLUS_SYNC_RX_ID) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID, value);
+	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, g_cnoc_tx_id, value);
 
+#ifdef __k1b__
+	while(mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0);
+#else
 	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
-
-	ODP_CLUS_DBG("IO sync ok\n");
+#endif
 
 	return 0;
 }
@@ -287,8 +301,11 @@ static int cluster_init(void)
 static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			const char *devname, odp_pool_t pool)
 {
+	mppa_routing_ret_t rret;
+
 	if(!strncmp("cluster:", devname, strlen("cluster:"))) {
 		pkt_cluster_t * pkt_cluster = &pktio_entry->s.pkt_cluster;
+		
 		/* String should in the following format: "cluster:<cluster_id>" */
 		pkt_cluster->clus_id = atoi(devname + strlen("cluster:"));
 
@@ -306,7 +323,35 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			odp_buffer_pool_headroom(pool) -
 			odp_buffer_pool_tailroom(pool);
 
-		ODP_CLUS_DBG("Cluster Pktio %d opened\n", pkt_cluster->clus_id);
+		/* Get and configure route */
+#ifdef __k1a__
+		pkt_cluster->config.word = 0;
+		pkt_cluster->config._.bandwidth = mppa_noc_dnoc_get_window_length(NOC_CLUS_IFACE_ID);
+#else
+		pkt_cluster->config._.loopback_multicast = 0;
+		pkt_cluster->config._.cfg_pe_en = 1;
+		pkt_cluster->config._.cfg_user_en = 1;
+		pkt_cluster->config._.write_pe_en = 1;
+		pkt_cluster->config._.write_user_en = 1;
+		pkt_cluster->config._.decounter_id = 0;
+		pkt_cluster->config._.decounted = 0;
+		pkt_cluster->config._.payload_min = 0;
+		pkt_cluster->config._.payload_max = 32;
+		pkt_cluster->config._.bw_current_credit = 0xff;
+		pkt_cluster->config._.bw_max_credit     = 0xff;
+		pkt_cluster->config._.bw_fast_delay     = 0x00;
+		pkt_cluster->config._.bw_slow_delay     = 0x00;
+#endif
+
+		pkt_cluster->header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
+		pkt_cluster->header._.valid = 1;
+
+		rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
+							   pkt_cluster->clus_id,
+							   &pkt_cluster->config, &pkt_cluster->header);
+		
+		if (rret != MPPA_ROUTING_RET_SUCCESS) 
+			return 1;
 		return 0;
 	}
 
@@ -331,20 +376,18 @@ static int cluster_mac_addr_get(pktio_entry_t *pktio_entry,
 	return ETH_ALEN;
 }
 
-#ifdef __k1a__
 static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 {
 	if (cluster_configure_cnoc_tx(pktio_clus->clus_id, CNOC_CLUS_BASE_RX_ID + __k1_get_cluster_id()) != 0)
 		return 1;
 
-	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, CNOC_CLUS_TX_ID,
+	mppa_noc_cnoc_tx_push(NOC_CLUS_IFACE_ID, g_cnoc_tx_id,
 			      pktio_clus->recv_pkt_count);
 
 	return 0;
 }
-#endif
 
-#ifdef __k1a__
+
 static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 					 odp_packet_t *pkt)
 {
@@ -391,38 +434,32 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 
 	return 0;
 }
-#endif
 
 static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 			odp_packet_t pkt_table[] ODP_UNUSED,
 			unsigned len ODP_UNUSED)
 {
 	unsigned int nb_rx = 0;
-#ifdef __k1a__
 	int ret;
-	mppa_noc_dnoc_rx_counters_t counter;
+	uint16_t item_cnt;
 	pkt_cluster_t *pktio_clus = &pktio_entry->s.pkt_cluster;
 	odp_packet_t pkt;
 
 	/* Check if we received some packets */
-	counter = mppa_noc_dnoc_rx_lac_item_event_counter(NOC_CLUS_IFACE_ID,
-							  DNOC_CLUS_BASE_RX +
+	item_cnt = mppa_noc_dnoc_rx_lac_event_counter(NOC_CLUS_IFACE_ID,  DNOC_CLUS_BASE_RX +
 							  pktio_clus->clus_id);
+
 	/* FIXME, we need to store if there are more packets than available space on our side */
-	if (counter.event_counter == 0)
+	if (item_cnt == 0)
 		return 0;
 
-	ODP_CLUS_DBG("%ld packet(s) available\n", counter.event_counter);
-
-	for (nb_rx = 0; nb_rx < counter.event_counter; nb_rx++) {
+	for (nb_rx = 0; nb_rx < item_cnt; nb_rx++) {
 		ret = cluster_receive_single_packet(pktio_clus, &pkt);
 		if (ret != 0)
-			return 0;
+			return nb_rx;
 
 		pkt_table[nb_rx] = pkt;
 	}
-#endif
-	ODP_CLUS_DBG("Received %d packets\n", nb_rx);
 
 	return nb_rx;
 }
@@ -432,21 +469,14 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 			   odp_packet_t pkt)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-	mppa_dnoc_channel_config_t config = {0};
-	mppa_dnoc_header_t header = {0};
 
-	mppa_noc_uc_program_run_t program_run = {{0}};
+	mppa_noc_uc_program_run_t program_run = {{1, 1}};
 	mppa_noc_ret_t nret;
-	mppa_routing_ret_t rret;
 	uint64_t remote_pkt_count;
 	uintptr_t remote_offset;
-	uint8_t *tmp_pkt;
-	odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG];
-	struct cluster_pkt_header pkt_header;
-	uint32_t iov_count = _tx_pkt_to_iovec(pkt, iovecs);
-
-	ODP_CLUS_DBG("Sending packet of %d iovecs\n", iov_count);
-	assert(iov_count == 1);
+	int tx_index = pktio_clus->clus_id % NOC_UC_COUNT;
+	odp_packet_hdr_t * pkt_hdr = odp_packet_hdr(pkt);
+	void *pkt_addr = packet_map(pkt_hdr, 0, NULL);
 
 #ifdef __k1a__
 	mppa_noc_event_line_t event_line;
@@ -467,44 +497,38 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	if ((pktio_clus->sent_pkt_count - remote_pkt_count) >=
 	    ODP_PKTIO_MAX_PKT_COUNT) {
 		return 1;
-	    }
-	/* Get and configure route */
-#ifdef __k1a__
-	config.word = 0;
-	config._.bandwidth = mppa_noc_dnoc_get_window_length(NOC_CLUS_IFACE_ID);
-#endif
-
-	header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
-
-	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
-						   pktio_clus->clus_id,
-						   &config, &header);
-	if (rret != MPPA_ROUTING_RET_SUCCESS) 
-		return 1;
-
-	tmp_pkt = malloc(ODP_PKTIO_MAX_PKT_SIZE +
-			 sizeof(struct cluster_pkt_header));
-	if (!tmp_pkt)
-		return 1;
+	}
 
 	remote_offset = (pktio_clus->sent_pkt_count % ODP_PKTIO_MAX_PKT_COUNT) *
 		ODP_PKTIO_MAX_PKT_SIZE;
 
-	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p, offset: %d\n", iovecs[0].iov_len, iovecs[0].iov_base, remote_offset);
+	if (g_uc_ctx[tx_index].is_running) {
 
-	pkt_header.pkt_size = iovecs[0].iov_len;
-	memcpy(tmp_pkt, &pkt_header, sizeof(struct cluster_pkt_header));
-	memcpy(tmp_pkt + sizeof(struct cluster_pkt_header), iovecs[0].iov_base, pkt_header.pkt_size);
+		mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID,
+					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
+					  g_uc_ctx[tx_index].dnoc_tx_id);
 
+		odp_packet_free(g_uc_ctx[tx_index].pkt);
+	}
 
-	__k1_mb();
+	ODP_CLUS_DBG("Sending iovec len 0x%08x, addr: %p, offset: %d, tx_index: %d, header\n", pkt_hdr->frame_len, pkt_addr, remote_offset, tx_index);
 
-	mppa_noc_dnoc_uc_set_linear_params(&uc_conf, pkt_header.pkt_size + sizeof(struct cluster_pkt_header), remote_offset);
-	/* We added a local offset to our ucode */
-	uc_conf.parameters[3] = (uintptr_t) tmp_pkt - (uintptr_t) &_heap_start;
+	/* Fill informations for transfer */
+	g_uc_ctx[tx_index].pkt = pkt;
+	g_uc_ctx[tx_index].pkt_hdr.pkt_size = pkt_hdr->frame_len;
+	
 
-	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
-					  uc_conf, header, config
+	uc_conf.parameters[0] = pkt_hdr->frame_len / sizeof(uint64_t);
+	uc_conf.parameters[1] = pkt_hdr->frame_len % sizeof(uint64_t);
+	uc_conf.parameters[2] = remote_offset | MPPA_NOC_UCORE_USE_ABSOLUTE_OFFSET;
+	uc_conf.parameters[3] = (uintptr_t) pkt_addr - (uintptr_t) &_data_start;
+	/* Header size and address */
+	assert((sizeof(struct cluster_pkt_header) % sizeof(uint64_t)) == 0);
+	uc_conf.parameters[4] = sizeof(struct cluster_pkt_header) / sizeof(uint64_t);
+	uc_conf.parameters[5] = (uintptr_t) &g_uc_ctx[tx_index].pkt_hdr - (uintptr_t) &_data_start;
+
+	nret = mppa_noc_dnoc_uc_configure(NOC_CLUS_IFACE_ID,  g_uc_ctx[tx_index].dnoc_uc_id,
+					  uc_conf, pktio_clus->header, pktio_clus->config
 #ifdef __k1a__
 		, event_line
 #endif
@@ -512,21 +536,12 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	program_run.activation = 1;
-	program_run.semaphore = 1;
-
-	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, DNOC_CLUS_UC_ID,
+	g_uc_ctx[tx_index].is_running = 1;
+	mppa_noc_dnoc_uc_set_program_run(NOC_CLUS_IFACE_ID, g_uc_ctx[tx_index].dnoc_uc_id,
 					 program_run);
-
-	/* FIXME asynchronous */
-	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID,
-				  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-				  DNOC_CLUS_TX_ID);
 
 	/* Modify offset for next package */
 	pktio_clus->sent_pkt_count++;
-
-	free(tmp_pkt);
 
 	return 0;
 }
@@ -548,9 +563,6 @@ static int cluster_send(pktio_entry_t *const pktio_entry,
 			break;
 	}
 	nb_tx = i;
-
-	for (i = 0; i < len; i++)
-		odp_packet_free(pkt_table[i]);
 
 	return nb_tx;
 }

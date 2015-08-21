@@ -26,6 +26,8 @@ void rpcHandle(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload)
 
 #define NOC_IO_IFACE_ID			0
 
+#define MAX_ARGS			10
+#define MAX_CLUS_NAME			256
 
 static int io_init_cnoc_rx(uint64_t clus_mask)
 {
@@ -79,7 +81,11 @@ static int io_wait_cluster_sync(int cluster_count)
 
 	mppa_noc_cnoc_clear_rx_event(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
 
+#ifdef __k1b__
+	while(mppa_noc_cnoc_rx_get_value(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0);
+#else
 	mppa_noc_wait_clear_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
+#endif
 
 	printf("Got cluster sync, sending ack\n");
 
@@ -103,12 +109,19 @@ static int io_wait_cluster_sync(int cluster_count)
 	return 0;
 }
 
+struct clus_bin_boot {
+	int clus_id;
+	char *clus_bin;
+	const char *clus_argv[MAX_ARGS];
+	int clus_argc;
+};
+
+struct clus_bin_boot clus_bin_boots[BSP_NB_CLUSTER_MAX] = {{0}};
+
 int main (int argc, char *argv[])
 {
-	int i, clus_count, clus_status;
-	char clus_id[4];
+	int i, clus_count = 0, clus_status, opt;
 	mppa_power_pid_t clus_pid[BSP_NB_CLUSTER_MAX];
-	const char *clus_argv[3];
 	uint64_t clus_mask = 0;
 
 	if (argc < 2) {
@@ -116,25 +129,47 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
+
+	while ((opt = getopt(argc, argv, "c:a:i:")) != -1) {
+		switch (opt) {
+		case 'c':
+			clus_bin_boots[clus_count].clus_bin = strdup(optarg);
+			clus_bin_boots[clus_count].clus_id = clus_count;
+			clus_bin_boots[clus_count].clus_argv[0] = clus_bin_boots[clus_count].clus_bin;
+			clus_bin_boots[clus_count].clus_argc = 1;
+			clus_count++;
+			break;
+		case 'a':
+			clus_bin_boots[clus_count - 1].clus_argv[clus_bin_boots[clus_count].clus_argc] = strdup(optarg);
+			clus_bin_boots[clus_count - 1].clus_argc++;
+			break;
+		case 'i':
+			clus_bin_boots[clus_count - 1].clus_id = atoi(optarg);
+			break;
+		default: /* '?' */
+			fprintf(stderr, "Wrong arguments\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	
+
 	mppa_power_init();
 	odp_rpc_server_start(rpcHandle);
 
-	clus_count = argc - 1;
 	printf("Spawning %d clusters\n", clus_count);
 
 	for (i = 0; i < clus_count; i++)
-		clus_mask |= (1 << i);
+		clus_mask |= (1 << clus_bin_boots[i].clus_id);
 
 	io_init_cnoc_rx(~clus_mask);
 
 	for (i = 0; i < clus_count; i++) {
-		sprintf(clus_id, "%d", i);
-		clus_argv[0] = argv[i + 1];
-		clus_argv[1] = clus_id;
-		clus_argv[2] = NULL;
-
-		printf("Spawning %s on cluster %d\n", clus_argv[0], i);
-		clus_pid[i] = mppa_power_base_spawn(i, clus_argv[0], clus_argv, NULL, MPPA_POWER_SHUFFLING_DISABLED);
+		clus_bin_boots[i].clus_argv[clus_bin_boots[i].clus_argc] = NULL;
+		printf("Spawning %s on cluster %d with %d args\n", clus_bin_boots[i].clus_argv[0], clus_bin_boots[i].clus_id, clus_bin_boots[i].clus_argc);
+		clus_pid[i] = mppa_power_base_spawn(clus_bin_boots[i].clus_id,
+							clus_bin_boots[i].clus_argv[0],
+							clus_bin_boots[i].clus_argv,
+							NULL, MPPA_POWER_SHUFFLING_DISABLED);
 		if (clus_pid[i] < 0) {
 			printf("Failed to spawn cluster %d\n", i);
 			return 1;
@@ -150,7 +185,7 @@ int main (int argc, char *argv[])
 			printf("Failed to wait cluster %d\n", i);
 			return 1;
 		}
-		printf("Cluster return status: %d\n", clus_status);
+		printf("Cluster %d return status: %d\n", clus_pid[i],  clus_status);
 		if (clus_status != 0)
 			return 1;
 	}

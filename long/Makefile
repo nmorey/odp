@@ -47,9 +47,9 @@ else
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
 
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
-  boot-srcs := $(ODP_SRC_DIR)/firmware/boot/ioddr-boot.c $(ODP_SRC_DIR)/firmware/rpc/rpc-server.c $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c
+  boot-srcs := $(ODP_SRC_DIR)/firmware/boot/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c
   boot-lflags := $(LIB_NOC_LFLAGS)
-  boot-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/ -I$(ODP_SRC_DIR)/include/
+  boot-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/ -I$(ODP_SRC_DIR)/firmware/common/rpc/ -I$(ODP_SRC_DIR)/include/
   BOOT_ELF := boot
 endif
 

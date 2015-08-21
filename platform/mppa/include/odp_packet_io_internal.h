@@ -47,6 +47,8 @@ typedef struct {
 	size_t buf_size; 		/**< size of buffer payload in 'pool' */
 	uint64_t sent_pkt_count;	/**< Count of packet sent to the clusters */
 	uint64_t recv_pkt_count;	/**< Count of packet received */
+	mppa_dnoc_header_t header;	/**< Preconfigured header */
+	mppa_dnoc_channel_config_t config;	/**< Preconfigured config */
 } pkt_cluster_t;
 
 typedef struct {

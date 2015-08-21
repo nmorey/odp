@@ -1,4 +1,0 @@
-dma_send_eot 0
-dma_send_event
-dma_stop
-dma_write_bundle

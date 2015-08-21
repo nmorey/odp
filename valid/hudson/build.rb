@@ -63,7 +63,8 @@ if ENV["label"].to_s() != "" then
     case ENV["label"]
     when /MPPADevelopers*/, /MPPAEthDevelopers*/
         valid_configs = [ "k1a-kalray-nodeos", "k1a-kalray-mos" ]
-   	when "fedora19-64","fedora17-64","debian6-64","debian7-64"
+        valid_type = "jtag"
+    when "fedora19-64","fedora17-64","debian6-64","debian7-64"
         # Validate nothing. It's centos7 job to do this
     when "centos7-64"
         valid_configs = [ "k1a-kalray-nodeos_simu" ]
@@ -82,8 +83,12 @@ configs = (options["configs"].split(" ")).uniq
 configs.each(){|conf|
     raise ("Invalid config '#{conf}'") if CONFIGS[conf] == nil
 }
-artifacts = File.expand_path(options["output-dir"])
-artifacts = File.join(workspace,"artifacts") if(options["output-dir"].empty?)
+
+if options["output-dir"] != nil then
+    artifacts = File.expand_path(options["output-dir"])
+else
+    artifacts = File.join(workspace,"artifacts")
+end
 mkdir_p artifacts unless File.exists?(artifacts)
 
 b.target("build") do

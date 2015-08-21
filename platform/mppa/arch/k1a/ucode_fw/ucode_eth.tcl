@@ -56,3 +56,8 @@ dma_bnz dcnt0 send_bytes_loop_label
 dma_write_bundle
 
 dma_label end_label
+
+dma_send_eot 0
+dma_send_event
+dma_stop
+dma_write_bundle
