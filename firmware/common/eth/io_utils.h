@@ -199,6 +199,7 @@ uint32_t init_mac(const int lane_id)
 #endif
 	unsigned long long start = __k1_read_dsu_timestamp();
 	int up = 0;
+	(void)up;
 	while (__k1_read_dsu_timestamp() - start < 1800000000ULL) {
 		if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
 		   mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1) {
