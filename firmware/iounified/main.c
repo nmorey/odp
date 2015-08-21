@@ -37,14 +37,13 @@ int main()
 
 	int ret;
 
-	eth_init();
-
 	ret = odp_rpc_server_start(NULL);
 	if (ret) {
 		fprintf(stderr, "Failed to start server\n");
 		exit(EXIT_FAILURE);
 	}
 
+	eth_init();
 
 	while (1) {
 		int remoteClus;
