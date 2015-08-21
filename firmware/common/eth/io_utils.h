@@ -8,9 +8,11 @@
 #include "mdio_utils.h"
 #include "mdio_88E1111.h"
 
+
 #define MAX_TABLE_IDX		 0	/*ONly true on fpga */
 #define DEFAULT_TABLE_IDX 	 8
-enum loopback_level {MAC_LOCAL_LOOPBACK= 0, MAC_BYPASS_LOOPBACK, LAST_LOOPBACK_LEVEL};
+enum loopback_level { MAC_LOCAL_LOOPBACK = 0, MAC_BYPASS_LOOPBACK, LAST_LOOPBACK_LEVEL
+};
 
 /**
  * @brief Conversion from macmode value to phy compatible mode value
