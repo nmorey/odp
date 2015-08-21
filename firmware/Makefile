@@ -5,7 +5,7 @@ SRCFILES   += $(shell find $(SRCDIRS) -name "[^.]*.c")
 HDRFILES   += $(shell find $(SRCDIRS) -name "[^.]*.h")
 OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
-_CFLAGS    += $(CFLAGS) -g -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
+_CFLAGS    += $(CFLAGS) -g3 -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
 _LDFLAGS   += $(LDFLAGS)
 
 ifdef DEBUG
