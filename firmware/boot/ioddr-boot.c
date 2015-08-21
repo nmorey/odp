@@ -81,9 +81,12 @@ static int io_wait_cluster_sync(int cluster_count)
 
 	mppa_noc_cnoc_clear_rx_event(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
 
-//	mppa_noc_wait_clear_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
+#ifdef __k1b__
 	while(mppa_noc_cnoc_rx_get_value(NOC_IO_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0);
-     
+#else
+	mppa_noc_wait_clear_event(NOC_IO_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
+#endif
+
 	printf("Got cluster sync, sending ack\n");
 
 	for(clus = 0; clus < cluster_count; clus++) {

@@ -272,9 +272,12 @@ static int cluster_io_sync(void)
 
 	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, g_cnoc_tx_id, value);
 
-       //mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
+#ifdef __k1b__
 	while(mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0);
- 
+#else
+	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
+#endif
+
 	return 0;
 }
 
