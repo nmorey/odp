@@ -96,7 +96,11 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	}
 
 	/* Configure Tx */
-	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + (nocIf % 4),
+	int externalAddress = __k1_get_cluster_id() + nocIf;
+#ifdef K1B_EXPLORER
+	externalAddress = __k1_get_cluster_id() + (nocIf % 4);
+#endif
+	ret = mppa_routing_get_dnoc_unicast_route(externalAddress,
 						  remoteClus, &config, &header);
 	if (ret != MPPA_ROUTING_RET_SUCCESS) {
 		fprintf(stderr, "[ETH] Error: Failed to route to cluster %d\n", remoteClus);
@@ -183,7 +187,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
 	status[data.ifId].cluster[remoteClus].rx_tag = rx_port;
 
-	ack.open.eth_tx_if = __k1_get_cluster_id() + (nocIf % 4);
+	ack.open.eth_tx_if = externalAddress;
 	ack.open.eth_tx_tag = rx_port;
 
 	return ack;
