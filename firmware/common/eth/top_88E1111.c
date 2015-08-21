@@ -1178,19 +1178,24 @@ int mppa_88E1111_synchronize(mppa_88E1111_interface_t * interface)
 	if (status != 0)
 		return status;
 
-	while (1) {
+	unsigned long long start = __k1_read_dsu_timestamp();
+	int up = 0;
+	while (__k1_read_dsu_timestamp() - start < 1800000000ULL) {
 		// Get bit 15 of register 4
 		status |=
 		    interface->mppa_88E1111_read(interface->context, interface->chip_id, 4, &reg);
 		if (status != 0)
 			return status;
 		if ((reg >> 15) == 1) {
-#ifdef VERBOSE
-			printf("[88E1111 0x%.2x] Link up.\n", interface->chip_id);
-#endif
+			up = 1;
 			break;
 		}
+		__k1_cpu_backoff(1000);
 	}
+	(void)up;
+#ifdef VERBOSE
+	printf("[88E1111 0x%.2x] Link %s.\n", interface->chip_id, up ? "up" : "down/polling");
+#endif
 	return status;
 }
 
