@@ -337,6 +337,10 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	odp_rpc_wait_ack(&ack_msg, NULL);
 	odp_rpc_cmd_ack_t ack = { .inl_data = ack_msg->inl_data};
 
+	if (ack.status) {
+		fprintf(stderr, "[ETH] Error: Server declined opening of '%s'\n", devname);
+	}
+
 	eth->tx_if = ack.open.eth_tx_if;
 	eth->tx_tag = ack.open.eth_tx_tag;
 
