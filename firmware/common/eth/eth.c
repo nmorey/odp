@@ -35,6 +35,15 @@ typedef struct {
 
 eth_status_t status[N_ETH_LANE];
 
+static inline int get_eth_dma_id(unsigned cluster_id){
+	int if_id = odp_rpc_get_ioeth_dma_id(0, cluster_id) - 160;
+#if defined(__k1b__)
+	/* On K1B, DMA 0-3 belong to IODDR */
+	if_id += 4;
+#endif
+	return if_id;
+}
+
 static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
 {
 	cluster->txId = -1;
@@ -53,12 +62,15 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0};
 	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
-	const uint32_t nocIf = get_dma_id(remoteClus);
+	const int nocIf = get_eth_dma_id(remoteClus);
 	volatile mppa_dnoc_min_max_task_id_t *context;
 	mppa_dnoc_header_t header = { 0 };
 	mppa_dnoc_channel_config_t config = { 0 };
 	unsigned nocTx;
 	int ret;
+
+	if(nocIf < 0)
+		goto err;
 
 	if(data.ifId >= N_ETH_LANE)
 		goto err;
@@ -87,7 +99,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	config._.write_user_en = 1;
 	config._.decounter_id = 0;
 	config._.decounted = 0;
-	config._.payload_min = 0;
+	config._.payload_min = 1;
 	config._.payload_max = 32;
 	config._.bw_current_credit = 0xff;
 	config._.bw_max_credit     = 0xff;
@@ -166,7 +178,7 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
-	const uint32_t nocIf = get_dma_id(remoteClus);
+	const uint32_t nocIf = get_eth_dma_id(remoteClus);
 	const int nocTx = status[data.ifId].cluster[remoteClus].txId;
 
 	if(nocTx < 0) {
@@ -229,7 +241,9 @@ void eth_send_pkts(void){
 			if(nocTx < 0)
 				continue;
 
-			const int nocIf = get_dma_id(clus);
+			const int nocIf = get_eth_dma_id(clus);
+			if(nocIf < 0)
+				continue;
 			const int minRx = status[ethIf].cluster[clus].min_rx;
 			const int maxRx = status[ethIf].cluster[clus].max_rx;
 

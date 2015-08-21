@@ -5,8 +5,14 @@ SRCFILES   += $(shell find $(SRCDIRS) -name "[^.]*.c")
 HDRFILES   += $(shell find $(SRCDIRS) -name "[^.]*.h")
 OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
-_CFLAGS    += $(CFLAGS) -O2 -g -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
+_CFLAGS    += $(CFLAGS) -g -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
 _LDFLAGS   += $(LDFLAGS)
+
+ifdef DEBUG
+_CFLAGS    += -O0
+else
+_CFLAGS    += -O2
+endif
 
 BIN      := $(BUILDDIR)/$(FIRMDIR).kelf
 INSTBIN  := $(INSTDIR)/$(FIRMDIR).kelf
