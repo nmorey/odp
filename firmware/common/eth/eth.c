@@ -80,24 +80,34 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	unsigned nocTx;
 	int ret;
 
-	if(nocIf < 0)
+	if(nocIf < 0) {
+		fprintf(stderr, "[ETH] Error: Invalid NoC interface (%d %d)\n", nocIf, remoteClus);
 		goto err;
+	}
 
-	if(data.ifId >= N_ETH_LANE)
+	if(data.ifId >= N_ETH_LANE) {
+		fprintf(stderr, "[ETH] Error: Invalid Eth lane\n");
 		goto err;
+	}
 
-	if(status[data.ifId].cluster[remoteClus].txId >= 0)
+	if(status[data.ifId].cluster[remoteClus].txId >= 0) {
+		fprintf(stderr, "[ETH] Error: Lane %d is already opened for cluster %d\n", data.ifId, remoteClus);
 		goto err;
+	}
 
 	/* Configure Tx */
 	ret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + (nocIf % 4),
 						  remoteClus, &config, &header);
-	if (ret != MPPA_ROUTING_RET_SUCCESS)
+	if (ret != MPPA_ROUTING_RET_SUCCESS) {
+		fprintf(stderr, "[ETH] Error: Failed to route to cluster %d\n", remoteClus);
 		goto err;
+	}
 
 	ret = mppa_noc_dnoc_tx_alloc_auto(nocIf, &nocTx, MPPA_NOC_BLOCKING);
-	if (ret != MPPA_NOC_RET_SUCCESS)
+	if (ret != MPPA_NOC_RET_SUCCESS) {
+		fprintf(stderr, "[ETH] Error: Failed to find an available Tx on DMA %d\n", nocIf);
 		goto err;
+	}
 
 #ifdef __k1a__
 	config.word = 0;
@@ -122,8 +132,10 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	header._.valid = 1;
 
 	ret = mppa_noc_dnoc_tx_configure(nocIf, nocTx, header, config);
-	if (ret != MPPA_NOC_RET_SUCCESS)
+	if (ret != MPPA_NOC_RET_SUCCESS) {
+		fprintf(stderr, "[ETH] Error: Failed to configure Tx\n");
 		goto open_err;
+	}
 
 	status[data.ifId].cluster[remoteClus].txId = nocTx;
 	status[data.ifId].cluster[remoteClus].min_rx = data.min_rx;
@@ -147,8 +159,10 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	/* Now deal with Tx */
 	unsigned rx_port;
 	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
-	if(ret)
+	if(ret) {
+		fprintf(stderr, "[ETH] Error: Failed to find an available Rx on DMA %d\n", nocIf);
 		goto open_err;
+	}
 
 	mppa_dnoc_queue_event_it_target_t it_targets = {
 		.reg = 0
@@ -167,8 +181,10 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		.event_it_targets = &it_targets,
 	};
 	ret = mppa_noc_dnoc_rx_configure(nocIf, rx_port, conf);
-	if(ret)
+	if(ret) {
+		fprintf(stderr, "[ETH] Error: Failed to configure Rx\n");
 		goto open_err;
+	}
 
 	status[data.ifId].cluster[remoteClus].rx_tag = rx_port;
 

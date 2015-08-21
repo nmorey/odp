@@ -26,7 +26,7 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 		break;
 	case ODP_RPC_CMD_BAS_INVL:
 	default:
-		fprintf(stderr, "Invalid MSG\n");
+		fprintf(stderr, "[RPC] Error: Invalid MSG\n");
 		exit(EXIT_FAILURE);
 	}
 	return ack;
@@ -39,7 +39,7 @@ int main()
 
 	ret = odp_rpc_server_start(NULL);
 	if (ret) {
-		fprintf(stderr, "Failed to start server\n");
+		fprintf(stderr, "[RPC] Error: Failed to start server\n");
 		exit(EXIT_FAILURE);
 	}
 
