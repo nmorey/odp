@@ -36,12 +36,23 @@ typedef struct {
 eth_status_t status[N_ETH_LANE];
 
 static inline int get_eth_dma_id(unsigned cluster_id){
-	int if_id = odp_rpc_get_ioeth_dma_id(0, cluster_id) - 160;
-#if defined(__k1b__)
-	/* On K1B, DMA 0-3 belong to IODDR */
-	if_id += 4;
+	unsigned offset = cluster_id / 4;
+#ifdef K1B_EXPLORER
+	offset = 0;
 #endif
-	return if_id;
+
+	switch(__k1_get_cluster_id()){
+#ifndef K1B_EXPLORER
+	case 128:
+	case 160:
+		return offset + 4;
+#endif
+	case 192:
+	case 224:
+		return offset + 4;
+	default:
+		return -1;
+	}
 }
 
 static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
