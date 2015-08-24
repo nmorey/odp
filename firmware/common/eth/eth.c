@@ -30,6 +30,8 @@ typedef struct {
 	int rx_tag;
 } eth_cluster_status_t;
 typedef struct {
+	int initialized;
+	int laneStatus;
 	eth_cluster_status_t cluster[BSP_NB_CLUSTER_MAX];
 } eth_status_t;
 
@@ -65,6 +67,9 @@ static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
 
 static inline void _eth_status_init(eth_status_t * status)
 {
+	status->initialized = 0;
+	status->laneStatus = -1;
+
 	for (int i = 0; i < BSP_NB_CLUSTER_MAX; ++i)
 		_eth_cluster_status_init(&status->cluster[i]);
 }
@@ -89,9 +94,16 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		fprintf(stderr, "[ETH] Error: Invalid Eth lane\n");
 		goto err;
 	}
-
+	if(status[data.ifId].initialized == 0){
+		ret = init_mac(data.ifId);
+		if(ret) {
+			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", data.ifId, ret);
+			goto err;
+		}
+	}
 	if(status[data.ifId].cluster[remoteClus].txId >= 0) {
-		fprintf(stderr, "[ETH] Error: Lane %d is already opened for cluster %d\n", data.ifId, remoteClus);
+		fprintf(stderr, "[ETH] Error: Lane %d is already opened for cluster %d\n",
+			data.ifId, remoteClus);
 		goto err;
 	}
 
@@ -227,11 +239,6 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 }
 void eth_init(void)
 {
-
-	for (int ifId = 0; ifId < N_ETH_LANE; ++ifId) {
-		init_mac(ifId);
-	}
-
 	/* "MATCH_ALL" Rule */
 	mppabeth_lb_cfg_rule((void *)&(mppa_ethernet[0]->lb),
 			     ETH_MATCHALL_TABLE_ID, ETH_MATCHALL_RULE_ID,
