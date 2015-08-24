@@ -109,10 +109,6 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		goto err;
 	}
 
-#ifdef __k1a__
-	config.word = 0;
-	config._.bandwidth = mppa_noc_dnoc_get_window_length(local_interface);
-#else
 	config._.loopback_multicast = 0;
 	config._.cfg_pe_en = 1;
 	config._.cfg_user_en = 1;
@@ -126,7 +122,6 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	config._.bw_max_credit     = 0xff;
 	config._.bw_fast_delay     = 0x00;
 	config._.bw_slow_delay     = 0x00;
-#endif
 
 	header._.tag = data.min_rx;
 	header._.valid = 1;
