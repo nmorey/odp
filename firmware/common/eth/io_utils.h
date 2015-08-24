@@ -131,49 +131,56 @@ void dump_reg_dev(uint8_t dev)
  * - synchro with the PHY 
  * - startup the lane
  * - Check the lane status 
- * @return 
+ * @return Status
+ * @retval -1 Error
+ * @retval 0 Success
+ * @retval 1 Link Polling
  */
 static mppa_88E1111_interface_t i2c_ifce;
-static int phy_enabled = 0;
+static int phy_initialized = 0;
 uint32_t init_mac(const int lane_id)
 {
-	if(!phy_enabled) {
-		__k1_streaming_disable();
+	if (!phy_initialized) {
 		if (__k1_phy_init_full(MPPA_ETH_PCIE_PHY_MODE_ETH_1G, 1, MPPA_PERIPH_CLOCK_156) != 0x01) {
 			printf("Reset PHY failed\n");
 			return -1;
 		}
-
-		if (__bsp_flavour == BSP_ETH_530 || __bsp_flavour == BSP_EXPLORER) {
-			mppa_eth_mdio_synchronize();
-		}
-
-		else if (__bsp_flavour == BSP_DEVELOPER) {
-			ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
-			i2c_ifce.i2c_master = ethernet_i2c_master;
-			i2c_ifce.i2c_bus = 2;
-			i2c_ifce.i2c_coma_pin = 15;
-			i2c_ifce.i2c_reset_n_pin = 16;
-			i2c_ifce.i2c_int_n_pin = 14;
-			i2c_ifce.i2c_gic = 0;
-			i2c_ifce.chip_id = 0x41;
-
-			mppa_i2c_init(i2c_ifce.i2c_master,
-				      i2c_ifce.i2c_bus,
-				      i2c_ifce.i2c_coma_pin,
-				      i2c_ifce.i2c_reset_n_pin, i2c_ifce.i2c_int_n_pin, i2c_ifce.i2c_gic);
-			i2c_ifce.context = i2c_ifce.i2c_master;
-			i2c_ifce.mppa_88E1111_read = mppa_i2c_register_read;
-			i2c_ifce.mppa_88E1111_write = mppa_i2c_register_write;
-
-			mppa_88E1111_configure(&i2c_ifce);
-			mppa_88E1111_synchronize(&i2c_ifce);
-		} else {
-			printf("This platform is not suppotred yet !\n");
-			exit(-1);
-		}
-		phy_enabled = 1;
+		phy_initialized = 1;
 	}
+	if (__bsp_flavour == BSP_ETH_530 || __bsp_flavour == BSP_EXPLORER) {
+		mppa_eth_mdio_synchronize();
+	}
+	else if (__bsp_flavour == BSP_DEVELOPER) {
+		if (lane_id < 2) {
+			/* These lane are 10G only */
+			return -1;
+		}
+		ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
+		i2c_ifce.i2c_master = ethernet_i2c_master;
+		i2c_ifce.i2c_bus = 2;
+		i2c_ifce.i2c_coma_pin = 15;
+		i2c_ifce.i2c_reset_n_pin = 16;
+		i2c_ifce.i2c_int_n_pin = 14;
+		i2c_ifce.i2c_gic = 0;
+		i2c_ifce.chip_id = 0x40 + lane_id % 2; /* Lane 2 is chip 0x40, Lane 3 0x41 */
+
+		mppa_i2c_init(i2c_ifce.i2c_master,
+			      i2c_ifce.i2c_bus,
+			      i2c_ifce.i2c_coma_pin,
+			      i2c_ifce.i2c_reset_n_pin, i2c_ifce.i2c_int_n_pin, i2c_ifce.i2c_gic);
+		i2c_ifce.context = i2c_ifce.i2c_master;
+		i2c_ifce.mppa_88E1111_read = mppa_i2c_register_read;
+		i2c_ifce.mppa_88E1111_write = mppa_i2c_register_write;
+
+		mppa_88E1111_configure(&i2c_ifce);
+		if (mppa_88E1111_synchronize(&i2c_ifce)) {
+			return -1;
+		}
+	} else {
+		printf("This platform is not suppotred yet !\n");
+		exit(-1);
+	}
+
 	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_ETHMODE_1G);
 	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_SGMIIRATE_1G);
 	enum mppa_eth_mac_1G_mode_e sgmii_rate __attribute__ ((unused));
@@ -189,18 +196,15 @@ uint32_t init_mac(const int lane_id)
 					     &(mppa_ethernet[0]->mac));
 	mppabeth_mac_enable_tx_add_padding((void *)
 					   &(mppa_ethernet[0]->mac));
-	/* printf("RESET = %x\n", __k1_ethernet_get_ethernet_reset_status()); */
-
-	/* printf("Avant de valid les lanes\n");         */
 	start_lane(lane_id);
 
 #ifdef VERBOSE
 	printf ("Polling for link %d\n", lane_id);
 #endif
+
 	unsigned long long start = __k1_read_dsu_timestamp();
 	int up = 0;
-	(void)up;
-	while (__k1_read_dsu_timestamp() - start < 1800000000ULL) {
+	while (__k1_read_dsu_timestamp() - start < 3ULL * __bsp_frequency) {
 		if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
 		   mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1) {
 			up = 1;
@@ -210,7 +214,7 @@ uint32_t init_mac(const int lane_id)
 #ifdef VERBOSE
 	printf("[MAC] Link %d %s\n", lane_id, up ? "up" : "down/polling");
 #endif
-	return 0;
+	return up ? 0 : 1;
 }
 
 void set_no_fcs()

@@ -1180,7 +1180,7 @@ int mppa_88E1111_synchronize(mppa_88E1111_interface_t * interface)
 
 	unsigned long long start = __k1_read_dsu_timestamp();
 	int up = 0;
-	while (__k1_read_dsu_timestamp() - start < 1800000000ULL) {
+	while (__k1_read_dsu_timestamp() - start < 5ULL * __bsp_frequency) {
 		// Get bit 15 of register 4
 		status |=
 		    interface->mppa_88E1111_read(interface->context, interface->chip_id, 4, &reg);
@@ -1192,11 +1192,10 @@ int mppa_88E1111_synchronize(mppa_88E1111_interface_t * interface)
 		}
 		__k1_cpu_backoff(1000);
 	}
-	(void)up;
 #ifdef VERBOSE
 	printf("[88E1111 0x%.2x] Link %s.\n", interface->chip_id, up ? "up" : "down/polling");
 #endif
-	return status;
+	return !up;
 }
 
 int mppa_88E1111_synchronize_all(mppa_88E1111_interface_list_t * interface_list)
