@@ -51,16 +51,13 @@ static int loopback_recv(pktio_entry_t *pktio_entry, odp_packet_t pkts[],
 			 unsigned len)
 {
 	int nbr, i;
-	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
 	queue_entry_t *qentry;
 
 	qentry = queue_to_qentry(pktio_entry->s.pkt_loop.loopq);
-	nbr = queue_deq_multi(qentry, hdr_tbl, len);
+	nbr = queue_deq_multi(qentry, (odp_buffer_hdr_t**)pkts, len);
 
-	for (i = 0; i < nbr; ++i) {
-		pkts[i] = (odp_packet_t)hdr_tbl[i];
+	for (i = 0; i < nbr; ++i)
 		_odp_packet_reset_parse(pkts[i]);
-	}
 
 	return nbr;
 }
@@ -68,15 +65,10 @@ static int loopback_recv(pktio_entry_t *pktio_entry, odp_packet_t pkts[],
 static int loopback_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_tbl[],
 			 unsigned len)
 {
-	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
 	queue_entry_t *qentry;
-	unsigned i;
-
-	for (i = 0; i < len; ++i)
-		hdr_tbl[i] = (odp_buffer_hdr_t *)pkt_tbl[i];
 
 	qentry = queue_to_qentry(pktio_entry->s.pkt_loop.loopq);
-	return queue_enq_multi(qentry, hdr_tbl, len);
+	return queue_enq_multi(qentry, (odp_buffer_hdr_t**)pkt_tbl, len);
 }
 
 static int loopback_mtu_get(pktio_entry_t *pktio_entry ODP_UNUSED)
