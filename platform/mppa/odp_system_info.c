@@ -7,6 +7,7 @@
 #include <odp/system_info.h>
 #include <odp_internal.h>
 #include <odp_debug_internal.h>
+#include <odp_packet_io_internal.h>
 #include <odp/align.h>
 #include <odp/cpu.h>
 #include <string.h>
@@ -24,7 +25,7 @@ int odp_system_info_init(void)
 
 	odp_global_data.system_info.page_size = ODP_PAGE_SIZE;
 
-	odp_global_data.system_info.cpu_count = BSP_NB_PE_P;
+	odp_global_data.system_info.cpu_count = BSP_NB_PE_P - N_ETH_THR;
 	odp_global_data.system_info.huge_page_size =  ODP_PAGE_SIZE;
 	odp_global_data.system_info.cpu_hz          = _K1_CPU_FREQ;
 

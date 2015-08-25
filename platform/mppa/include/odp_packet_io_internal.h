@@ -36,6 +36,9 @@ extern "C" {
 #define ETH_ALEN 6
 #endif
 
+/* Number of threads dedicated for Ethernet */
+#define N_ETH_THR 0
+
 /* Forward declaration */
 struct pktio_if_ops;
 struct eth_status;
