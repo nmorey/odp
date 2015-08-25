@@ -229,7 +229,7 @@ int odp_cpumask_def_worker(odp_cpumask_t *mask, int num_in)
 	/*
 	 * Always force "first_cpu" to a valid CPU
 	 */
-	if (first_cpu >= cpu_count)
+	if (first_cpu > cpu_count)
 		first_cpu = cpu_count - 1;
 
 	/* Build the mask */
