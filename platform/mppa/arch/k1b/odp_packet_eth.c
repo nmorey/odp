@@ -857,6 +857,7 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	unsigned int pkt_count;
 
 	odp_spinlock_lock(&eth->wlock);
+	INVALIDATE(g_uc_ctx);
 
 	while(sent < len) {
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
