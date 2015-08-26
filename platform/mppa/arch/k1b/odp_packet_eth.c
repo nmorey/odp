@@ -85,7 +85,7 @@ static int cluster_init_dnoc_tx(void)
 
 		/* DNoC */
 		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_uc_id,
+						  &g_uc_ctx[i].dnoc_tx_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
@@ -93,7 +93,7 @@ static int cluster_init_dnoc_tx(void)
 		/* We will only use events */
 		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
 						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_uc_ctx[i].dnoc_uc_id);
+						   g_uc_ctx[i].dnoc_tx_id);
 
 		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
 						  &g_uc_ctx[i].dnoc_uc_id,
