@@ -183,8 +183,6 @@ uint32_t init_mac(const int lane_id)
 
 	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_ETHMODE_1G);
 	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_SGMIIRATE_1G);
-	enum mppa_eth_mac_1G_mode_e sgmii_rate __attribute__ ((unused));
-	sgmii_rate = mppabeth_mac_get_sgmii_rate((void *) &(mppa_ethernet[0]->mac));
 	//Basic mac settings
 	mppabeth_mac_enable_rx_check_sfd((void *)
 					 &(mppa_ethernet[0]->mac));
