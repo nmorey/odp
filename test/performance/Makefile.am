@@ -44,3 +44,5 @@ noinst_HEADERS = \
 dist_odp_atomic_SOURCES = odp_atomic.c
 dist_odp_scheduling_SOURCES = odp_scheduling.c
 dist_odp_pktio_perf_SOURCES = odp_pktio_perf.c
+
+EXTRA_DIST = $(TESTSCRIPTS)
