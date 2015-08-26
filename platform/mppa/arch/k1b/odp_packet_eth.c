@@ -271,14 +271,17 @@ static int _eth_reload_rx(eth_thread_t *th, int th_id, int rx_id,
 		if (pkt != ODP_PACKET_INVALID) {
 			/* Mark the new packet as unparsed and configure
 			 * its length from the LB header */
-			mppa_ethernet_header_t *header =
-				(void *)(unsigned long)mppa_dnoc[th->dma_if]->
-				rx_queues[rx_id].buffer_base.reg;
 
+			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+			mppa_ethernet_header_t *header = (mppa_ethernet_header_t*)
+				(((uint8_t*)pkt_hdr->buf_hdr.addr) +
+				 pkt_hdr->headroom - sizeof(mppa_ethernet_header_t));
 			INVALIDATE(header);
 			_odp_packet_reset_parse(pkt);
-			packet_set_len(pkt, header->info._.pkt_size -
-				       2 * sizeof(mppa_ethernet_header_t));
+
+			unsigned len = header->info._.pkt_size -
+				2 * sizeof(mppa_ethernet_header_t);
+			packet_set_len(pkt, len);
 		}
 	}
 	return ret;
