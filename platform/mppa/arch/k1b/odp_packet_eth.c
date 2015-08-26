@@ -792,47 +792,58 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static inline int
 eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
-	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
+	mppa_noc_dnoc_uc_configuration_t uc_conf =
+		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 	mppa_noc_uc_program_run_t program_run = {{1, 1}};
 	mppa_noc_ret_t nret;
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
 	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	eth_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
 
 	/* Wait for previous run to complete */
-	if (g_uc_ctx[tx_index].is_running) {
+	if (ctx->is_running) {
 		mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
 					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-					  g_uc_ctx[tx_index].dnoc_tx_id);
+					  ctx->dnoc_tx_id);
 		/* Free previous packets */
-		for(i = 0; i < pkt_count; i++)
-			odp_packet_free(g_uc_ctx[tx_index].pkt_table[i]);
+		ret_buf(&((pool_entry_t *)eth->pool)->s,
+			(odp_buffer_hdr_t**)ctx->pkt_table, ctx->pkt_count);
 	}
 
-	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, g_uc_ctx[tx_index].dnoc_uc_id,
+	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 					  uc_conf, eth->header, eth->config);
 	if (nret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	for(i = 0; i < pkt_count; i++) {
+	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 		/* Setup parameters and pointers */
-		uc_conf.parameters[i * 2] = pkt_hdr->frame_len / sizeof(uint64_t);
-		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len % sizeof(uint64_t);
-		uc_pointers.thread_pointers[i] = (uintptr_t) packet_map(pkt_hdr, 0, NULL) - (uintptr_t) &_data_start;
+		uc_conf.parameters[i * 2] = pkt_hdr->frame_len /
+			sizeof(uint64_t);
+		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len %
+			sizeof(uint64_t);
+		uc_pointers.thread_pointers[i] =
+			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
+			(uintptr_t) &_data_start;
 
 		/* Store current packet to free them later */
-		g_uc_ctx[tx_index].pkt_table[i] = pkt_table[i];
+		ctx->pkt_table[i] = pkt_table[i];
+	}
+	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
+		uc_conf.parameters[i * 2] = 0;
+		uc_conf.parameters[i * 2 + 1] = 0;
+		uc_pointers.thread_pointers[i] = 0;
 	}
 
 	uc_conf.pointers = &uc_pointers;
 	uc_conf.event_counter = 0;
 
-	g_uc_ctx[tx_index].pkt_count = pkt_count;
-	g_uc_ctx[tx_index].is_running = 1;
+	ctx->pkt_count = pkt_count;
+	ctx->is_running = 1;
 
-	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, g_uc_ctx[tx_index].dnoc_uc_id,
+	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 					 program_run);
 
 	return 0;
@@ -848,7 +859,8 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	odp_spinlock_lock(&eth->wlock);
 
 	while(sent < len) {
-		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC : (len - sent);
+		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
+			(len - sent);
 
 		eth_send_packets(eth, &pkt_table[sent], pkt_count);
 		sent += pkt_count;
