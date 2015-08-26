@@ -38,6 +38,8 @@
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 
+extern char _heap_end;
+
 union mppa_ethernet_header_info_t {
  mppa_uint64 dword;
  mppa_uint32 word[2];
@@ -53,22 +55,20 @@ union mppa_ethernet_header_info_t {
   } _;
 };
 
-struct mppa_ethernet_uc_ctx {
-	unsigned int dnoc_tx_id;
-	unsigned int dnoc_uc_id;
-	bool is_running;
-	odp_packet_t pkt_table[MAX_PKT_PER_UC];
-	unsigned int pkt_count;
-};
-
-static struct mppa_ethernet_uc_ctx g_uc_ctx[NOC_UC_COUNT] = {{0}};
-
 typedef struct mppa_ethernet_header_s {
   mppa_uint64 timestamp;
   union mppa_ethernet_header_info_t info;
 } mppa_ethernet_header_t;
 
-extern char _heap_end;
+typedef struct eth_uc_ctx {
+	unsigned int dnoc_tx_id;
+	unsigned int dnoc_uc_id;
+	bool is_running;
+	odp_packet_t pkt_table[MAX_PKT_PER_UC];
+	unsigned int pkt_count;
+} eth_uc_ctx_t;
+
+static eth_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
 
 static int cluster_init_dnoc_tx(void)
 {
