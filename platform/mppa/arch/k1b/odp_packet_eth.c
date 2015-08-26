@@ -408,7 +408,8 @@ static int eth_init(void)
 {
 	odp_rwlock_init(&eth_thread_hdl.lock);
 
-	cluster_init_dnoc_tx();
+	if(cluster_init_dnoc_tx())
+		return 1;
 	for (int i = 0; i < N_ETH_THR; ++i) {
 		/* Start threads */
 
