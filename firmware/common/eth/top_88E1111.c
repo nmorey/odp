@@ -1,5 +1,4 @@
 #include "top_88E1111.h"
-#include "hal_delay.h"
 #include <bsp_phy.h>
 #include <bsp_i2c.h>
 #ifdef VERBOSE
@@ -1798,7 +1797,7 @@ int mppa_88E1111_virtual_cable_tester(mppa_88E1111_interface_t * interface, uint
 		status |=
 		    interface->mppa_88E1111_write(interface->context, interface->chip_id, 28, reg);
 		// Wait for some time....
-		mppa_cycle_delay(0x01ffffff);
+		__k1_cpu_backoff(0x01ffffff);
 		// Get status
 		status |=
 		    interface->mppa_88E1111_read(interface->context, interface->chip_id, 28, &reg);

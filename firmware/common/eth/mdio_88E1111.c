@@ -1,5 +1,4 @@
 #include "mdio_88E1111.h"
-#include "hal_delay.h"
 #include "HAL/hal/hal.h"
 #ifdef VERBOSE
 #include <stdio.h>
@@ -150,9 +149,9 @@ void mppa_eth_mdio_send_bit(int phy, int val)
 	printf("[MDIO DEBUG] Call to mppa_eth_mdio_send_bit(%d, %u).\n", phy, val);
 #endif
 	mppa_eth_set_mdio_data(val);
-	mppa_cycle_delay(get_platform_half_period_delay(phy));
+	__k1_cpu_backoff(get_platform_half_period_delay(phy));
 	mppa_eth_set_mdc(1);
-	mppa_cycle_delay(get_platform_half_period_delay(phy));
+	__k1_cpu_backoff(get_platform_half_period_delay(phy));
 	mppa_eth_set_mdc(0);
 #ifdef MDIO_DEBUG
 	printf("[MDIO DEBUG] Return from mppa_eth_mdio_send_bit(%d, %u).\n", phy, val);
@@ -164,9 +163,9 @@ int mppa_eth_mdio_get_bit(int phy)
 #ifdef MDIO_DEBUG
 	printf("[MDIO DEBUG] Call to mppa_eth_mdio_get_bit(%d).\n", phy);
 #endif
-	mppa_cycle_delay(get_platform_half_period_delay(phy));
+	__k1_cpu_backoff(get_platform_half_period_delay(phy));
 	mppa_eth_set_mdc(1);
-	mppa_cycle_delay(get_platform_read_cycle_delay(phy));
+	__k1_cpu_backoff(get_platform_read_cycle_delay(phy));
 	mppa_eth_set_mdc(0);
 	return mppa_eth_get_mdio_data();
 }
@@ -235,9 +234,9 @@ int mppa_eth_mdio_read(volatile int phy, uint8_t chip_id, uint8_t reg, uint16_t 
 	mppa_eth_mdio_cmd(phy, MII_COMMAND_READ, chip_id, reg);
 
 	mppa_eth_set_mdio_dir(0);
-	mppa_cycle_delay(get_platform_half_period_delay(phy));
+	__k1_cpu_backoff(get_platform_half_period_delay(phy));
 	mppa_eth_set_mdc(1);
-	mppa_cycle_delay(get_platform_half_period_delay(phy));
+	__k1_cpu_backoff(get_platform_half_period_delay(phy));
 	mppa_eth_set_mdc(0);
 
 	*val = mppa_eth_mdio_get_num(phy, 16);
