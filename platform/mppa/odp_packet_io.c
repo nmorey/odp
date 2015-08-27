@@ -22,7 +22,7 @@
 #include <string.h>
 #include <errno.h>
 
-static pktio_table_t *pktio_tbl;
+static pktio_table_t pktio_tbl;
 
 /* pktio pointer entries ( for inlines) */
 void *pktio_entry_ptr[ODP_CONFIG_PKTIO_ENTRIES];
@@ -34,22 +34,13 @@ int odp_pktio_init_global(void)
 	queue_entry_t *queue_entry;
 	odp_queue_t qid;
 	int id, pktio_if;
-	odp_shm_t shm;
 
-	shm = odp_shm_reserve("odp_pktio_entries",
-			      sizeof(pktio_table_t),
-			      sizeof(pktio_entry_t), 0);
-	pktio_tbl = odp_shm_addr(shm);
+	memset(&pktio_tbl, 0, sizeof(pktio_table_t));
 
-	if (pktio_tbl == NULL)
-		return -1;
-
-	memset(pktio_tbl, 0, sizeof(pktio_table_t));
-
-	odp_spinlock_init(&pktio_tbl->lock);
+	odp_spinlock_init(&pktio_tbl.lock);
 
 	for (id = 1; id <= ODP_CONFIG_PKTIO_ENTRIES; ++id) {
-		pktio_entry = &pktio_tbl->entries[id - 1];
+		pktio_entry = &pktio_tbl.entries[id - 1];
 
 		odp_rwlock_init(&pktio_entry->s.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.lock);
@@ -88,13 +79,9 @@ int odp_pktio_term_global(void)
 	int id;
 
 	for (id = 1; id <= ODP_CONFIG_PKTIO_ENTRIES; ++id) {
-		pktio_entry = &pktio_tbl->entries[id - 1];
+		pktio_entry = &pktio_tbl.entries[id - 1];
 		odp_queue_destroy(pktio_entry->s.outq_default);
 	}
-
-	ret = odp_shm_free(odp_shm_lookup("odp_pktio_entries"));
-	if (ret < 0)
-		ODP_ERR("shm free failed for odp_pktio_entries");
 
 	return ret;
 }
@@ -169,7 +156,7 @@ static odp_pktio_t alloc_lock_pktio_entry(void)
 	int i;
 
 	for (i = 0; i < ODP_CONFIG_PKTIO_ENTRIES; ++i) {
-		entry = &pktio_tbl->entries[i];
+		entry = &pktio_tbl.entries[i];
 		if (is_free(entry)) {
 			lock_entry_classifier(entry);
 			if (is_free(entry)) {
@@ -256,9 +243,9 @@ odp_pktio_t odp_pktio_open(const char *dev, odp_pool_t pool)
 		return ODP_PKTIO_INVALID;
 	}
 
-	odp_spinlock_lock(&pktio_tbl->lock);
+	odp_spinlock_lock(&pktio_tbl.lock);
 	id = setup_pktio_entry(dev, pool);
-	odp_spinlock_unlock(&pktio_tbl->lock);
+	odp_spinlock_unlock(&pktio_tbl.lock);
 
 	return id;
 }
@@ -291,7 +278,7 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 	pktio_entry_t *entry;
 	int i;
 
-	odp_spinlock_lock(&pktio_tbl->lock);
+	odp_spinlock_lock(&pktio_tbl.lock);
 
 	for (i = 1; i <= ODP_CONFIG_PKTIO_ENTRIES; ++i) {
 		entry = get_pktio_entry(_odp_cast_scalar(odp_pktio_t, i));
@@ -310,7 +297,7 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 			break;
 	}
 
-	odp_spinlock_unlock(&pktio_tbl->lock);
+	odp_spinlock_unlock(&pktio_tbl.lock);
 
 	return id;
 }
