@@ -52,13 +52,14 @@ typedef struct pool_table_t {
 
 /* The pool table */
 static pool_table_t pool_tbl;
-static const char SHM_DEFAULT_NAME[] = "odp_buffer_pools";
-
-/* Pool entry pointers (for inlining) */
-void *pool_entry_ptr[ODP_CONFIG_POOLS];
 
 /* Local cache for buffer alloc/free acceleration */
 static __thread local_cache_t local_cache[POOL_HAS_LOCAL_CACHE * ODP_CONFIG_POOLS];
+
+static inline void *get_pool_entry(uint32_t pool_id)
+{
+	return &pool_tbl.pool[pool_id];
+}
 
 int odp_pool_init_global(void)
 {
@@ -73,7 +74,6 @@ int odp_pool_init_global(void)
 		POOL_LOCK_INIT(&pool->s.buf_lock);
 		POOL_LOCK_INIT(&pool->s.blk_lock);
 		pool->s.pool_id = i;
-		pool_entry_ptr[i] = pool;
 		odp_atomic_init_u32(&pool->s.blkcount, 0);
 	}
 

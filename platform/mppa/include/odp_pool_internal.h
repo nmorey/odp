@@ -135,8 +135,6 @@ typedef union pool_entry_u {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(struct pool_entry_s))];
 } pool_entry_t;
 
-extern void *pool_entry_ptr[];
-
 #if defined(ODP_CONFIG_SECURE_POOLS) && (ODP_CONFIG_SECURE_POOLS == 1)
 #define buffer_is_secure(buf) (buf->flags.zeroized)
 #define pool_is_secure(pool) (pool->flags.zeroized)
@@ -307,11 +305,6 @@ static inline void flush_cache(local_cache_t *buf_cache,
 		ret_buf(pool, bufs, n_bufs);
 
 	buf_cache->buf_freelist = NULL;
-}
-
-static inline void *get_pool_entry(uint32_t pool_id)
-{
-	return pool_entry_ptr[pool_id];
 }
 
 static inline pool_entry_t *odp_pool_to_entry(odp_pool_t pool)
