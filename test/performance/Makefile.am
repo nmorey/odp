@@ -3,12 +3,9 @@ include $(top_srcdir)/test/Makefile.inc
 bindir      = $(datarootdir)/tests/performance
 TESTS_ENVIRONMENT += TEST_DIR=${builddir}
 
-COMPILE_ONLY = odp_l2fwd$(EXEEXT)
+COMPILE_ONLY = odp_l2fwd$(EXEEXT) \
+				odp_scheduling$(EXEEXT)
 TESTSCRIPTS  =
-
-if !TARGET_OS_MOS
-COMPILE_ONLY += odp_scheduling$(EXEEXT)
-endif
 
 if TARGET_IS_HW
 EXECUTABLES = odp_atomic$(EXEEXT) odp_pktio_perf$(EXEEXT)

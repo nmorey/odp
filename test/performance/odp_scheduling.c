@@ -720,6 +720,7 @@ static void *run_thread(void *arg)
  */
 static void test_time(void)
 {
+#ifndef K1_MOS
 	struct timespec tp1, tp2;
 	uint64_t t1, t2;
 	uint64_t ns1, ns2, cycles;
@@ -770,6 +771,7 @@ static void test_time(void)
 	printf("odp get cycle error   %f%%\n", err*100.0);
 
 	printf("\n");
+#endif
 }
 
 /**
