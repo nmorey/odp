@@ -55,12 +55,12 @@ typedef struct queue_table_t {
 	queue_entry_t  queue[ODP_CONFIG_QUEUES];
 } queue_table_t;
 
-static queue_table_t *queue_tbl;
+static queue_table_t queue_tbl;
 
 
 queue_entry_t *get_qentry(uint32_t queue_id)
 {
-	return &queue_tbl->queue[queue_id];
+	return &queue_tbl.queue[queue_id];
 }
 
 static void queue_init(queue_entry_t *queue, const char *name,
@@ -111,20 +111,10 @@ static void queue_init(queue_entry_t *queue, const char *name,
 int odp_queue_init_global(void)
 {
 	uint32_t i;
-	odp_shm_t shm;
 
 	ODP_DBG("Queue init ... ");
 
-	shm = odp_shm_reserve("odp_queues",
-			      sizeof(queue_table_t),
-			      sizeof(queue_entry_t), 0);
-
-	queue_tbl = odp_shm_addr(shm);
-
-	if (queue_tbl == NULL)
-		return -1;
-
-	memset(queue_tbl, 0, sizeof(queue_table_t));
+	memset(&queue_tbl, 0, sizeof(queue_table_t));
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		/* init locks */
@@ -146,13 +136,12 @@ int odp_queue_init_global(void)
 
 int odp_queue_term_global(void)
 {
-	int ret = 0;
 	int rc = 0;
 	queue_entry_t *queue;
 	int i;
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
-		queue = &queue_tbl->queue[i];
+		queue = &queue_tbl.queue[i];
 		LOCK(queue);
 		if (LOAD_S32(queue->s.status) != QUEUE_STATUS_FREE) {
 
@@ -160,12 +149,6 @@ int odp_queue_term_global(void)
 			rc = -1;
 		}
 		UNLOCK(queue);
-	}
-
-	ret = odp_shm_free(odp_shm_lookup("odp_queues"));
-	if (ret < 0) {
-		ODP_ERR("shm free failed for odp_queues");
-		rc = -1;
 	}
 
 	return rc;
@@ -215,7 +198,7 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 	odp_queue_t handle = ODP_QUEUE_INVALID;
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
-		queue = &queue_tbl->queue[i];
+		queue = &queue_tbl.queue[i];
 
 		if (LOAD_S32(queue->s.status) != QUEUE_STATUS_FREE)
 			continue;
@@ -326,7 +309,7 @@ odp_queue_t odp_queue_lookup(const char *name)
 	uint32_t i;
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
-		queue_entry_t *queue = &queue_tbl->queue[i];
+		queue_entry_t *queue = &queue_tbl.queue[i];
 
 		if (queue->s.status == QUEUE_STATUS_FREE)
 			continue;
