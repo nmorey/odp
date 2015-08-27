@@ -160,28 +160,18 @@ typedef struct _odp_pkt_iovec {
 
 static inline
 uint32_t _tx_pkt_to_iovec(odp_packet_t pkt,
-			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+			  odp_pkt_iovec_t *iovecs)
 {
-	uint32_t pkt_len = odp_packet_len(pkt);
-	uint32_t offset = odp_packet_l2_offset(pkt);
-	uint32_t iov_count = 0;
+	uint32_t seglen;
+	iovecs[0].iov_base = odp_packet_offset(pkt, 0, &seglen, NULL);
+	iovecs[0].iov_len = seglen;
 
-	while (offset < pkt_len) {
-		uint32_t seglen;
-
-		iovecs[iov_count].iov_base = odp_packet_offset(pkt, offset,
-							       &seglen, NULL);
-		iovecs[iov_count].iov_len = seglen;
-		iov_count++;
-		offset += seglen;
-	}
-
-	return iov_count;
+	return 1;
 }
 
 static inline
 uint32_t _rx_pkt_to_iovec(odp_packet_t pkt,
-			  odp_pkt_iovec_t iovecs[ODP_BUFFER_MAX_SEG])
+			  odp_pkt_iovec_t *iovecs)
 {
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
 	uint32_t seglen;
