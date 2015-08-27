@@ -34,7 +34,7 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcu
 	--datarootdir=$(K1ST_DIR)share/odp/$(1)/ \
 	--libdir=$(K1ST_DIR)lib/$(1) \
 	--includedir=$(K1ST_DIR)$($(1)_INC_DIR)/include \
-	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) $(DEBUG_CONF_FLAGS)
+	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) --disable-debug-print $(DEBUG_CONF_FLAGS)
 
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 	$(MAKE) -C$(ARCH_DIR)/$(1)/ V=1 all

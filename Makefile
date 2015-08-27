@@ -1,7 +1,7 @@
 all: build
 
 ifdef DEBUG
-DEBUG_CONF_FLAGS := --enable-debug
+DEBUG_CONF_FLAGS := --enable-debug-print --enable-debug
 endif
 
 TOP_DIR := $(shell readlink -f $$(pwd))
