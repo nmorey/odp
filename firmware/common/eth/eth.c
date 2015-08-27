@@ -84,26 +84,29 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	mppa_dnoc_channel_config_t config = { 0 };
 	unsigned nocTx;
 	int ret;
+	const unsigned int eth_if = data.ifId % 4; /* 4 is actually 0 in 40G mode */
 
 	if(nocIf < 0) {
 		fprintf(stderr, "[ETH] Error: Invalid NoC interface (%d %d)\n", nocIf, remoteClus);
 		goto err;
 	}
 
-	if(data.ifId >= N_ETH_LANE) {
+	if(eth_if >= N_ETH_LANE) {
 		fprintf(stderr, "[ETH] Error: Invalid Eth lane\n");
 		goto err;
 	}
-	if(status[data.ifId].initialized == 0){
-		ret = init_mac(data.ifId);
+
+	if(status[eth_if].initialized == 0){
+		ret = init_mac(eth_if, eth_if == 4 ? MPPABETHMAC_ETHMODE_40G : -1);
 		if(ret) {
-			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", data.ifId, ret);
+			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", eth_if, ret);
 			goto err;
 		}
 	}
-	if(status[data.ifId].cluster[remoteClus].txId >= 0) {
+
+	if(status[eth_if].cluster[remoteClus].txId >= 0) {
 		fprintf(stderr, "[ETH] Error: Lane %d is already opened for cluster %d\n",
-			data.ifId, remoteClus);
+			eth_if, remoteClus);
 		goto err;
 	}
 
@@ -148,9 +151,9 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		goto open_err;
 	}
 
-	status[data.ifId].cluster[remoteClus].txId = nocTx;
-	status[data.ifId].cluster[remoteClus].min_rx = data.min_rx;
-	status[data.ifId].cluster[remoteClus].max_rx = data.max_rx;
+	status[eth_if].cluster[remoteClus].txId = nocTx;
+	status[eth_if].cluster[remoteClus].min_rx = data.min_rx;
+	status[eth_if].cluster[remoteClus].max_rx = data.max_rx;
 
 	context =  &mppa_dnoc[nocIf]->tx_chan_route[nocTx].
 		min_max_task_id[ETH_DEFAULT_CTX];
@@ -164,7 +167,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	 * sends packet to our cluster */
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
 						  ETH_MATCHALL_TABLE_ID,
-						  data.ifId, nocIf - 4, nocTx,
+						  eth_if, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 
 	/* Now deal with Tx */
@@ -180,7 +183,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	};
 	mppa_noc_dnoc_rx_configuration_t conf = {
 		.buffer_base = (unsigned long)(void*)
-		&mppa_ethernet[0]->tx.fifo_if[0].lane[data.ifId].eth_fifo[remoteClus].push_data,
+		&mppa_ethernet[0]->tx.fifo_if[0].lane[eth_if].eth_fifo[remoteClus].push_data,
 		.buffer_size = 8,
 		.current_offset = 0,
 		.event_counter = 0,
@@ -197,7 +200,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		goto open_err;
 	}
 
-	status[data.ifId].cluster[remoteClus].rx_tag = rx_port;
+	status[eth_if].cluster[remoteClus].rx_tag = rx_port;
 
 	ack.open.eth_tx_if = externalAddress;
 	ack.open.eth_tx_tag = rx_port;
@@ -206,7 +209,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
  open_err:
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
-	status[data.ifId].cluster[remoteClus].txId = -1;
+	status[eth_if].cluster[remoteClus].txId = -1;
  err:
 	ack.status = 1;
 	return ack;
@@ -218,6 +221,7 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = get_eth_dma_id(remoteClus);
 	const int nocTx = status[data.ifId].cluster[remoteClus].txId;
+	const unsigned int eth_if = data.ifId % 4; /* 4 is actually 0 in 40G mode */
 
 	if(nocTx < 0) {
 		ack.status = -1;
@@ -227,13 +231,13 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 	/* Deconfigure DMA/Tx in the RR bitmask */
 	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
 						  ETH_MATCHALL_TABLE_ID,
-						  data.ifId, nocIf - 4, nocTx,
+						  eth_if, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 	/* Close the Tx */
 	mppa_noc_dnoc_tx_free(nocIf, nocTx);
 	/* Close the Rx */
-	mppa_noc_dnoc_tx_free(nocIf, status[data.ifId].cluster[remoteClus].rx_tag);
-	status[data.ifId].cluster[remoteClus].txId = -1;
+	mppa_noc_dnoc_tx_free(nocIf, status[eth_if].cluster[remoteClus].rx_tag);
+	status[eth_if].cluster[remoteClus].txId = -1;
 
 	return ack;
 }

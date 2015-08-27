@@ -95,16 +95,30 @@ void set_fcs()
 void start_lane(unsigned int lane_id);
 
 /**
- * @brief Complete mac initialization => 
- * - synchro with the PHY 
- * - startup the lane
- * - Check the lane status 
- * @return Status
- * @retval -1 Error
- * @retval 0 Success
- * @retval 1 Link Polling
+ * @brief Check if a MAC is up
+ * @return 0 on success
+ * @retval -EINVAL Invalidate lane
+ * @retval -ENETDOWN Lane down
+ * @retval -EIO Lane not initialized
  */
-uint32_t init_mac(const int lane_id);
+int mac_poll_state(unsigned int lane_id);
+
+/**
+ * @brief Complete mac initialization =>
+ * - synchro with the PHY
+ * - startup the lane
+ * - Check the lane status
+ * If the provided mode is -1, mode is set to the defautl value expected
+ *  on the selected lane
+ * @return Status
+ * @retval -EINVAL Invalid parameters or mode not compatible with previous init
+ * @retval -EBUSY Interface is already open and up
+ * @retval -ENOSYS Mode not supported yet
+ * @retval -EIO Issue with Phy or I2C initialization
+ * @retval -ENETDOWN Init successful but link is still down
+ * @retval 0 Success
+ */
+uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode);
 
 void dump_reg_dev(uint8_t dev);
 

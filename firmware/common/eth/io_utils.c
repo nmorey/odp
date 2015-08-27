@@ -1,8 +1,39 @@
 #include <stdio.h>
+#include <errno.h>
 #include "io_utils.h"
 
 static mppa_88E1111_interface_t i2c_ifce;
-static int phy_initialized = 0;
+static int phy_status = -1;
+
+static struct {
+	int configured;
+	enum mppa_eth_mac_ethernet_mode_e mode;
+} lane_status[MPPA_ETHERNET_FIFO_IF_LANE_NUMBER] = { { .configured = 0, .mode = 0} };
+
+static enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
+{
+	switch (__bsp_flavour) {
+	case BSP_ETH_530:
+	case BSP_EXPLORER:
+		return MPPA_ETH_MAC_ETHMODE_1G;
+		break;
+	case BSP_DEVELOPER:
+		if (__k1_get_cluster_id() >= 192) {
+			/* IO(DDR|ETH)1 */
+			if(lane_id == 0 || lane_id == 1)
+				return MPPA_ETH_MAC_ETHMODE_10G_BASE_R;
+			if(lane_id == 2 || lane_id == 3)
+				return MPPA_ETH_MAC_ETHMODE_1G;
+		} else {
+			/* IO(DDR|ETH)0 => EXB03 */
+			return MPPA_ETH_MAC_ETHMODE_10G_BASE_R;
+		}
+		break;
+	default:
+		return -1;
+	}
+	return -1;
+}
 
 /**
  * @brief Setup the specified lane (phy must be corectly initialised before)
@@ -45,32 +76,67 @@ void start_lane(unsigned int lane_id)
 	}
 }
 
-/**
- * @brief Complete mac initialization => 
- * - synchro with the PHY 
- * - startup the lane
- * - Check the lane status 
- * @return Status
- * @retval -1 Error
- * @retval 0 Success
- * @retval 1 Link Polling
- */
-uint32_t init_mac(const int lane_id)
+int mac_poll_state(unsigned int lane_id)
 {
-	if (!phy_initialized) {
-		if (__k1_phy_init_full(MPPA_ETH_PCIE_PHY_MODE_ETH_1G, 1, MPPA_PERIPH_CLOCK_156) != 0x01) {
+	if (lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER)
+		return -EINVAL;
+	if (!lane_status[lane_id].configured)
+		return -EIO;
+
+	if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
+	   mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1)
+		return 0;
+
+	return -ENETDOWN;
+}
+
+uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
+{
+	if(mode == MPPA_ETH_MAC_ETHMODE_10G_XAUI ||
+	   mode == MPPA_ETH_MAC_ETHMODE_10G_RXAUI) {
+		return -EINVAL;
+	}
+	if (lane_id < 0 || lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER)
+		return -EINVAL;
+
+	if ((int)mode == (-1))
+		mode = mac_get_default_mode(lane_id);
+	if ((int)mode == (-1))
+		return -EINVAL;
+
+	if (phy_status < 0) {
+		if (__k1_phy_init_full(mac_mode_to_phy_mode(mode), 1,
+							   MPPA_PERIPH_CLOCK_156) != 0x01) {
 			printf("Reset PHY failed\n");
-			return -1;
+			return -EIO;
 		}
-		phy_initialized = 1;
+		phy_status = mode;
+	} else if(phy_status != (int)mode) {
+		return -EINVAL;
 	}
-	if (__bsp_flavour == BSP_ETH_530 || __bsp_flavour == BSP_EXPLORER) {
+
+	if (lane_status[lane_id].configured) {
+		/* Lane is already initialized */
+		return -EBUSY;
+	}
+
+	switch (__bsp_flavour) {
+	case BSP_ETH_530:
+	case BSP_EXPLORER:
+		/* Only 1G is available */
+		if (mode != MPPA_ETH_MAC_ETHMODE_1G)
+			return -EINVAL;
+
 		mppa_eth_mdio_synchronize();
-	}
-	else if (__bsp_flavour == BSP_DEVELOPER) {
+		break;
+	case BSP_DEVELOPER:
+		/* Only 1G is working for the moment */
+		if (mode != MPPA_ETH_MAC_ETHMODE_1G)
+			return -ENOSYS;
+
 		if (lane_id < 2) {
 			/* These lane are 10G only */
-			return -1;
+			return -EINVAL;
 		}
 		ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
 		i2c_ifce.i2c_master = ethernet_i2c_master;
@@ -91,29 +157,29 @@ uint32_t init_mac(const int lane_id)
 
 		mppa_88E1111_configure(&i2c_ifce);
 		if (mppa_88E1111_synchronize(&i2c_ifce)) {
-			return -1;
+			return -EIO;
 		}
-	} else {
-		printf("This platform is not supported yet !\n");
-		exit(-1);
+		break;
+	default:
+		return -EINVAL;
+		break;
 	}
 
-	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_ETHMODE_1G);
-	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_SGMIIRATE_1G);
-	enum mppa_eth_mac_1G_mode_e sgmii_rate __attribute__ ((unused));
-	sgmii_rate = mppabeth_mac_get_sgmii_rate((void *) &(mppa_ethernet[0]->mac));
+	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), mode);
+
+	/* FIXME: Use speed autonegociated by PHY here */
+	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), mode);
+
 	//Basic mac settings
-	mppabeth_mac_enable_rx_check_sfd((void *)
-					 &(mppa_ethernet[0]->mac));
-	mppabeth_mac_enable_rx_check_preambule((void *)
-					       &(mppa_ethernet[0]->mac));
-	mppabeth_mac_enable_rx_fcs_deletion((void *)
-					    &(mppa_ethernet[0]->mac));
-	mppabeth_mac_enable_tx_fcs_insertion((void *)
-					     &(mppa_ethernet[0]->mac));
-	mppabeth_mac_enable_tx_add_padding((void *)
-					   &(mppa_ethernet[0]->mac));
+	mppabeth_mac_enable_rx_check_sfd((void *)&(mppa_ethernet[0]->mac));
+	mppabeth_mac_enable_rx_check_preambule((void *)&(mppa_ethernet[0]->mac));
+	mppabeth_mac_enable_rx_fcs_deletion((void *)&(mppa_ethernet[0]->mac));
+	mppabeth_mac_enable_tx_fcs_insertion((void *)&(mppa_ethernet[0]->mac));
+	mppabeth_mac_enable_tx_add_padding((void *)&(mppa_ethernet[0]->mac));
 	start_lane(lane_id);
+
+	lane_status[lane_id].configured = 1;
+	lane_status[lane_id].mode = mode;
 
 #ifdef VERBOSE
 	printf ("Polling for link %d\n", lane_id);
@@ -122,8 +188,7 @@ uint32_t init_mac(const int lane_id)
 	unsigned long long start = __k1_read_dsu_timestamp();
 	int up = 0;
 	while (__k1_read_dsu_timestamp() - start < 3ULL * __bsp_frequency) {
-		if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
-		   mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1) {
+		if (!mac_poll_state(lane_id)) {
 			up = 1;
 			break;
 		}
@@ -131,7 +196,11 @@ uint32_t init_mac(const int lane_id)
 #ifdef VERBOSE
 	printf("Link %d %s\n", lane_id, up ? "up" : "down/polling");
 #endif
-	return up ? 0 : 1;
+
+	if (!up)
+		return -ENETDOWN;
+
+	return 0;
 }
 
 void dump_reg_dev(uint8_t dev)
