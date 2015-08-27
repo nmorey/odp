@@ -75,9 +75,9 @@ typedef struct {
 
 	odp_buffer_hdr_t *buf_hdr[MAX_DEQ];
 	queue_entry_t *qe;
-	int num;
-	int index;
-	int pause;
+	uint32_t num;
+	uint32_t index;
+	uint32_t pause;
 
 } sched_local_t;
 
@@ -378,18 +378,11 @@ void odp_schedule_release_atomic(void)
 
 static inline int copy_events(odp_event_t out_ev[], unsigned int max)
 {
-	int i = 0;
-
-	while (sched_local.num && max) {
-		odp_buffer_hdr_t *hdr = sched_local.buf_hdr[sched_local.index];
-		out_ev[i] = odp_buffer_to_event((odp_buffer_t)hdr);
-		sched_local.index++;
-		sched_local.num--;
-		max--;
-		i++;
-	}
-
-	return i;
+	int num = max > sched_local.num ? sched_local.num : max;
+	memcpy(out_ev, sched_local.buf_hdr + sched_local.index, num * sizeof(*out_ev));
+	sched_local.index += num;
+	sched_local.num -= num;
+	return num;
 }
 
 
