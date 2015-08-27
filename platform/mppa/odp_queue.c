@@ -401,31 +401,22 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 
 int odp_queue_enq_multi(odp_queue_t handle, const odp_event_t ev[], int num)
 {
-	odp_buffer_hdr_t *buf_hdr[QUEUE_MULTI_MAX];
 	queue_entry_t *queue;
-	int i;
 
 	if (num > QUEUE_MULTI_MAX)
 		num = QUEUE_MULTI_MAX;
 
 	queue = queue_to_qentry(handle);
 
-	for (i = 0; i < num; i++)
-		buf_hdr[i] = odp_buf_to_hdr(odp_buffer_from_event(ev[i]));
-
-	return queue->s.enqueue_multi(queue, buf_hdr, num);
+	return queue->s.enqueue_multi(queue, (odp_buffer_hdr_t **)ev, num);
 }
 
 
 int odp_queue_enq(odp_queue_t handle, odp_event_t ev)
 {
-	odp_buffer_hdr_t *buf_hdr;
 	queue_entry_t *queue;
-
 	queue   = queue_to_qentry(handle);
-	buf_hdr = odp_buf_to_hdr(odp_buffer_from_event(ev));
-
-	return queue->s.enqueue(queue, buf_hdr);
+	return queue->s.enqueue(queue, (odp_buffer_hdr_t *)ev);
 }
 
 
@@ -509,18 +500,14 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 int odp_queue_deq_multi(odp_queue_t handle, odp_event_t events[], int num)
 {
 	queue_entry_t *queue;
-	odp_buffer_hdr_t *buf_hdr[QUEUE_MULTI_MAX];
-	int i, ret;
+	int ret;
 
 	if (num > QUEUE_MULTI_MAX)
 		num = QUEUE_MULTI_MAX;
 
 	queue = queue_to_qentry(handle);
 
-	ret = queue->s.dequeue_multi(queue, buf_hdr, num);
-
-	for (i = 0; i < ret; i++)
-		events[i] = odp_buffer_to_event((odp_buffer_t)buf_hdr[i]);
+	ret = queue->s.dequeue_multi(queue, (odp_buffer_hdr_t **)events, num);
 
 	return ret;
 }
@@ -535,7 +522,7 @@ odp_event_t odp_queue_deq(odp_queue_t handle)
 	buf_hdr = queue->s.dequeue(queue);
 
 	if (buf_hdr)
-		return odp_buffer_to_event((odp_buffer_t)buf_hdr);
+		return (odp_event_t)buf_hdr;
 
 	return ODP_EVENT_INVALID;
 }
