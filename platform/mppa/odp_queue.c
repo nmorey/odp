@@ -50,18 +50,11 @@
 
 #include <string.h>
 
-
 typedef struct queue_table_t {
 	queue_entry_t  queue[ODP_CONFIG_QUEUES];
 } queue_table_t;
 
 static queue_table_t queue_tbl;
-
-
-queue_entry_t *get_qentry(uint32_t queue_id)
-{
-	return &queue_tbl.queue[queue_id];
-}
 
 static void queue_init(queue_entry_t *queue, const char *name,
 		       odp_queue_type_t type, odp_queue_param_t *param)
@@ -107,7 +100,11 @@ static void queue_init(queue_entry_t *queue, const char *name,
 	queue->s.cmd_ev    = ODP_EVENT_INVALID;
 }
 
-
+uint32_t queue_to_id(odp_queue_t handle)
+{
+	queue_entry_t * qe = queue_to_qentry(handle);
+	return qe - &queue_tbl.queue[0];
+}
 int odp_queue_init_global(void)
 {
 	uint32_t i;
@@ -118,9 +115,8 @@ int odp_queue_init_global(void)
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		/* init locks */
-		queue_entry_t *queue = get_qentry(i);
+		queue_entry_t *queue = &queue_tbl.queue[i];
 		LOCK_INIT(queue);
-		queue->s.handle = queue_from_id(i);
 	}
 
 	ODP_DBG("done\n");
@@ -196,7 +192,6 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 	uint32_t i;
 	queue_entry_t *queue;
 	odp_queue_t handle = ODP_QUEUE_INVALID;
-
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		queue = &queue_tbl.queue[i];
 
@@ -214,7 +209,7 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 			else
 				queue->s.status = QUEUE_STATUS_READY;
 
-			handle = queue->s.handle;
+			handle = queue_handle(queue);
 			UNLOCK(queue);
 			break;
 		}
@@ -318,7 +313,7 @@ odp_queue_t odp_queue_lookup(const char *name)
 		if (strcmp(name, queue->s.name) == 0) {
 			/* found it */
 			UNLOCK(queue);
-			return queue->s.handle;
+			return queue_handle(queue);
 		}
 		UNLOCK(queue);
 	}
