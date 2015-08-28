@@ -28,7 +28,7 @@ extern "C" {
 #define ODP_CONFIG_MAX_THREADS  16
 
 #undef ODP_CONFIG_POOLS
-#define ODP_CONFIG_POOLS        16
+#define ODP_CONFIG_POOLS        8
 
 #undef ODP_CONFIG_PKTIO_ENTRIES
 #define ODP_CONFIG_PKTIO_ENTRIES 32
