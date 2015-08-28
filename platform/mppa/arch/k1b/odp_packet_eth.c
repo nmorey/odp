@@ -218,7 +218,7 @@ static int _eth_reload_rx(eth_thread_t *th, int th_id, int rx_id,
 			0ULL;
 
 		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_size.dword =
-			pkt_hdr->frame_len + 2 * sizeof(mppa_ethernet_header_t);
+			pkt_hdr->frame_len + 1 * sizeof(mppa_ethernet_header_t);
 	}
 
 	int dropped = mppa_dnoc[th->dma_if]->rx_queues[rx_id].
@@ -282,7 +282,7 @@ static int _eth_reload_rx(eth_thread_t *th, int th_id, int rx_id,
 			_odp_packet_reset_parse(pkt);
 
 			unsigned len = header->info._.pkt_size -
-				2 * sizeof(mppa_ethernet_header_t);
+				1 * sizeof(mppa_ethernet_header_t);
 			packet_set_len(pkt, len);
 		}
 	}
@@ -448,7 +448,7 @@ static void _eth_set_rx_conf(unsigned if_id, int rx_id, odp_packet_t pkt)
 		.buffer_base = (unsigned long)packet_map(pkt_hdr, 0, NULL) -
 		sizeof(mppa_ethernet_header_t),
 		.buffer_size = pkt_hdr->frame_len +
-		2 * sizeof(mppa_ethernet_header_t),
+		1 * sizeof(mppa_ethernet_header_t),
 		.current_offset = 0,
 		.event_counter = 0,
 		.item_counter = 1,

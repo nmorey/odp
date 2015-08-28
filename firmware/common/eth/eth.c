@@ -254,8 +254,6 @@ void eth_init(void)
 
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
 					    ifId, MPPABETHLB_ADD_HEADER);
-		mppabeth_lb_cfg_footer_mode((void *)&(mppa_ethernet[0]->lb),
-					    ifId, MPPABETHLB_ADD_FOOTER);
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
 						   0, 0, MPPABETHLB_DISPATCH_POLICY_RR);
 		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
