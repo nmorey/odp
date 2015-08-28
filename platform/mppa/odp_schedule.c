@@ -27,27 +27,15 @@
  * One per scheduled queue and packet interface */
 #define NUM_SCHED_CMD (ODP_CONFIG_QUEUES + ODP_CONFIG_PKTIO_ENTRIES)
 
-/* Scheduler sub queues */
-#define QUEUES_PER_PRIO  4
-
 /* Maximum number of dequeues */
 #define MAX_DEQ 4
 
-
-/* Mask of queues per priority */
-typedef uint8_t pri_mask_t;
-
-_ODP_STATIC_ASSERT((8*sizeof(pri_mask_t)) >= QUEUES_PER_PRIO,
-		   "pri_mask_t_is_too_small");
-
-
 typedef struct {
-	odp_queue_t    pri_queue[ODP_CONFIG_SCHED_PRIOS][QUEUES_PER_PRIO];
-	pri_mask_t     pri_mask[ODP_CONFIG_SCHED_PRIOS];
+	odp_queue_t    pri_queue[ODP_CONFIG_SCHED_PRIOS];
 	odp_spinlock_t mask_lock;
 	odp_pool_t     pool;
 	odp_shm_t      shm;
-	uint32_t       pri_count[ODP_CONFIG_SCHED_PRIOS][QUEUES_PER_PRIO];
+	uint32_t       pri_count[ODP_CONFIG_SCHED_PRIOS];
 } sched_t;
 
 /* Schedule command */
@@ -105,7 +93,7 @@ int odp_schedule_init_global(void)
 {
 	odp_shm_t shm;
 	odp_pool_t pool;
-	int i, j;
+	int i;
 	odp_pool_param_t params;
 
 	ODP_DBG("Schedule init ... ");
@@ -141,26 +129,20 @@ int odp_schedule_init_global(void)
 
 	for (i = 0; i < ODP_CONFIG_SCHED_PRIOS; i++) {
 		odp_queue_t queue;
-		char name[] = "odp_priXX_YY";
+		char name[] = "odp_priXX";
 
 		name[7] = '0' + i / 10;
 		name[8] = '0' + i - 10*(i / 10);
 
-		for (j = 0; j < QUEUES_PER_PRIO; j++) {
-			name[10] = '0' + j / 10;
-			name[11] = '0' + j - 10*(j / 10);
+		queue = odp_queue_create(name, ODP_QUEUE_TYPE_POLL, NULL);
 
-			queue = odp_queue_create(name,
-						 ODP_QUEUE_TYPE_POLL, NULL);
-
-			if (queue == ODP_QUEUE_INVALID) {
-				ODP_ERR("Sched init: Queue create failed.\n");
-				return -1;
-			}
-
-			sched->pri_queue[i][j] = queue;
-			sched->pri_mask[i]     = 0;
+		if (queue == ODP_QUEUE_INVALID) {
+			ODP_ERR("Sched init: Queue create failed.\n");
+			return -1;
 		}
+
+		sched->pri_queue[i] = queue;
+		sched->pri_count[i] = 0;
 	}
 
 	ODP_DBG("done\n");
@@ -172,44 +154,42 @@ int odp_schedule_term_global(void)
 {
 	int ret = 0;
 	int rc = 0;
-	int i, j;
+	int i;
 
 	for (i = 0; i < ODP_CONFIG_SCHED_PRIOS; i++) {
-		for (j = 0; j < QUEUES_PER_PRIO; j++) {
-			odp_queue_t  pri_q;
-			odp_event_t  ev;
+		odp_queue_t  pri_q;
+		odp_event_t  ev;
 
-			pri_q = sched->pri_queue[i][j];
+		pri_q = sched->pri_queue[i];
 
-			while ((ev = odp_queue_deq(pri_q)) !=
-			      ODP_EVENT_INVALID) {
-				odp_buffer_t buf;
-				sched_cmd_t *sched_cmd;
+		while ((ev = odp_queue_deq(pri_q)) !=
+		       ODP_EVENT_INVALID) {
+			odp_buffer_t buf;
+			sched_cmd_t *sched_cmd;
 
-				buf = odp_buffer_from_event(ev);
-				sched_cmd = odp_buffer_addr(buf);
+			buf = odp_buffer_from_event(ev);
+			sched_cmd = odp_buffer_addr(buf);
 
-				if (sched_cmd->cmd == SCHED_CMD_DEQUEUE) {
-					queue_entry_t *qe;
-					odp_buffer_hdr_t *buf_hdr[1];
-					int num;
+			if (sched_cmd->cmd == SCHED_CMD_DEQUEUE) {
+				queue_entry_t *qe;
+				odp_buffer_hdr_t *buf_hdr[1];
+				int num;
 
-					qe  = sched_cmd->qe;
-					num = queue_deq_multi(qe, buf_hdr, 1);
+				qe  = sched_cmd->qe;
+				num = queue_deq_multi(qe, buf_hdr, 1);
 
-					if (num < 0)
-						queue_destroy_finalize(qe);
+				if (num < 0)
+					queue_destroy_finalize(qe);
 
-					if (num > 0)
-						ODP_ERR("Queue not empty\n");
-				} else
-					odp_buffer_free(buf);
-			}
+				if (num > 0)
+					ODP_ERR("Queue not empty\n");
+			} else
+				odp_buffer_free(buf);
+		}
 
-			if (odp_queue_destroy(pri_q)) {
-				ODP_ERR("Pri queue destroy fail.\n");
-				rc = -1;
-			}
+		if (odp_queue_destroy(pri_q)) {
+			ODP_ERR("Pri queue destroy fail.\n");
+			rc = -1;
 		}
 	}
 
@@ -246,63 +226,23 @@ int odp_schedule_term_local(void)
 	return 0;
 }
 
-static int pri_id_queue(odp_queue_t queue)
-{
-	return (QUEUES_PER_PRIO-1) & (queue_to_id(queue));
-}
-
-static int pri_id_pktio(odp_pktio_t pktio)
-{
-	return (QUEUES_PER_PRIO-1) & (pktio_to_id(pktio));
-}
-
-static odp_queue_t pri_set(int id, int prio)
+static odp_queue_t pri_set(int prio)
 {
 	odp_spinlock_lock(&sched->mask_lock);
-	sched->pri_mask[prio] |= 1 << id;
-	sched->pri_count[prio][id]++;
+	sched->pri_count[prio]++;
 	odp_spinlock_unlock(&sched->mask_lock);
 
-	return sched->pri_queue[prio][id];
+	return sched->pri_queue[prio];
 }
 
-static void pri_clr(int id, int prio)
+static void pri_clr(int prio)
 {
 	odp_spinlock_lock(&sched->mask_lock);
 
 	/* Clear mask bit when last queue is removed*/
-	sched->pri_count[prio][id]--;
-
-	if (sched->pri_count[prio][id] == 0)
-		sched->pri_mask[prio] &= (uint8_t)(~(1 << id));
+	sched->pri_count[prio]--;
 
 	odp_spinlock_unlock(&sched->mask_lock);
-}
-
-static odp_queue_t pri_set_queue(odp_queue_t queue, int prio)
-{
-	int id = pri_id_queue(queue);
-
-	return pri_set(id, prio);
-}
-
-static odp_queue_t pri_set_pktio(odp_pktio_t pktio, int prio)
-{
-	int id = pri_id_pktio(pktio);
-
-	return pri_set(id, prio);
-}
-
-static void pri_clr_queue(odp_queue_t queue, int prio)
-{
-	int id = pri_id_queue(queue);
-	pri_clr(id, prio);
-}
-
-static void pri_clr_pktio(odp_pktio_t pktio, int prio)
-{
-	int id = pri_id_pktio(pktio);
-	pri_clr(id, prio);
 }
 
 int schedule_queue_init(queue_entry_t *qe)
@@ -320,7 +260,7 @@ int schedule_queue_init(queue_entry_t *qe)
 	sched_cmd->qe  = qe;
 
 	qe->s.cmd_ev    = odp_buffer_to_event(buf);
-	qe->s.pri_queue = pri_set_queue(queue_handle(qe), queue_prio(qe));
+	qe->s.pri_queue = pri_set(queue_prio(qe));
 
 	return 0;
 }
@@ -332,7 +272,7 @@ void schedule_queue_destroy(queue_entry_t *qe)
 	buf = odp_buffer_from_event(qe->s.cmd_ev);
 	odp_buffer_free(buf);
 
-	pri_clr_queue(queue_handle(qe), queue_prio(qe));
+	pri_clr(queue_prio(qe));
 
 	qe->s.cmd_ev    = ODP_EVENT_INVALID;
 	qe->s.pri_queue = ODP_QUEUE_INVALID;
@@ -355,7 +295,7 @@ int schedule_pktio_start(odp_pktio_t pktio, int prio)
 	sched_cmd->pe    = get_pktio_entry(pktio);
 	sched_cmd->prio  = prio;
 
-	pri_queue  = pri_set_pktio(pktio, prio);
+	pri_queue  = pri_set(prio);
 
 	if (odp_queue_enq(pri_queue, odp_buffer_to_event(buf)))
 		ODP_ABORT("schedule_pktio_start failed\n");
@@ -394,8 +334,7 @@ static inline int copy_events(odp_event_t out_ev[], unsigned int max)
 static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 		    unsigned int max_num, unsigned int max_deq)
 {
-	int i, j;
-	int thr;
+	int i;
 	int ret;
 
 	if (sched_local.num) {
@@ -412,92 +351,79 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 	if (odp_unlikely(sched_local.pause))
 		return 0;
 
-	thr = odp_thread_id();
 	INVALIDATE(sched);
 
 	for (i = 0; i < ODP_CONFIG_SCHED_PRIOS; i++) {
-		int id;
 
-		if (sched->pri_mask[i] == 0)
+		if (sched->pri_count[i] == 0)
 			continue;
 
-		id = thr & (QUEUES_PER_PRIO-1);
+		odp_queue_t  pri_q;
+		odp_event_t  ev;
+		odp_buffer_t buf;
+		sched_cmd_t *sched_cmd;
+		queue_entry_t *qe;
+		int num;
 
-		for (j = 0; j < QUEUES_PER_PRIO; j++, id++) {
-			odp_queue_t  pri_q;
-			odp_event_t  ev;
-			odp_buffer_t buf;
-			sched_cmd_t *sched_cmd;
-			queue_entry_t *qe;
-			int num;
+		pri_q = sched->pri_queue[i];
+		ev    = odp_queue_deq(pri_q);
+		buf   = odp_buffer_from_event(ev);
 
-			if (id >= QUEUES_PER_PRIO)
-				id = 0;
+		if (buf == ODP_BUFFER_INVALID)
+			continue;
 
-			if (odp_unlikely((sched->pri_mask[i] & (1 << id)) == 0))
-				continue;
+		sched_cmd = odp_buffer_addr(buf);
+		INVALIDATE(sched_cmd);
 
-			pri_q = sched->pri_queue[i][id];
-			ev    = odp_queue_deq(pri_q);
-			buf   = odp_buffer_from_event(ev);
-
-			if (buf == ODP_BUFFER_INVALID)
-				continue;
-
-			sched_cmd = odp_buffer_addr(buf);
-			INVALIDATE(sched_cmd);
-
-			if (sched_cmd->cmd == SCHED_CMD_POLL_PKTIN) {
-				/* Poll packet input */
-				if (pktin_poll(sched_cmd->pe)) {
-					/* Stop scheduling the pktio */
-					pri_clr_pktio(sched_cmd->pktio,
-						      sched_cmd->prio);
-					odp_buffer_free(buf);
-				} else {
-					/* Continue scheduling the pktio */
-					if (odp_queue_enq(pri_q, ev))
-						ODP_ABORT("schedule failed\n");
-				}
-
-				continue;
-			}
-
-			qe  = sched_cmd->qe;
-			num = queue_deq_multi(qe, sched_local.buf_hdr, max_deq);
-
-			if (num < 0) {
-				/* Destroyed queue */
-				queue_destroy_finalize(qe);
-				continue;
-			}
-
-			if (num == 0) {
-				/* Remove empty queue from scheduling */
-				continue;
-			}
-
-			sched_local.num   = num;
-			sched_local.index = 0;
-			sched_local.qe    = qe;
-			ret = copy_events(out_ev, max_num);
-
-			if (queue_is_atomic(qe)) {
-				/* Hold queue during atomic access */
-				sched_local.pri_queue = pri_q;
-				sched_local.cmd_ev    = ev;
+		if (sched_cmd->cmd == SCHED_CMD_POLL_PKTIN) {
+			/* Poll packet input */
+			if (pktin_poll(sched_cmd->pe)) {
+				/* Stop scheduling the pktio */
+				pri_clr(sched_cmd->prio);
+				odp_buffer_free(buf);
 			} else {
-				/* Continue scheduling the queue */
+				/* Continue scheduling the pktio */
 				if (odp_queue_enq(pri_q, ev))
 					ODP_ABORT("schedule failed\n");
 			}
 
-			/* Output the source queue handle */
-			if (out_queue)
-				*out_queue = queue_handle(qe);
-
-			return ret;
+			continue;
 		}
+
+		qe  = sched_cmd->qe;
+		num = queue_deq_multi(qe, sched_local.buf_hdr, max_deq);
+
+		if (num < 0) {
+			/* Destroyed queue */
+			queue_destroy_finalize(qe);
+			continue;
+		}
+
+		if (num == 0) {
+			/* Remove empty queue from scheduling */
+			continue;
+		}
+
+		sched_local.num   = num;
+		sched_local.index = 0;
+		sched_local.qe    = qe;
+		ret = copy_events(out_ev, max_num);
+
+		if (queue_is_atomic(qe)) {
+			/* Hold queue during atomic access */
+			sched_local.pri_queue = pri_q;
+			sched_local.cmd_ev    = ev;
+		} else {
+			/* Continue scheduling the queue */
+			if (odp_queue_enq(pri_q, ev))
+				ODP_ABORT("schedule failed\n");
+		}
+
+		/* Output the source queue handle */
+		if (out_queue)
+			*out_queue = queue_handle(qe);
+
+		return ret;
 	}
 
 	return 0;
