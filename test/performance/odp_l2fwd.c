@@ -275,8 +275,16 @@ static odp_pktio_t create_pktio(const char *dev, odp_pool_t pool,
 	odp_queue_t inq_def;
 	odp_pktio_t pktio;
 	int ret;
+	odp_pktio_param_t pktio_param;
 
-	pktio = odp_pktio_open(dev, pool);
+	memset(&pktio_param, 0, sizeof(pktio_param));
+
+	if (mode == APPL_MODE_PKT_BURST)
+		pktio_param.in_mode = ODP_PKTIN_MODE_RECV;
+	else
+		pktio_param.in_mode = ODP_PKTIN_MODE_SCHED;
+
+	pktio = odp_pktio_open(dev, pool, &pktio_param);
 	if (pktio == ODP_PKTIO_INVALID) {
 		LOG_ERR("Error: failed to open %s\n", dev);
 		return ODP_PKTIO_INVALID;
@@ -289,9 +297,10 @@ static odp_pktio_t create_pktio(const char *dev, odp_pool_t pool,
 	if (mode == APPL_MODE_PKT_BURST)
 		return pktio;
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio  = ODP_SCHED_PRIO_DEFAULT;
 	qparam.sched.sync  = ODP_SCHED_SYNC_ATOMIC;
-	qparam.sched.group = ODP_SCHED_GROUP_DEFAULT;
+	qparam.sched.group = ODP_SCHED_GROUP_ALL;
 	snprintf(inq_name, sizeof(inq_name), "%" PRIu64 "-pktio_inq_def",
 		 odp_pktio_to_u64(pktio));
 	inq_name[ODP_QUEUE_NAME_LEN - 1] = '\0';
@@ -320,7 +329,7 @@ static odp_pktio_t create_pktio(const char *dev, odp_pool_t pool,
  * @param timeout Number of seconds for stats calculation
  *
  */
-static void print_speed_stats(int num_workers, stats_t **thr_stats,
+static int print_speed_stats(int num_workers, stats_t **thr_stats,
 			      int duration, int timeout)
 {
 	uint64_t pkts, pkts_prev = 0, pps, drops, maximum_pps = 0;
@@ -354,7 +363,8 @@ static void print_speed_stats(int num_workers, stats_t **thr_stats,
 
 	printf("TEST RESULT: %" PRIu64 " maximum packets per second.\n",
 	       maximum_pps);
-	return;
+
+	return pkts > 100 ? 0 : -1;
 }
 
 /**
@@ -371,6 +381,7 @@ int main(int argc, char *argv[])
 	odp_cpumask_t cpumask;
 	char cpumaskstr[ODP_CPUMASK_STR_SIZE];
 	odp_pool_param_t params;
+	int ret;
 
 	/* Init ODP before calling anything else */
 	if (odp_init_global(NULL, NULL)) {
@@ -426,7 +437,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create packet pool */
-	memset(&params, 0, sizeof(params));
+	odp_pool_param_init(&params);
 	params.pkt.seg_len = SHM_PKT_POOL_BUF_SIZE;
 	params.pkt.len     = SHM_PKT_POOL_BUF_SIZE;
 	params.pkt.num     = SHM_PKT_POOL_SIZE/SHM_PKT_POOL_BUF_SIZE;
@@ -445,6 +456,14 @@ int main(int argc, char *argv[])
 						   pool, gbl_args->appl.mode);
 		if (gbl_args->pktios[i] == ODP_PKTIO_INVALID)
 			exit(EXIT_FAILURE);
+
+		ret = odp_pktio_start(gbl_args->pktios[i]);
+		if (ret) {
+			LOG_ERR("Error: unable to start %s\n",
+				gbl_args->appl.if_names[i]);
+			exit(EXIT_FAILURE);
+		}
+
 	}
 	gbl_args->pktios[i] = ODP_PKTIO_INVALID;
 
@@ -476,8 +495,8 @@ int main(int argc, char *argv[])
 		cpu = odp_cpumask_next(&cpumask, cpu);
 	}
 
-	print_speed_stats(num_workers, stats, gbl_args->appl.time,
-			  gbl_args->appl.accuracy);
+	ret = print_speed_stats(num_workers, stats, gbl_args->appl.time,
+				gbl_args->appl.accuracy);
 	free(stats);
 	exit_threads = 1;
 
@@ -488,7 +507,7 @@ int main(int argc, char *argv[])
 	free(gbl_args->appl.if_str);
 	printf("Exit\n\n");
 
-	return 0;
+	return ret;
 }
 
 /**
