@@ -184,7 +184,7 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 					    ODP_CONFIG_BUFFER_ALIGN_MIN);
 
 		blk_size = params->pkt.len <= seg_len ? seg_len :
-			ODP_ALIGN_ROUNDUP(params->pkt.len, seg_len);
+			ODP_ALIGN_ROUNDUP(params->pkt.len + headroom + tailroom, seg_len);
 
 		/* Reject create if pkt.len needs too many segments */
 		if (blk_size / seg_len > ODP_BUFFER_MAX_SEG) {
