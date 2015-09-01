@@ -183,7 +183,8 @@ static int free_pktio_entry(odp_pktio_t id)
 	return 0;
 }
 
-static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
+static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool,
+				     const odp_pktio_param_t *param)
 {
 	odp_pktio_t id;
 	pktio_entry_t *pktio_entry;
@@ -208,6 +209,8 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 	if (!pktio_entry)
 		return ODP_PKTIO_INVALID;
 
+	memcpy(&pktio_entry->s.param, param, sizeof(odp_pktio_param_t));
+
 	for (pktio_if = 0; pktio_if_ops[pktio_if]; ++pktio_if) {
 		ret = pktio_if_ops[pktio_if]->open(id, pktio_entry, dev, pool);
 
@@ -224,6 +227,8 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 		ODP_ERR("Unable to init any I/O type.\n");
 	} else {
 		snprintf(pktio_entry->s.name, IF_NAMESIZE, "%s", dev);
+		pktio_entry->s.state = STATE_STOP;
+
 		unlock_entry_classifier(pktio_entry);
 	}
 
@@ -232,7 +237,8 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool)
 	return id;
 }
 
-odp_pktio_t odp_pktio_open(const char *dev, odp_pool_t pool)
+odp_pktio_t odp_pktio_open(const char *dev, odp_pool_t pool,
+			   const odp_pktio_param_t *param)
 {
 	odp_pktio_t id;
 
@@ -244,7 +250,7 @@ odp_pktio_t odp_pktio_open(const char *dev, odp_pool_t pool)
 	}
 
 	odp_spinlock_lock(&pktio_tbl.lock);
-	id = setup_pktio_entry(dev, pool);
+	id = setup_pktio_entry(dev, pool, param);
 	odp_spinlock_unlock(&pktio_tbl.lock);
 
 	return id;
@@ -270,6 +276,45 @@ int odp_pktio_close(odp_pktio_t id)
 		return -1;
 
 	return 0;
+}
+
+int odp_pktio_start(odp_pktio_t id)
+{
+	pktio_entry_t *entry;
+	int res = 0;
+
+	entry = get_pktio_entry(id);
+	if (!entry)
+		return -1;
+
+	lock_entry(entry);
+	if (entry->s.ops->start)
+		res = entry->s.ops->start(entry);
+	if(!res)
+		entry->s.state = STATE_START;
+
+	unlock_entry(entry);
+
+	return res;
+}
+
+int odp_pktio_stop(odp_pktio_t id)
+{
+	pktio_entry_t *entry;
+	int res = 0;
+
+	entry = get_pktio_entry(id);
+	if (!entry)
+		return -1;
+
+	lock_entry(entry);
+	if (entry->s.ops->stop)
+		res = entry->s.ops->stop(entry);
+	if(!res)
+		entry->s.state = STATE_STOP;
+	unlock_entry(entry);
+
+	return res;
 }
 
 odp_pktio_t odp_pktio_lookup(const char *dev)
@@ -312,6 +357,13 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 		return -1;
 
 	enter_entry(pktio_entry);
+
+	if (pktio_entry->s.state == STATE_STOP) {
+		exit_entry(pktio_entry);
+		__odp_errno = EPERM;
+		return -1;
+	}
+
 	pkts = pktio_entry->s.ops->recv(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
 
@@ -333,6 +385,13 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 		return -1;
 
 	enter_entry(pktio_entry);
+
+	if (pktio_entry->s.state == STATE_STOP) {
+		exit_entry(pktio_entry);
+		__odp_errno = EPERM;
+		return -1;
+	}
+
 	pkts = pktio_entry->s.ops->send(pktio_entry, pkt_table, len);
 	exit_entry(pktio_entry);
 
@@ -556,6 +615,9 @@ int pktin_poll(pktio_entry_t *entry)
 
 	if (odp_unlikely(entry->s.inq_default == ODP_QUEUE_INVALID))
 		return -1;
+
+	if (entry->s.state == STATE_STOP)
+		return 0;
 
 	num = odp_pktio_recv(entry->s.handle, pkt_tbl, QUEUE_MULTI_MAX);
 
