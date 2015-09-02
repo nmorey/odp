@@ -46,7 +46,6 @@ typedef struct {
 		queue_entry_t *qe;
 
 		struct {
-			odp_pktio_t   pktio;
 			pktio_entry_t *pe;
 			int           prio;
 		};
@@ -288,7 +287,6 @@ int schedule_pktio_start(odp_pktio_t pktio, int prio)
 
 	sched_cmd        = odp_buffer_addr(buf);
 	sched_cmd->cmd   = SCHED_CMD_POLL_PKTIN;
-	sched_cmd->pktio = pktio;
 	sched_cmd->pe    = get_pktio_entry(pktio);
 	sched_cmd->prio  = prio;
 
