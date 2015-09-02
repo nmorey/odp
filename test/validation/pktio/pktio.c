@@ -667,7 +667,7 @@ static void pktio_test_start_stop(void)
 {
 	odp_pktio_t pktio[MAX_NUM_IFACES];
 	odp_packet_t pkt;
-	odp_event_t tx_ev[1000];
+	odp_event_t tx_ev[100];
 	odp_event_t ev;
 	int i, pkts, ret, alloc = 0;
 	odp_queue_t outq;
@@ -679,7 +679,7 @@ static void pktio_test_start_stop(void)
 		create_inq(pktio[i],  ODP_QUEUE_TYPE_SCHED);
 	}
 
-	for (alloc = 0; alloc < 1000; alloc++) {
+	for (alloc = 0; alloc < 100; alloc++) {
 		pkt = odp_packet_alloc(default_pkt_pool, packet_len);
 		if (pkt == ODP_PACKET_INVALID)
 			break;
@@ -709,7 +709,7 @@ static void pktio_test_start_stop(void)
 		pkts += ret;
 	}
 	/* check that packets did not arrive */
-	for (i = 0, pkts = 0; i < 1000; i++) {
+	for (i = 0, pkts = 0; i < 100; i++) {
 		ev = odp_schedule(NULL, wait);
 		if (ev != ODP_EVENT_INVALID) {
 			if (odp_event_type(ev) == ODP_EVENT_PACKET) {
@@ -730,14 +730,14 @@ static void pktio_test_start_stop(void)
 	}
 
 	/* flush packets with magic number in pipes */
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < 100; i++) {
 		ev = odp_schedule(NULL, wait);
 		if (ev != ODP_EVENT_INVALID)
 			odp_event_free(ev);
 	}
 
 	/* alloc */
-	for (alloc = 0; alloc < 1000; alloc++) {
+	for (alloc = 0; alloc < 100; alloc++) {
 		pkt = odp_packet_alloc(default_pkt_pool, packet_len);
 		if (pkt == ODP_PACKET_INVALID)
 			break;
@@ -756,7 +756,7 @@ static void pktio_test_start_stop(void)
 	}
 
 	/* get */
-	for (i = 0, pkts = 0; i < 1000; i++) {
+	for (i = 0, pkts = 0; i < 100; i++) {
 		ev = odp_schedule(NULL, wait);
 		if (ev != ODP_EVENT_INVALID) {
 			if (odp_event_type(ev) == ODP_EVENT_PACKET) {
