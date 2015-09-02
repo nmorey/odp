@@ -67,11 +67,11 @@ if ENV["label"].to_s() != "" then
     when "fedora19-64","fedora17-64","debian6-64","debian7-64"
         # Validate nothing. It's centos7 job to do this
     when "centos7-64"
-        valid_configs = [ "k1a-kalray-nodeos_simu" ]
+        valid_configs = [ "k1a-kalray-nodeos_simu", "k1a-kalray-mos_simu" ]
         valid_type = "sim"
     when /MPPAExplorers_k1b*/
         #valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
-        valid_configs = [ "k1b-kalray-nodeos_explorer" ]
+        valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
         valid_type = "jtag"
     else
         raise("Unsupported label #{ENV["label"]}!")
