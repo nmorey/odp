@@ -59,8 +59,12 @@ static int default_pool_create(void)
 static odp_pktio_t create_pktio(const char *iface, int num)
 {
 	odp_pktio_t pktio;
+	odp_pktio_param_t pktio_param;
 
-	pktio = odp_pktio_open(iface, pool[num]);
+	memset(&pktio_param, 0, sizeof(pktio_param));
+	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
+
+	pktio = odp_pktio_open(iface, pool[num], &pktio_param);
 	if (pktio == ODP_PKTIO_INVALID)
 		pktio = odp_pktio_lookup(iface);
 	CU_ASSERT(pktio != ODP_PKTIO_INVALID);
@@ -95,11 +99,11 @@ static void pktio_test_mac(void)
 
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
 		pktio = create_pktio(iface_name[i], 0);
-	
+
 		mac_len = odp_pktio_mac_addr(pktio, mac_addr, sizeof(mac_addr));
 		CU_ASSERT(ODPH_ETHADDR_LEN == mac_len);
 		CU_ASSERT(mac_addr[0] == i);
-		
+
 	}
 
 	/* Fail case: wrong addr_size. Expected <0. */
@@ -112,16 +116,20 @@ static void pktio_test_open(void)
 {
 	odp_pktio_t pktio;
 	int i;
+	odp_pktio_param_t pktio_param;
+
+	memset(&pktio_param, 0, sizeof(pktio_param));
+	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
 		printf("Opening pktio %s\n", iface_name[i]);
-		pktio = odp_pktio_open(iface_name[i], default_pkt_pool);
+		pktio = odp_pktio_open(iface_name[i], default_pkt_pool, &pktio_param);
 		CU_ASSERT(pktio != ODP_PKTIO_INVALID);
 		CU_ASSERT(odp_pktio_close(pktio) == 0);
 		printf("Close pktio %s ok\n", iface_name[i]);
 	}
 
-	pktio = odp_pktio_open("cluster:16", default_pkt_pool);
+	pktio = odp_pktio_open("cluster:16", default_pkt_pool, &pktio_param);
 	CU_ASSERT(pktio == ODP_PKTIO_INVALID);
 }
 
@@ -129,14 +137,18 @@ static void pktio_test_lookup(void)
 {
 	odp_pktio_t pktio, pktio_inval;
 	int i;
+	odp_pktio_param_t pktio_param;
+
+	memset(&pktio_param, 0, sizeof(pktio_param));
+	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
-		pktio = odp_pktio_open(iface_name[0], default_pkt_pool);
+		pktio = odp_pktio_open(iface_name[0], default_pkt_pool, &pktio_param);
 		CU_ASSERT(pktio != ODP_PKTIO_INVALID);
 
 		CU_ASSERT(odp_pktio_lookup(iface_name[0]) == pktio);
 
-		pktio_inval = odp_pktio_open(iface_name[0], default_pkt_pool);
+		pktio_inval = odp_pktio_open(iface_name[0], default_pkt_pool, &pktio_param);
 		CU_ASSERT(odp_errno() != 0);
 		CU_ASSERT(pktio_inval == ODP_PKTIO_INVALID);
 

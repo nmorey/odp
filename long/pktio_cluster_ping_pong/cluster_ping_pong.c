@@ -34,6 +34,7 @@ static int setup_test()
 	odp_pool_param_t params;
 	char pktio_name[10];
 	int remote_cluster;
+	odp_pktio_param_t pktio_param;
 
 	memset(&params, 0, sizeof(params));
 	params.pkt.seg_len = PKT_BUF_SIZE;
@@ -50,8 +51,10 @@ static int setup_test()
 	/* Just take the next or the previous one as pair */
 	remote_cluster = (__k1_get_cluster_id() % 2) == 0 ? __k1_get_cluster_id() + 1 : __k1_get_cluster_id() - 1;
 	sprintf(pktio_name, "cluster:%d", remote_cluster);
+	memset(&pktio_param, 0, sizeof(pktio_param));
+	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 
-	pktio = odp_pktio_open(pktio_name, pool);
+	pktio = odp_pktio_open(pktio_name, pool, &pktio_param);
 	if (pktio == ODP_PKTIO_INVALID)
 		return 1;
 
