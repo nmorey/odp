@@ -12,7 +12,7 @@
 
 #include <stdlib.h>
 
-#define PKT_BUF_NUM            8
+#define PKT_BUF_NUM            256
 #define PKT_BUF_SIZE           (2 * 1024)
 #define PKT_LEN_NORMAL         64
 #define PKT_LEN_JUMBO          (PKT_BUF_SIZE - ODPH_ETHHDR_LEN - \
@@ -31,9 +31,6 @@ static int num_ifaces = MAX_NUM_IFACES;
 
 /** default packet pool */
 odp_pool_t default_pkt_pool = ODP_POOL_INVALID;
-
-odp_pool_t pool[MAX_NUM_IFACES] = {ODP_POOL_INVALID, ODP_POOL_INVALID};
-
 
 static int default_pool_create(void)
 {
@@ -64,7 +61,7 @@ static odp_pktio_t create_pktio(const char *iface, int num)
 	memset(&pktio_param, 0, sizeof(pktio_param));
 	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 
-	pktio = odp_pktio_open(iface, pool[num], &pktio_param);
+	pktio = odp_pktio_open(iface, default_pkt_pool, &pktio_param);
 	if (pktio == ODP_PKTIO_INVALID)
 		pktio = odp_pktio_lookup(iface);
 	CU_ASSERT(pktio != ODP_PKTIO_INVALID);
@@ -158,42 +155,13 @@ static void pktio_test_lookup(void)
 	}
 }
 
-
-static int create_pool(const char *iface, int num)
-{
-	char pool_name[ODP_POOL_NAME_LEN];
-	odp_pool_param_t params;
-
-	memset(&params, 0, sizeof(params));
-	params.pkt.seg_len = PKT_BUF_SIZE;
-	params.pkt.len     = PKT_BUF_SIZE;
-	params.pkt.num     = PKT_BUF_NUM;
-	params.type        = ODP_POOL_PACKET;
-
-	snprintf(pool_name, sizeof(pool_name), "pkt_pool_%s", iface);
-
-	pool[num] = odp_pool_create(pool_name, &params);
-	if (ODP_POOL_INVALID == pool[num]) {
-		fprintf(stderr, "unable to create pool\n");
-		return -1;
-	}
-	printf("Open %s ok\n", iface);
-
-	return 0;
-}
-
 static int pktio_suite_init(void)
 {
 	int i;
 
 	printf("Init testsuite\n");
-	for (i = 0; i < MAX_NUM_IFACES; i++) {
-		pool[i] = ODP_POOL_INVALID;
-
+	for (i = 0; i < MAX_NUM_IFACES; i++)
 		sprintf(iface_name[i], "cluster:%d", i);
-		if (create_pool(iface_name[i], i) != 0)
-			return -1;
-	}
 
 	if (default_pool_create() != 0) {
 		fprintf(stderr, "error: failed to create default pool\n");
