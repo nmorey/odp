@@ -58,6 +58,8 @@ static int setup_test()
 	if (pktio == ODP_PKTIO_INVALID)
 		return 1;
 
+	test_assert_ret(odp_pktio_start(pktio) == 0);
+
 	inq = odp_queue_create("inq_pktio_cluster",
 				ODP_QUEUE_TYPE_PKTIN,
 				NULL);
