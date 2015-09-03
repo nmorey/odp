@@ -284,8 +284,10 @@ int odp_pktio_start(odp_pktio_t id)
 	int res = 0;
 
 	entry = get_pktio_entry(id);
-	if (!entry)
+	if (!entry) {
+		fprintf(stderr, "NO ENTRY\n");
 		return -1;
+	}
 
 	lock_entry(entry);
 	if (entry->s.ops->start)
