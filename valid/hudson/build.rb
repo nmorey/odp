@@ -123,7 +123,11 @@ b.target("long") do
 
     valid_configs.each(){|conf|
         cd File.join(odp_path, "build", "long_" + conf, "bin")
-        b.ctest(:ctest_args => "-L #{valid_type}")
+        b.ctest( {
+                     :ctest_args => "-L #{valid_type}",
+                     :fail_msg => "Failed to validate #{conf}",
+                     :success_msg => "Successfully validated #{conf}"
+                 })
     }
 end
 
