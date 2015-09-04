@@ -55,6 +55,11 @@ union mppa_ethernet_header_info_t {
   } _;
 };
 
+enum eth_source_type {
+	ETH_SOURCE_IOPCIE = 0,
+	ETH_SOURCE_IOETH,
+};
+
 typedef struct mppa_ethernet_header_s {
   mppa_uint64 timestamp;
   union mppa_ethernet_header_info_t info;
@@ -141,6 +146,7 @@ typedef struct eth_status {
 
 	struct eth_thread *hdl;
 
+	enum eth_source_type src_type;
 } eth_status_t;
 
 /** Per EthIf data */
@@ -486,7 +492,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	/*
 	 * Check device name and extract slot/port
 	 */
-	if (devname[0] != 'p')
+	if (devname[0] != 'e' && devname[0] != 'p')
 		return -1;
 
 	int slot_id = devname[1] - '0';
@@ -515,6 +521,11 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	/*
 	 * Init eth status
 	 */
+	if (devname[0] == 'e')
+		eth->src_type = ETH_SOURCE_IOETH;
+	else if (devname[0] == 'p')
+		eth->src_type = ETH_SOURCE_IOPCIE;
+
 	eth->pool = pool;
 	eth->slot_id = slot_id;
 	eth->port_id = port_id;
@@ -660,8 +671,12 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		}
 	};
 	unsigned cluster_id = __k1_get_cluster_id();
+	uint16_t pkt_type = ODP_RPC_CMD_ETH_OPEN;
+	if (eth->src_type == ETH_SOURCE_IOPCIE)
+		pkt_type = ODP_RPC_CMD_PCIE_OPEN;
+
 	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_ETH_OPEN,
+		.pkt_type = pkt_type,
 		.data_len = 0,
 		.flags = 0,
 		.inl_data = open_cmd.inl_data

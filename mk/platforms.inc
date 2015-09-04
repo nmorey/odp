@@ -1,7 +1,7 @@
 CONFIGS :=
 _CONFIGS :=
 
-boot_CONFIGS  :=
+iopcie_CONFIGS  :=
 ioeth_CONFIGS :=
 iounified_CONFIGS :=
 #
@@ -165,23 +165,23 @@ CONFIGS += x86_64-unknown-linux-gnu
 #
 #
 k1a-kalray-ioddr_CC          := k1-gcc
-k1a-kalray-ioddr_CFLAGS      := -march=k1a -DK1_RTEMS -mos=rtems -mcore=k1io -mcluster=ioddr -mprocessing=single
+k1a-kalray-ioddr_CFLAGS      := -march=k1a -mos=bare -mcore=k1io -mcluster=ioddr -mprocessing=single
 k1a-kalray-ioddr_LDFLAGS     :=
 k1a-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1a
-boot_CONFIGS += k1a-kalray-ioddr
+iopcie_CONFIGS += k1a-kalray-ioddr
 
 k1b-kalray-ioddr_CC          := k1-gcc
-k1b-kalray-ioddr_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1bio -mcluster=ioddr -mprocessing=single
+k1b-kalray-ioddr_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr -mprocessing=single
 k1b-kalray-ioddr_LDFLAGS     :=
 k1b-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
-boot_CONFIGS += k1b-kalray-ioddr
+iopcie_CONFIGS += k1b-kalray-ioddr
 
 k1b-kalray-ioddr_explorer_CC          := k1-gcc
-k1b-kalray-ioddr_explorer_CFLAGS      := -march=k1b -DK1_RTEMS -mos=rtems -mcore=k1bio -mcluster=ioddr \
+k1b-kalray-ioddr_explorer_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr \
 									  	 -mprocessing=single -mboard=explorer -DK1B_EXPLORER
 k1b-kalray-ioddr_explorer_LDFLAGS     :=
 k1b-kalray-ioddr_explorer_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_explorer
-boot_CONFIGS += k1b-kalray-ioddr_explorer
+iopcie_CONFIGS += k1b-kalray-ioddr_explorer
 
 # k1a-kalray-ioeth_CC          := k1-gcc
 # k1a-kalray-ioeth_CFLAGS      := -march=k1a -DK1_BARE -mcore=k1io -mcluster=ioeth
