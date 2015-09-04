@@ -3,7 +3,7 @@ O ?= ./output
 project-name := odp
 
 ODP_SRC_DIR ?= $(CURDIR)/..
-ODP_ARCH ?= k1a-kalray-nodeos
+ODP_ARCH ?= k1b-kalray-nodeos
 
 include $(ODP_SRC_DIR)/mk/platforms.inc
 
