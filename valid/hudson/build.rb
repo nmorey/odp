@@ -61,6 +61,9 @@ valid_configs = options["valid-configs"].split()
 valid_type = "sim"
 if ENV["label"].to_s() != "" then
     case ENV["label"]
+    when /MPPADevelopers-ab01b*/, /MPPAEthDevelopers-ab01b*/
+        valid_configs = [ "k1b-kalray-nodeos", "k1b-kalray-mos" ]
+        valid_type = "jtag"
     when /MPPADevelopers*/, /MPPAEthDevelopers*/
         valid_configs = [ "k1a-kalray-nodeos", "k1a-kalray-mos" ]
         valid_type = "jtag"
