@@ -152,8 +152,7 @@ __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_packet_flags.c \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
-			   arch/@ARCH@/odp_packet_eth.c \
-			   arch/@ARCH@/ucode_fw/ucode_eth.c \
+			   pktio/eth.c \
 			   pktio/cluster.c \
 			   pktio/drop.c \
 			   pktio/magic.c \
@@ -174,7 +173,8 @@ __LIB__libodp_la_SOURCES = \
 			   os/@OS@/timer.c \
 			   ../linux-generic/odp_version.c \
 			   ../linux-generic/odp_weak.c \
-			   arch/@ARCH@/odp_time.c \
+			   odp_time.c \
+			   ucode_fw/ucode_eth.c \
 			   ucode_fw/odp_ucode_linear.c
 
 
