@@ -102,6 +102,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", eth_if, ret);
 			goto err;
 		}
+		status[eth_if].initialized = 1;
 	}
 
 	if(status[eth_if].cluster[remoteClus].txId >= 0) {

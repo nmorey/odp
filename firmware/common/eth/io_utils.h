@@ -92,7 +92,7 @@ void set_fcs()
  * @brief Setup the specified lane (phy must be corectly initialised before)
  * @param lane_id The lane to start
  */
-void start_lane(unsigned int lane_id);
+void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode);
 
 /**
  * @brief Check if a MAC is up
@@ -101,7 +101,7 @@ void start_lane(unsigned int lane_id);
  * @retval -ENETDOWN Lane down
  * @retval -EIO Lane not initialized
  */
-int mac_poll_state(unsigned int lane_id);
+int mac_poll_state(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode);
 
 /**
  * @brief Complete mac initialization =>
