@@ -18,7 +18,7 @@ struct clus_bin_boot {
 	char *clus_bin;
 	const char *clus_argv[MAX_ARGS];
 	int clus_argc;
-	odp_rpc_t *msg;
+	odp_rpc_t msg;
 };
 
 struct clus_bin_boot clus_bin_boots[BSP_NB_CLUSTER_MAX] = {{0}};
@@ -27,6 +27,7 @@ static void io_wait_cluster_sync(int clus_count)
 {
 	odp_rpc_t *tmp_msg;
 	odp_rpc_cmd_ack_t ack = {.status = 0};
+	unsigned int booted_clus = 0;
 	int clus;
 
 	while (1) {
@@ -36,12 +37,17 @@ static void io_wait_cluster_sync(int clus_count)
 				printf("Receive invalid rpc pkt type\n");
 				exit(1);
 			}
-			clus_bin_boots[clus].msg = tmp_msg;
+			clus_bin_boots[clus].msg = *tmp_msg;
+			booted_clus++;
+			if (booted_clus == clus_count) {
+				break;
+			}
 		}
+
 	}
 
 	for (clus = 0; clus < clus_count; clus++) {
-		odp_rpc_server_ack(clus_bin_boots[clus].msg, ack);		
+		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);		
 	}
 }
 

@@ -53,6 +53,11 @@ int odp_init_global(const odp_init_t *params,
 		return -1;
 	}
 
+	if (odp_rpc_client_init()) {
+		ODP_ERR("ODP RPC init failed.\n");
+		return -1;
+	}
+
 	if (odp_pktio_init_global()) {
 		ODP_ERR("ODP packet io init failed.\n");
 		return -1;
@@ -75,10 +80,6 @@ int odp_init_global(const odp_init_t *params,
 		return -1;
 	}
 
-	if (odp_rpc_client_init()) {
-		ODP_ERR("ODP RPC init failed.\n");
-		return -1;
-	}
 	return 0;
 }
 

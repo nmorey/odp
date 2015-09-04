@@ -18,7 +18,7 @@
 
 #include <unistd.h>
 
-#define DNOC_CLUS_BASE_RX	0
+#define DNOC_CLUS_BASE_RX	1
 
 #define CNOC_CLUS_BASE_RX_ID	0
 
@@ -239,7 +239,7 @@ static int cluster_io_sync(void)
 		.flags = 0,
 	};
 
-	odp_rpc_do_query(NOC_IODDR0_ID,
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
 			odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
 			 &cmd, NULL);
 
@@ -251,6 +251,7 @@ static int cluster_io_sync(void)
 static int cluster_init(void)
 {
 	mppacl_init_available_clusters();
+
 
 	if (cluster_init_noc_rx())
 		return 1;
