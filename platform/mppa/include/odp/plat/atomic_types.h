@@ -27,16 +27,7 @@ extern "C" {
  */
 struct odp_atomic_u64_s {
 	union {
-#if defined(__K1A__)
-		struct {
-			int lock : 1;
-			uint64_t v : 63; /**< Actual storage for the atomic variable */
-			/* Some architectures do not support lock-free operations on 64-bit
-			 * data types. We use a spin lock to ensure atomicity. */
-		};
-#elif defined(__K1B__)
 		uint64_t v;
-#endif
 		uint64_t _type;
 		uint64_t _u64;
 	};
@@ -56,27 +47,6 @@ struct odp_atomic_u32_s {
 		uint64_t _u64;
 	};
 } ODP_ALIGNED(sizeof(uint32_t)); /* Enforce alignement! */;
-
-#ifndef __K1B__
-/**
- * @internal
- * Helper macro for lock-based atomic operations on 64-bit integers
- * @param[in,out] atom Pointer to the 64-bit atomic variable
- * @param expr Expression used update the variable.
- * @return The old value of the variable.
- */
-#define ATOMIC_OP(atom, expr)												\
-	({														\
-		typeof(*(atom)) a;											\
-		while ((a._u64 = __k1_atomic_test_and_clear(&(atom)->_u64)) == 0ULL){					\
-			__k1_cpu_backoff(10);										\
-		}													\
-		typeof((atom)->_type) ___old_val = a.v;									\
-		expr; /* Perform whatever update is desired */								\
-		STORE_U64((atom)->_u64, a._u64);									\
-		___old_val; /* Return old value */									\
-	})
-#endif
 
 /** @addtogroup odp_synchronizers
  *  @{

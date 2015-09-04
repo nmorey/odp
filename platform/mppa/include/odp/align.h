@@ -49,11 +49,8 @@ extern "C" {
 
 #elif __K1__
 
-	#if defined __K1A__
-	#define ODP_CACHE_LINE_SIZE 32
-	#elif defined __K1B__
-	#define ODP_CACHE_LINE_SIZE 64
-	#endif
+#define ODP_CACHE_LINE_SIZE 64
+
 #else
 #error GCC target not found
 #endif

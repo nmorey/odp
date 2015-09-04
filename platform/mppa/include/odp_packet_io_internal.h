@@ -39,10 +39,8 @@ extern "C" {
 /** Number of threads dedicated for Ethernet */
 #if defined(K1B_EXPLORER)
 #define N_ETH_THR 1
-#elif defined(__K1B__)
-#define N_ETH_THR 2
 #else
-#define N_ETH_THR 0
+#define N_ETH_THR 2
 #endif
 
 /* Forward declaration */

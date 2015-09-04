@@ -35,9 +35,7 @@ int odp_system_info_init(void)
 
 	odp_global_data.system_info.cache_line_size = _K1_DCACHE_LINE_SIZE;
 
-#if defined(__K1A__)
-#define K1_MODEL_STR	"K1A - Andey"
-#elif defined(__K1B__)
+#if defined(__K1B__)
 #define K1_MODEL_STR	"K1B - Bostan"
 #else
 #define K1_MODEL_STR	"K1 - Unknown"
