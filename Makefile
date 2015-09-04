@@ -74,7 +74,7 @@ extra-long:
 example-install: x86_64-unknown-linux-gnu-odp-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
 	install example/example_debug.h platform/mppa/test/pktio/pktio_env \
-		example/packet/{odp_pktio.c,Makefile.k1a-kalray-nodeos_simu} \
+		example/packet/{odp_pktio.c,Makefile.k1b-kalray-nodeos_simu} \
 		$(ARCH_DIR)/x86_64-unknown-linux-gnu/example/generator/odp_generator \
 			$(K1ST_DIR)/doc/ODP/example
 $(INST_DIR)/lib64/libodp_syscall.so: $(TOP_DIR)/syscall/run.sh
