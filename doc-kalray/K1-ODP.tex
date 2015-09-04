@@ -65,29 +65,29 @@ each of the platforms available for executing ODP applications.
 
 In this version, two ports are available:
 \begin{itemize}
-\item[-]{\texttt{k1a-kalray-nodeos}}
-\item[-]{\texttt{k1a-kalray-nodeos\_simu}}
-\item[-]{\texttt{k1a-kalray-mos}}
-\item[-]{\texttt{k1a-kalray-mos\_simu}}
+\item[-]{\texttt{k1b-kalray-nodeos}}
+\item[-]{\texttt{k1b-kalray-nodeos\_simu}}
+\item[-]{\texttt{k1b-kalray-mos}}
+\item[-]{\texttt{k1b-kalray-mos\_simu}}
 \end{itemize}
 
-\subsection{k1a-kalray-nodeos}
+\subsection{k1b-kalray-nodeos}
 
-This port targets one Andey MPPA cluster on hardware.
+This port targets one Bostan MPPA cluster on hardware.
 
 In the current version, this port supports these interfaces:
 \begin{itemize}
 \item[-]{\texttt{loop}: Software loopback.}
 \end{itemize}
 
-\subsection{k1a-kalray-mos}
+\subsection{k1b-kalray-mos}
 
-Same target as \texttt{k1a-kalray-nodeos}, but running directly on
+Same target as \texttt{k1b-kalray-nodeos}, but running directly on
 Kalray Hypervisor
 
-\subsection{k1a-kalray-nodeos\_simu}
+\subsection{k1b-kalray-nodeos\_simu}
 
-This ports targets one Andey MPPA cluster in simulation. It is
+This ports targets one Bostan MPPA cluster in simulation. It is
 compiled for the large\_memory board to remove the 2MB memory limit
 during the development phase.
 
@@ -101,9 +101,9 @@ In the current version, this port supports these interfaces:
   \texttt{<ifname>} interface.}
 \end{itemize}
 
-\subsection{k1a-kalray-mos\_simu}
+\subsection{k1b-kalray-mos\_simu}
 
-Same target as \texttt{k1a-kalray-nodeos\_simu}, but running directly on
+Same target as \texttt{k1b-kalray-nodeos\_simu}, but running directly on
 Kalray Hypervisor
 
 \section{Compiling}
@@ -116,7 +116,7 @@ LDFLAGS += -L$($(K1_TOOLCHAIN_DIR)/lib/<port> -lodp
 \end{lstlisting}
 where port is replaced with one of the available K1-ODP port.
 
-Note that when building with \texttt{k1a-kalray-nodeos\_simu}, it is
+Note that when building with \texttt{k1b-kalray-nodeos\_simu}, it is
 required to use the
 
  \texttt{-mboard=large\_memory} flag.
@@ -126,8 +126,8 @@ required to use the
 Running K1-ODP applications is done the same way a standard K1 single
 cluster application would be run.
 
-\subsection{k1a-kalray-nodeos and k1a-kalray-mos}
-Running a \texttt{k1a-kalray-nodeos} application, can be done either
+\subsection{k1b-kalray-nodeos and k1b-kalray-mos}
+Running a \texttt{k1b-kalray-nodeos} application, can be done either
 on hardware using:
 \begin{lstlisting}
 k1-jtag-runner --exec-file "Cluster0:<executable name>" -- <args>
@@ -137,8 +137,8 @@ or in simulation using:
  k1-cluster -- <executable name> <args>
 \end{lstlisting}
 
-\subsection{k1a-kalray-nodeos\_simu and k1a-kalray-mos\_simu}
-Running a \texttt{k1a-kalray-nodeos\_simu} application, must be done in
+\subsection{k1b-kalray-nodeos\_simu and k1b-kalray-mos\_simu}
+Running a \texttt{k1b-kalray-nodeos\_simu} application, must be done in
 simulation using this command:
 \begin{lstlisting}
 k1-cluster   --functional  --mboard=large_memory --user-syscall=/usr/local/k1tools/lib64/libodp_syscall.so -- <executable name> <args>
