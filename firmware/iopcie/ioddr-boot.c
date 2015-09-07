@@ -27,8 +27,7 @@ static void io_wait_cluster_sync(int clus_count)
 {
 	odp_rpc_t *tmp_msg;
 	odp_rpc_cmd_ack_t ack = {.status = 0};
-	unsigned int booted_clus = 0;
-	int clus;
+	int booted_clus = 0, clus;
 
 	while (1) {
 		clus = odp_rpc_server_poll_msg(&tmp_msg, NULL);

@@ -483,10 +483,57 @@ static int _eth_configure_rx(eth_status_t *eth, int rx_id)
 	return 0;
 }
 
+static int eth_rpc_send_eth_open(eth_status_t *eth)
+{
+	unsigned cluster_id = __k1_get_cluster_id();
+	odp_rpc_t *ack_msg;
+	odp_rpc_cmd_ack_t ack;
+
+	/*
+	 * RPC Msg to IOETH  #N so the LB will dispatch to us
+	 */
+	odp_rpc_cmd_eth_open_t open_cmd = {
+		{
+			.ifId = eth->port_id,
+			.dma_if = eth->dma_if,
+			.min_rx = eth->min_port,
+			.max_rx = eth->max_port,
+		}
+	};
+	odp_rpc_t cmd = {
+		.data_len = 0,
+		.pkt_type = ODP_RPC_CMD_ETH_OPEN,
+		.inl_data = open_cmd.inl_data,
+		.flags = 0,
+	};
+	
+	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(eth->slot_id, cluster_id),
+			 odp_rpc_get_ioeth_tag_id(eth->slot_id, cluster_id),
+			 &cmd, NULL);
+
+	odp_rpc_wait_ack(&ack_msg, NULL);
+	ack.inl_data = ack_msg->inl_data;
+	if (ack.status) {
+		fprintf(stderr, "[ETH] Error: Server declined opening of eth interface\n");
+		return 1;
+	}
+
+	eth->tx_if = ack.open.eth_tx_if;
+	eth->tx_tag = ack.open.eth_tx_tag;
+
+	return 0;
+}
+
+static int eth_rpc_send_pcie_open(eth_status_t *eth)
+{
+	(void) eth;
+	return 0;
+}
+
 static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
-
+	int ret = 0;
 	/*
 	 * Check device name and extract slot/port
 	 */
@@ -657,42 +704,12 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		}
 	}
 	odp_rwlock_write_unlock(&hdl->lock);
-	/*
-	 * RPC Msg to IOETH  #N so the LB will dispatch to us
-	 */
-	odp_rpc_cmd_open_t open_cmd = {
-		{
-			.ifId = port_id,
-			.dma_if = eth->dma_if,
-			.min_rx = eth->min_port,
-			.max_rx = eth->max_port,
-		}
-	};
-	unsigned cluster_id = __k1_get_cluster_id();
-	uint16_t pkt_type = ODP_RPC_CMD_ETH_OPEN;
-	if (eth->src_type == ETH_SOURCE_IOPCIE)
-		pkt_type = ODP_RPC_CMD_PCIE_OPEN;
 
-	odp_rpc_t cmd = {
-		.pkt_type = pkt_type,
-		.data_len = 0,
-		.flags = 0,
-		.inl_data = open_cmd.inl_data
-	};
-	odp_rpc_t *ack_msg;
-	odp_rpc_cmd_ack_t ack;
-
-	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
-			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
-			 &cmd, NULL);
-	odp_rpc_wait_ack(&ack_msg, NULL);
-	ack.inl_data = ack_msg->inl_data;
-	if (ack.status) {
-		fprintf(stderr, "[ETH] Error: Server declined opening of '%s'\n", devname);
+	if (eth->src_type == ETH_SOURCE_IOETH) {
+		ret = eth_rpc_send_eth_open(eth);
+	} else if (eth->src_type == ETH_SOURCE_IOPCIE) {
+		ret = eth_rpc_send_pcie_open(eth);
 	}
-
-	eth->tx_if = ack.open.eth_tx_if;
-	eth->tx_tag = ack.open.eth_tx_tag;
 
 	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
 					    &eth->config, &eth->header);
@@ -714,7 +731,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->header._.tag = eth->tx_tag;
 	eth->header._.valid = 1;
 
-	return ack.status;
+	return ret;
 }
 
 static int eth_close(pktio_entry_t * const pktio_entry)

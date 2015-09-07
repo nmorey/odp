@@ -39,12 +39,19 @@ typedef enum {
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_pcie_open_t;
+
+typedef union {
+	struct {
+		uint8_t ifId : 3; /* 0-3, 4 for 40G */
 		uint8_t dma_if : 8;
 		uint8_t min_rx : 8;
 		uint8_t max_rx : 8;
 	};
 	odp_rpc_inl_data_t inl_data;
-} odp_rpc_cmd_open_t;
+} odp_rpc_cmd_eth_open_t;
 
 typedef union {
 	struct {

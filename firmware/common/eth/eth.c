@@ -77,7 +77,7 @@ static inline void _eth_status_init(eth_status_t * status)
 odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0};
-	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
+	odp_rpc_cmd_eth_open_t data = { .inl_data = msg->inl_data };
 	const int nocIf = get_eth_dma_id(remoteClus);
 	volatile mppa_dnoc_min_max_task_id_t *context;
 	mppa_dnoc_header_t header = { 0 };
