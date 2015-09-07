@@ -107,10 +107,6 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 		return 1;
 
 	/* Get and configure route */
-#ifdef __k1a__
-	config.word = 0;
-	config._.bandwidth = mppa_noc_dnoc_get_window_length(local_interface);
-#else
 	config._.loopback_multicast = 0;
 	config._.cfg_pe_en = 1;
 	config._.cfg_user_en = 1;
@@ -124,7 +120,6 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	config._.bw_max_credit     = 0xff;
 	config._.bw_fast_delay     = 0x00;
 	config._.bw_slow_delay     = 0x00;
-#endif
 
 	header._.tag = dest_tag;
 	header._.valid = 1;
@@ -143,15 +138,9 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		goto err_tx;
 
-#ifdef __k1a__
-	mppa_dnoc_address_t addr =
-		{ ._ = { .offset = 0, .protocol = 1, .valid = 1 }};
-	mppa_noc_dnoc_tx_set_address(local_interface, tx_port, addr);
-#else
 	mppa_dnoc_push_offset_t off =
 		{ ._ = { .offset = 0, .protocol = 1, .valid = 1 }};
 	mppa_noc_dnoc_tx_set_push_offset(local_interface, tx_port, off);
-#endif
 
 	if (cmd->data_len) {
 		mppa_noc_dnoc_tx_send_data(local_interface, tx_port,
