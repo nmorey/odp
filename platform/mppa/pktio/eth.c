@@ -812,11 +812,6 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 			(odp_buffer_hdr_t**)ctx->pkt_table, ctx->pkt_count);
 	}
 
-	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-					  uc_conf, eth->header, eth->config);
-	if (nret != MPPA_NOC_RET_SUCCESS)
-		return 1;
-
 	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 		/* Setup parameters and pointers */
@@ -839,6 +834,13 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 
 	uc_conf.pointers = &uc_pointers;
 	uc_conf.event_counter = 0;
+
+	nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
+					  uc_conf, eth->header, eth->config);
+	if (nret != MPPA_NOC_RET_SUCCESS)
+		return 1;
+
+
 
 	ctx->pkt_count = pkt_count;
 	ctx->is_running = 1;
