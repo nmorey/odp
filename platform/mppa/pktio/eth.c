@@ -29,6 +29,8 @@
 
 #define NOC_UC_COUNT		2
 #define MAX_PKT_PER_UC		4
+/* must be > greater than max_threads */
+#define MAX_JOB_PER_UC          32
 #define DNOC_CLUS_IFACE_ID	0
 
 #if N_RX_P_ETH % N_ETH_THR != 0
@@ -60,12 +62,19 @@ typedef struct mppa_ethernet_header_s {
   union mppa_ethernet_header_info_t info;
 } mppa_ethernet_header_t;
 
-typedef struct eth_uc_ctx {
-	unsigned int dnoc_tx_id;
-	unsigned int dnoc_uc_id;
+typedef struct eth_uc_job_ctx {
 	bool is_running;
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
+} eth_uc_job_ctx_t;
+
+typedef struct eth_uc_ctx {
+	unsigned int dnoc_tx_id;
+	unsigned int dnoc_uc_id;
+
+	unsigned joined_jobs;
+	unsigned int job_id;
+	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } eth_uc_ctx_t;
 
 static eth_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
@@ -802,14 +811,24 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
 	eth_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
 
-	/* Wait for previous run to complete */
-	if (ctx->is_running) {
-		mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
-					  MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-					  ctx->dnoc_tx_id);
-		/* Free previous packets */
-		ret_buf(&((pool_entry_t *)eth->pool)->s,
-			(odp_buffer_hdr_t**)ctx->pkt_table, ctx->pkt_count);
+	unsigned job_id = ctx->job_id++;
+
+	eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
+
+	/* Wait for previous run(s) to complete */
+	while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
+		int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
+							   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
+							   ctx->dnoc_tx_id);
+		for(i = ctx->joined_jobs; i < ctx->joined_jobs + ev_counter; ++i) {
+			eth_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
+
+			/* Free previous packets */
+			ret_buf(&((pool_entry_t *)eth->pool)->s,
+				(odp_buffer_hdr_t**)joined_job->pkt_table, joined_job->pkt_count);
+
+		}
+		ctx->joined_jobs += ev_counter;
 	}
 
 	for (i = 0; i < pkt_count; i++) {
@@ -824,7 +843,7 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 			(uintptr_t) &_data_start;
 
 		/* Store current packet to free them later */
-		ctx->pkt_table[i] = pkt_table[i];
+		job->pkt_table[i] = pkt_table[i];
 	}
 	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
 		uc_conf.parameters[i * 2] = 0;
@@ -842,8 +861,8 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 
 
 
-	ctx->pkt_count = pkt_count;
-	ctx->is_running = 1;
+	job->pkt_count = pkt_count;
+	job->is_running = 1;
 
 	mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 					 program_run);
