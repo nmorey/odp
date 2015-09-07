@@ -25,6 +25,8 @@ static struct {
 } odp_rpc_ack_buf;
 static unsigned rx_port = -1;
 
+int g_rpc_init = 0;
+
 int odp_rpc_client_init(void){
 	/* Already initialized */
 	if(rx_port < (unsigned)(-1))
@@ -43,14 +45,19 @@ int odp_rpc_client_init(void){
 	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
 
 	ret = mppa_noc_dnoc_rx_configure(0, rx_port, conf);
+	g_rpc_init = 1;
 
 	return 0;
 }
 int odp_rpc_client_term(void){
+ 	if (!g_rpc_init)
+		return -1;
+
 	mppa_noc_dnoc_rx_free(0, rx_port);
 
 	return 0;
 }
+
 void odp_rpc_print_msg(const odp_rpc_t * cmd)
 {
 	printf("RPC CMD:\n"
@@ -70,7 +77,7 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 	switch (cmd->pkt_type){
 	case ODP_RPC_CMD_ETH_OPEN:
 		{
-			odp_rpc_cmd_open_t open = { .inl_data = cmd->inl_data };
+			odp_rpc_cmd_eth_open_t open = { .inl_data = cmd->inl_data };
 			printf("\t\tifId: %d\n"
 				"\t\tRx(s): [%d:%d]\n",
 				open.ifId,
@@ -99,6 +106,9 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	unsigned tx_port;
 	mppa_dnoc_channel_config_t config;
 	mppa_dnoc_header_t header;
+
+ 	if (!g_rpc_init)
+		return -1;
 
 	__k1_wmb();
 	ret = mppa_noc_dnoc_tx_alloc_auto(local_interface,
@@ -164,6 +174,9 @@ int odp_rpc_do_query(uint16_t dest_id,
 		     uint16_t dest_tag, odp_rpc_t * cmd,
 		     void * payload)
 {
+ 	if (!g_rpc_init)
+		return -1;
+
 	cmd->dma_id = __k1_get_cluster_id();
 	cmd->dnoc_tag = rx_port;
 	return odp_rpc_send_msg(0, dest_id, dest_tag, cmd, payload);
@@ -171,6 +184,9 @@ int odp_rpc_do_query(uint16_t dest_id,
 
 int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload)
 {
+ 	if (!g_rpc_init)
+		return -1;
+
 	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))
 		__k1_cpu_backoff(100);
 
