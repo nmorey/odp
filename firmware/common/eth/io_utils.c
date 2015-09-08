@@ -221,8 +221,16 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 
 	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), mode);
 
-	/* FIXME: Use speed autonegociated by PHY here */
-	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), MPPABETHMAC_SGMIIRATE_1G);
+	if(mode == MPPA_ETH_MAC_ETHMODE_1G) {
+		uint8_t rate;
+		if (mppa_88E1111_copper_get_real_rate(&i2c_ifce, &rate) == -1) {
+#ifdef VERBOSE
+			printf("Link %d autoneg failed\n", lane_id);
+#endif
+			return -ENETDOWN;
+		}
+		mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), rate);
+	}
 
 	//Basic mac settings
 	mppabeth_mac_enable_rx_check_sfd((void *)&(mppa_ethernet[0]->mac));
