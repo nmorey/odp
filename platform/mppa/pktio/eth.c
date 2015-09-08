@@ -506,6 +506,10 @@ static int eth_rpc_send_eth_open(eth_status_t *eth)
 		.inl_data = open_cmd.inl_data,
 		.flags = 0,
 	};
+
+	if (eth->src_type == ETH_SOURCE_IOPCIE) {
+		cmd.pkt_type = ODP_RPC_CMD_PCIE_OPEN;
+	}
 	
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(eth->slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(eth->slot_id, cluster_id),
@@ -518,33 +522,32 @@ static int eth_rpc_send_eth_open(eth_status_t *eth)
 		return 1;
 	}
 
-	eth->tx_if = ack.open.eth_tx_if;
-	eth->tx_tag = ack.open.eth_tx_tag;
+	eth->tx_if = ack.cmd.open.eth_tx_if;
+	eth->tx_tag = ack.cmd.open.eth_tx_tag;
 
-	return 0;
-}
-
-static int eth_rpc_send_pcie_open(eth_status_t *eth)
-{
-	(void) eth;
 	return 0;
 }
 
 static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
-	int ret = 0;
+	int ret = 0, src_type;
 	/*
 	 * Check device name and extract slot/port
 	 */
 	if (devname[0] != 'e' && devname[0] != 'p')
 		return -1;
 
+	if (devname[0] == 'e')
+		src_type = ETH_SOURCE_IOETH;
+	else
+		src_type = ETH_SOURCE_IOPCIE;
+
 	int slot_id = devname[1] - '0';
-	int port_id = 4;
 	if (slot_id < 0 || slot_id >= MAX_ETH_SLOTS)
 		return -1;
 
+	int port_id = 4;
 	if (devname[2] != 0) {
 		if(devname[2] != 'p')
 			return -1;
@@ -563,14 +566,8 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 
 	eth_thread_t *hdl = &eth_thread_hdl;
 	eth_status_t *eth = pktio_entry->s.pkt_eth.status;
-	/*
-	 * Init eth status
-	 */
-	if (devname[0] == 'e')
-		eth->src_type = ETH_SOURCE_IOETH;
-	else if (devname[0] == 'p')
-		eth->src_type = ETH_SOURCE_IOPCIE;
 
+	eth->src_type = src_type;
 	eth->pool = pool;
 	eth->slot_id = slot_id;
 	eth->port_id = port_id;
@@ -705,11 +702,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	}
 	odp_rwlock_write_unlock(&hdl->lock);
 
-	if (eth->src_type == ETH_SOURCE_IOETH) {
-		ret = eth_rpc_send_eth_open(eth);
-	} else if (eth->src_type == ETH_SOURCE_IOPCIE) {
-		ret = eth_rpc_send_pcie_open(eth);
-	}
+	ret = eth_rpc_send_eth_open(eth);
 
 	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
 					    &eth->config, &eth->header);

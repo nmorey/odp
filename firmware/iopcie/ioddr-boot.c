@@ -10,6 +10,8 @@
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
 
+#include "mppa_pcie_noc.h"
+
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
@@ -19,15 +21,33 @@ struct clus_bin_boot {
 	const char *clus_argv[MAX_ARGS];
 	int clus_argc;
 	odp_rpc_t msg;
+	int status;
 };
 
 struct clus_bin_boot clus_bin_boots[BSP_NB_CLUSTER_MAX] = {{0}};
 
-static void io_wait_cluster_sync(int clus_count)
+odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
+{
+	odp_rpc_cmd_ack_t ack = {.status = -1 };
+
+	switch (msg->pkt_type){
+	case ODP_RPC_CMD_PCIE_OPEN:
+		return mppa_pcie_eth_open(remoteClus, msg);
+		break;
+	case ODP_RPC_CMD_BAS_INVL:
+	default:
+		fprintf(stderr, "[RPC] Error: Invalid MSG\n");
+		exit(EXIT_FAILURE);
+	}
+	return ack;
+}
+
+static void io_wait_cluster_sync(unsigned int clus_count)
 {
 	odp_rpc_t *tmp_msg;
 	odp_rpc_cmd_ack_t ack = {.status = 0};
-	int booted_clus = 0, clus;
+	unsigned int booted_clus = 0;
+	int clus;
 
 	while (1) {
 		clus = odp_rpc_server_poll_msg(&tmp_msg, NULL);
@@ -45,7 +65,7 @@ static void io_wait_cluster_sync(int clus_count)
 
 	}
 
-	for (clus = 0; clus < clus_count; clus++) {
+	for (clus = 0; clus < (int) clus_count; clus++) {
 		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);		
 	}
 }
@@ -87,6 +107,7 @@ int main (int argc, char *argv[])
 
 	mppa_power_init();
 
+	mppa_pcie_eth_noc_init();
 	ret = odp_rpc_server_start(NULL);
 	if (ret) {
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");

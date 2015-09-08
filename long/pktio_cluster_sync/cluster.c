@@ -15,6 +15,8 @@
 
 int main(int argc, char **argv)
 {
+	(void) argc;
+	(void) argv;
 	if (0 != odp_init_global(NULL, NULL)) {
 		fprintf(stderr, "error: odp_init_global() failed.\n");
 		return 1;

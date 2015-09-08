@@ -171,7 +171,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 						  eth_if, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 
-	/* Now deal with Tx */
+	/* Now deal with Rx */
 	unsigned rx_port;
 	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
@@ -203,8 +203,8 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
 	status[eth_if].cluster[remoteClus].rx_tag = rx_port;
 
-	ack.open.eth_tx_if = externalAddress;
-	ack.open.eth_tx_tag = rx_port;
+	ack.cmd.open.eth_tx_if = externalAddress;
+	ack.cmd.open.eth_tx_tag = rx_port;
 
 	return ack;
 

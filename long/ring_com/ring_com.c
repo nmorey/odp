@@ -156,6 +156,8 @@ int run_test()
 
 int main(int argc, char **argv)
 {
+	(void) argc;
+	(void) argv;
 	test_assert_ret(odp_init_global(NULL, NULL) == 0);
 	test_assert_ret(odp_init_local(ODP_THREAD_CONTROL) == 0);
 

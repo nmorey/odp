@@ -47,10 +47,12 @@ else
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
 
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
-  iopcie-srcs := $(ODP_SRC_DIR)/firmware/iopcie/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c
+  iopcie-srcs := $(ODP_SRC_DIR)/firmware/iopcie/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c
+  iopcie-srcs += $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c $(wildcard $(ODP_SRC_DIR)/firmware/common/pcie/*.c)
   iopcie-system := bare
   iopcie-lflags := $(LIB_NOC_LFLAGS)
-  iopcie-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/ -I$(ODP_SRC_DIR)/firmware/common/rpc/ -I$(ODP_SRC_DIR)/include/
+  iopcie-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/
+  iopcie-cflags += -I$(ODP_SRC_DIR)/firmware/common/rpc/ -I$(ODP_SRC_DIR)/firmware/common/pcie/ -I$(ODP_SRC_DIR)/include/
   IOPCIE_ELF := iopcie
 endif
 

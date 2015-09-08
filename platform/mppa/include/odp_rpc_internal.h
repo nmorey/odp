@@ -39,19 +39,14 @@ typedef enum {
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
-	};
-	odp_rpc_inl_data_t inl_data;
-} odp_rpc_cmd_pcie_open_t;
-
-typedef union {
-	struct {
-		uint8_t ifId : 3; /* 0-3, 4 for 40G */
 		uint8_t dma_if : 8;
 		uint8_t min_rx : 8;
 		uint8_t max_rx : 8;
 	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_eth_open_t;
+
+typedef odp_rpc_cmd_eth_open_t odp_rpc_cmd_pcie_open_t;
 
 typedef union {
 	struct {
@@ -60,15 +55,14 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_clos_t;
 
-typedef union {
-	struct {
-		uint8_t status;
-	};
-	struct {
-		uint8_t status;
-		uint16_t eth_tx_if;
-		uint8_t eth_tx_tag;
-	} open;
+typedef struct {
+	uint8_t status;
+	union {
+		struct {
+			uint16_t eth_tx_if;	/* IO Cluster id */
+			uint8_t eth_tx_tag;	/* Tag of the IO Cluster rx */
+		} open;
+	} cmd;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
 
