@@ -79,6 +79,7 @@ int odp_init_global(const odp_init_t *params,
 		ODP_ERR("ODP RPC init failed.\n");
 		return -1;
 	}
+
 	return 0;
 }
 

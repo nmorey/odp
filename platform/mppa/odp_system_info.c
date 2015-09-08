@@ -25,7 +25,7 @@ int odp_system_info_init(void)
 
 	odp_global_data.system_info.page_size = ODP_PAGE_SIZE;
 
-	odp_global_data.system_info.cpu_count = BSP_NB_PE_P - N_ETH_THR;
+	odp_global_data.system_info.cpu_count = BSP_NB_PE_P - N_RX_THR;
 	odp_global_data.system_info.huge_page_size =  ODP_PAGE_SIZE;
 	odp_global_data.system_info.cpu_hz          = _K1_CPU_FREQ;
 
