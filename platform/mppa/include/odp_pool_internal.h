@@ -135,6 +135,14 @@ typedef union pool_entry_u {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(struct pool_entry_s))];
 } pool_entry_t;
 
+typedef struct pool_table_t {
+	pool_entry_t pool[ODP_CONFIG_POOLS];
+} pool_table_t;
+
+
+/* The pool table */
+extern pool_table_t pool_tbl;
+
 #if defined(ODP_CONFIG_SECURE_POOLS) && (ODP_CONFIG_SECURE_POOLS == 1)
 #define buffer_is_secure(buf) (buf->flags.zeroized)
 #define pool_is_secure(pool) (pool->flags.zeroized)
@@ -330,6 +338,11 @@ static inline uint32_t odp_buffer_pool_headroom(odp_pool_t pool)
 static inline uint32_t odp_buffer_pool_tailroom(odp_pool_t pool)
 {
 	return odp_pool_to_entry(pool)->s.tailroom;
+}
+
+static inline int pool_to_id(odp_pool_t pool) {
+	pool_entry_t * entry = odp_pool_to_entry(pool);
+	return entry - pool_tbl.pool;
 }
 
 #ifdef __cplusplus
