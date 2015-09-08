@@ -31,8 +31,15 @@ typedef struct rx_thread_if_data {
 
 	unsigned ev_masks[N_EV_MASKS];    /**< Mask to isolate events that
 					   * belong to us */
+	uint8_t pool_id;
 	rx_config_t rx_config;
 } rx_thread_if_data_t;
+
+typedef struct {
+	odp_packet_t spares[PKT_BURST_SZ * MAX_RX_IF];
+	int n_spares;
+	int n_rx;
+} rx_pool_t;
 
 /** Per thread data */
 typedef struct rx_thread_data {
@@ -40,11 +47,12 @@ typedef struct rx_thread_data {
 	uint8_t max_mask;               /**< Rank of maximum non-null mask */
 	uint64_t ev_masks[4];           /**< Mask to isolate events that belong
 					 *   to us */
+	rx_pool_t pools[ODP_CONFIG_POOLS];
 } rx_thread_data_t;
 
 typedef struct rx_thread {
 	odp_rwlock_t lock;		/**< entry RW lock */
-	int dma_if;
+	int dma_if;                     /**< DMA interface being watched */
 
 	odp_packet_t drop_pkt;          /**< ODP Packet used to temporary store
 					 *   dropped data */
@@ -237,8 +245,7 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	return ret;
 }
 
-static int _poll_mask(rx_thread_t *th, int th_id,
-		      odp_packet_t spares[PKT_BURST_SZ], int n_spares,
+static void _poll_mask(rx_thread_t *th, int th_id,
 		      odp_buffer_hdr_t *hdr_tbl[][QUEUE_MULTI_MAX],
 		      int nbr_qentry[MAX_RX_IF], int rx_id)
 {
@@ -247,23 +254,29 @@ static int _poll_mask(rx_thread_t *th, int th_id,
 	uint16_t ev_counter =
 		mppa_noc_dnoc_rx_lac_event_counter(th->dma_if, rx_id);
 
+	rx_pool_t * rx_pool = &th->th_data[th_id].pools[if_data->pool_id];
+
 	/* Weird... No data ! */
 	if (!ev_counter)
-		return n_spares;
+		return;
 
-	if (!n_spares) {
+	if (!rx_pool->n_spares) {
 		/* Alloc */
 		struct pool_entry_s *entry =
 			&((pool_entry_t *)if_data->rx_config.pool)->s;
 
-		n_spares = get_buf_multi(entry, (odp_buffer_hdr_t **)spares,
-					 PKT_BURST_SZ);
+		rx_pool->n_spares =
+			get_buf_multi(entry,
+				      (odp_buffer_hdr_t **)rx_pool->spares,
+				      rx_pool->n_rx);
 	}
 	odp_packet_t pkt;
 
-	if (n_spares) {
-		n_spares -= _reload_rx(th, th_id, rx_id,
-				       spares[n_spares - 1], &pkt);
+	if (rx_pool->n_spares) {
+		rx_pool->n_spares -=
+			_reload_rx(th, th_id, rx_id,
+				   rx_pool->spares[rx_pool->n_spares - 1],
+				   &pkt);
 	} else {
 		_reload_rx(th, th_id, rx_id,
 			   ODP_PACKET_INVALID, &pkt);
@@ -271,7 +284,7 @@ static int _poll_mask(rx_thread_t *th, int th_id,
 
 	if (pkt == ODP_PACKET_INVALID)
 		/* Packet was corrupted */
-		return n_spares;
+		return;
 
 	hdr_tbl[pktio_id][nbr_qentry[pktio_id]++] = (odp_buffer_hdr_t *)pkt;
 
@@ -284,11 +297,10 @@ static int _poll_mask(rx_thread_t *th, int th_id,
 		nbr_qentry[pktio_id] = 0;
 	}
 
-	return n_spares;
+	return;
 }
 
-static int _poll_masks(rx_thread_t *th, int th_id,
-		       odp_packet_t spares[PKT_BURST_SZ], int n_spares)
+static void _poll_masks(rx_thread_t *th, int th_id)
 {
 	int i;
 	uint64_t mask = 0;
@@ -310,8 +322,7 @@ static int _poll_masks(rx_thread_t *th, int th_id,
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			n_spares = _poll_mask(th, th_id, spares, n_spares,
-					      hdr_tbl, nbr, rx_id);
+			_poll_mask(th, th_id, hdr_tbl, nbr, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
@@ -322,20 +333,18 @@ static int _poll_masks(rx_thread_t *th, int th_id,
 		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
 		queue_enq_multi(qentry, hdr_tbl[i], nbr[i]);
 	}
-	return n_spares;
+	return;
 }
 
 static void *_rx_thread_start(void *arg)
 {
 	rx_thread_t *th = &rx_thread_hdl;
 	int th_id = (unsigned long)(arg);
-	odp_packet_t spares[PKT_BURST_SZ];
-	int n_spares = 0;
 
 	while (1) {
 		odp_rwlock_read_lock(&th->lock);
 		INVALIDATE(th);
-		n_spares = _poll_masks(th, th_id, spares, n_spares);
+		_poll_masks(th, th_id);
 		odp_rwlock_read_unlock(&th->lock);
 	}
 	return NULL;
@@ -426,6 +435,7 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 
 	/* Copy config to Thread data */
 	memcpy(&if_data->rx_config, rx_config, sizeof(*rx_config));
+	if_data->pool_id = pool_to_id(rx_config->pool);
 
 	for (i = rx_config->min_port; i <= rx_config->max_port; ++i)
 		_configure_rx(rx_config, i);
@@ -449,6 +459,8 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 
 	for (int i = 0; i < N_RX_THR; ++i) {
 		rx_thread_data_t *th_data = &rx_thread_hdl.th_data[i];
+
+		th_data->pools[if_data->pool_id].n_rx += nrx_per_th;
 
 		for (int j = 0; j < 4; ++j) {
 			th_data->ev_masks[j] |= ev_masks[i][j];
@@ -480,7 +492,6 @@ int rx_thread_link_close(uint8_t pktio_id)
 		&rx_thread_hdl.if_data[pktio_id];
 
 	odp_rwlock_write_lock(&rx_thread_hdl.lock);
-
 	INVALIDATE(if_data);
 	odp_queue_destroy(if_data->rx_config.queue);
 
@@ -488,12 +499,18 @@ int rx_thread_link_close(uint8_t pktio_id)
 	     i <= if_data->rx_config.max_port; ++i)
 		rx_thread_hdl.tag2id[i] = -1;
 
+	int n_ports = if_data->rx_config.max_port -
+		if_data->rx_config.min_port + 1;
+	const unsigned nrx_per_th = n_ports / N_RX_THR;
+
 	if_data->rx_config.pool = ODP_POOL_INVALID;
 	if_data->rx_config.min_port = -1;
 	if_data->rx_config.max_port = -1;
 
 	for (int i = 0; i < N_RX_THR; ++i) {
 		rx_thread_data_t *th_data = &rx_thread_hdl.th_data[i];
+
+		th_data->pools[if_data->pool_id].n_rx -= nrx_per_th;
 
 		for (int j = 0; j < 4; ++j) {
 			th_data->ev_masks[j] &= ~if_data->ev_masks[j];
