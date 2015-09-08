@@ -30,7 +30,7 @@ cluster-system := $(OS_NAME)
 arch = $(CORE_ARCH)
 board = $(BOARD_NAME)
 
-cflags := -Wall -Werror
+cflags := -Wall -Werror -Wextra
 
 ifeq ($(MAKELEVEL),0)
 $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
@@ -61,6 +61,7 @@ cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include $
 cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS)
 
 $(IOPCIE_ELF)-nameinmpk = iopcie
+IOPCIE_NAME := iopcie
 
 # Empty direct assignement to allows += to work in included Makefiles
 io-bin := $(IOPCIE_ELF)
