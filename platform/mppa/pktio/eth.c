@@ -332,8 +332,6 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		unsigned job_id = ctx->job_id++;
 		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
 
-		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
-
 		/* Wait for previous run(s) to complete */
 		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
 			int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
@@ -348,6 +346,8 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 			}
 			ctx->joined_jobs += ev_counter;
 		}
+		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
+
 		uc_conf.pointers = &uc_pointers;
 		uc_conf.event_counter = 0;
 
