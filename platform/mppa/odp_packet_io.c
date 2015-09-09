@@ -22,10 +22,7 @@
 #include <string.h>
 #include <errno.h>
 
-static pktio_table_t pktio_tbl;
-
-/* pktio pointer entries ( for inlines) */
-void *pktio_entry_ptr[ODP_CONFIG_PKTIO_ENTRIES];
+pktio_table_t pktio_tbl;
 
 int odp_pktio_init_global(void)
 {
@@ -39,15 +36,14 @@ int odp_pktio_init_global(void)
 
 	odp_spinlock_init(&pktio_tbl.lock);
 
-	for (id = 1; id <= ODP_CONFIG_PKTIO_ENTRIES; ++id) {
-		pktio_entry = &pktio_tbl.entries[id - 1];
+	for (id = 0; id < ODP_CONFIG_PKTIO_ENTRIES; ++id) {
+		pktio_entry = &pktio_tbl.entries[id];
 
 		odp_rwlock_init(&pktio_entry->s.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l2_cos_table.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l3_cos_table.lock);
 
-		pktio_entry_ptr[id - 1] = pktio_entry;
 		/* Create a default output queue for each pktio resource */
 		snprintf(name, sizeof(name), "%i-pktio_outq_default", (int)id);
 		name[ODP_QUEUE_NAME_LEN-1] = '\0';
@@ -58,7 +54,7 @@ int odp_pktio_init_global(void)
 		pktio_entry->s.outq_default = qid;
 
 		queue_entry = queue_to_qentry(qid);
-		queue_entry->s.pktout = _odp_cast_scalar(odp_pktio_t, id);
+		queue_entry->s.pktout = (odp_pktio_t)pktio_entry;
 	}
 
 	for (pktio_if = 0; pktio_if_ops[pktio_if] != NULL; pktio_if++) {
@@ -78,8 +74,8 @@ int odp_pktio_term_global(void)
 	int ret = 0;
 	int id;
 
-	for (id = 1; id <= ODP_CONFIG_PKTIO_ENTRIES; ++id) {
-		pktio_entry = &pktio_tbl.entries[id - 1];
+	for (id = 0; id < ODP_CONFIG_PKTIO_ENTRIES; ++id) {
+		pktio_entry = &pktio_tbl.entries[id];
 		odp_queue_destroy(pktio_entry->s.outq_default);
 	}
 
@@ -151,7 +147,6 @@ static void init_pktio_entry(pktio_entry_t *entry)
 
 static odp_pktio_t alloc_lock_pktio_entry(void)
 {
-	odp_pktio_t id;
 	pktio_entry_t *entry;
 	int i;
 
@@ -161,8 +156,7 @@ static odp_pktio_t alloc_lock_pktio_entry(void)
 			lock_entry_classifier(entry);
 			if (is_free(entry)) {
 				init_pktio_entry(entry);
-				id = _odp_cast_scalar(odp_pktio_t, i + 1);
-				return id; /* return with entry locked! */
+				return (odp_pktio_t)entry;
 			}
 			unlock_entry_classifier(entry);
 		}
@@ -321,14 +315,14 @@ int odp_pktio_stop(odp_pktio_t id)
 
 odp_pktio_t odp_pktio_lookup(const char *dev)
 {
-	odp_pktio_t id = ODP_PKTIO_INVALID;
+	odp_pktio_t pktio = ODP_PKTIO_INVALID;
 	pktio_entry_t *entry;
 	int i;
 
 	odp_spinlock_lock(&pktio_tbl.lock);
 
-	for (i = 1; i <= ODP_CONFIG_PKTIO_ENTRIES; ++i) {
-		entry = get_pktio_entry(_odp_cast_scalar(odp_pktio_t, i));
+	for (i = 0; i < ODP_CONFIG_PKTIO_ENTRIES; ++i) {
+		entry = &pktio_tbl.entries[i];
 		if (!entry || is_free(entry))
 			continue;
 
@@ -336,17 +330,17 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 
 		if (!is_free(entry) &&
 		    strncmp(entry->s.name, dev, IF_NAMESIZE) == 0)
-			id = _odp_cast_scalar(odp_pktio_t, i);
+			pktio = (odp_pktio_t) entry;
 
 		exit_entry(entry);
 
-		if (id != ODP_PKTIO_INVALID)
+		if (pktio != ODP_PKTIO_INVALID)
 			break;
 	}
 
 	odp_spinlock_unlock(&pktio_tbl.lock);
 
-	return id;
+	return pktio;
 }
 
 int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)

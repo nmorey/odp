@@ -1138,6 +1138,45 @@ int mppa_88E1111_copper_get_rate(mppa_88E1111_interface_t * interface, uint8_t *
 	return status;
 }
 
+int mppa_88E1111_copper_get_real_rate(mppa_88E1111_interface_t * interface, uint8_t * rate)
+{
+	// Get bit 13 & 6 of register 0 page 0
+	uint16_t reg;
+	int status = 0;
+
+	// Select page 0
+	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
+	reg = reg & 0xff00;
+	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
+	// Read register status
+	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 17, &reg);
+	if(reg >> 11 & 0x1) //The link is resovled ?
+		*rate = (reg >> 14);
+	else
+		return -1;
+
+	return status;
+}
+
+int mppa_88E1111_copper_get_real_duplex(mppa_88E1111_interface_t * interface, uint8_t * rate)
+{
+	// Get bit 13 & 6 of register 0 page 0
+	uint16_t reg;
+	int status = 0;
+
+	// Select page 0
+	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 22, &reg);
+	reg = reg & 0xff00;
+	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
+	// Read register status
+	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 17, &reg);
+	if(reg >> 11 & 0x1) //The link is resovled ?
+		*rate = ((reg >> 13) & 0x1);
+	else
+		return -1;
+	return status;
+}
+
 int mppa_88E1111_configure(mppa_88E1111_interface_t * interface)
 {
 	if (mppa_88E1111_check_phy_identifier(interface) != 0)

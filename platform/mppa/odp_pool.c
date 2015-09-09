@@ -44,14 +44,8 @@ typedef struct odp_any_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_any_buffer_hdr_t))];
 } odp_any_hdr_stride;
 
-
-typedef struct pool_table_t {
-	pool_entry_t pool[ODP_CONFIG_POOLS];
-} pool_table_t;
-
-
 /* The pool table */
-static pool_table_t pool_tbl;
+pool_table_t pool_tbl;
 
 /* Local cache for buffer alloc/free acceleration */
 static __thread local_cache_t local_cache[POOL_HAS_LOCAL_CACHE * ODP_CONFIG_POOLS];

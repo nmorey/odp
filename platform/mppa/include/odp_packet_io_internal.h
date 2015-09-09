@@ -38,9 +38,9 @@ extern "C" {
 
 /** Number of threads dedicated for Ethernet */
 #if defined(K1B_EXPLORER)
-#define N_ETH_THR 1
+#define N_RX_THR 1
 #else
-#define N_ETH_THR 2
+#define N_RX_THR 2
 #endif
 
 /* Forward declaration */
@@ -128,26 +128,22 @@ typedef struct pktio_if_ops {
 	int (*mac_get)(pktio_entry_t *pktio_entry, void *mac_addr);
 } pktio_if_ops_t;
 
-extern void *pktio_entry_ptr[];
-
-static inline int pktio_to_id(odp_pktio_t pktio)
-{
-	return _odp_typeval(pktio) - 1;
-}
+extern pktio_table_t pktio_table;
 
 static inline pktio_entry_t *get_pktio_entry(odp_pktio_t pktio)
 {
 	if (odp_unlikely(pktio == ODP_PKTIO_INVALID))
 		return NULL;
 
-	if (odp_unlikely(_odp_typeval(pktio) > ODP_CONFIG_PKTIO_ENTRIES)) {
-		ODP_DBG("pktio limit %d/%d exceed\n",
-			_odp_typeval(pktio), ODP_CONFIG_PKTIO_ENTRIES);
-		return NULL;
-	}
-
-	return pktio_entry_ptr[pktio_to_id(pktio)];
+	return (pktio_entry_t *)pktio;
 }
+
+static inline int pktio_to_id(odp_pktio_t pktio)
+{
+	pktio_entry_t * entry = get_pktio_entry(pktio);
+	return entry - pktio_table.entries;
+}
+
 
 int pktin_poll(pktio_entry_t *entry);
 

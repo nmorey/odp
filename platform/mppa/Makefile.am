@@ -130,6 +130,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_pool_internal.h \
 		  $(srcdir)/include/odp_queue_internal.h \
 		  $(srcdir)/include/odp_rpc_internal.h \
+		  $(srcdir)/include/odp_rx_internal.h \
 		  $(srcdir)/include/odp_schedule_internal.h \
 		  $(srcdir)/include/odp_spin_internal.h \
 		  $(srcdir)/include/odp_timer_internal.h \
@@ -157,6 +158,7 @@ __LIB__libodp_la_SOURCES = \
 			   pktio/drop.c \
 			   pktio/magic.c \
 			   pktio/loop.c \
+			   pktio/rx_thread.c \
 			   odp_pool.c \
 			   odp_queue.c \
 			   odp_rpc.c \

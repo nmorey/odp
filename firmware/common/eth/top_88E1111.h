@@ -79,6 +79,8 @@ int mppa_88E1111_fiber_full_duplex_enable(mppa_88E1111_interface_t * interface);
 int mppa_88E1111_fiber_full_duplex_disable(mppa_88E1111_interface_t * interface);
 int mppa_88E1111_fiber_get_duplex_mode(mppa_88E1111_interface_t * interface, uint8_t * duplex);
 int mppa_88E1111_copper_get_duplex_mode(mppa_88E1111_interface_t * interface, uint8_t * duplex);
+int mppa_88E1111_copper_get_real_rate(mppa_88E1111_interface_t * interface, uint8_t * rate);
+int mppa_88E1111_copper_get_real_duplex_mode(mppa_88E1111_interface_t * interface, uint8_t * rate);
 int mppa_88E1111_fiber_get_rate(mppa_88E1111_interface_t * interface, uint8_t * rate);
 int mppa_88E1111_copper_get_rate(mppa_88E1111_interface_t * interface, uint8_t * rate);
 int mppa_88E1111_copper_set_rate(mppa_88E1111_interface_t * interface, uint8_t rate);
