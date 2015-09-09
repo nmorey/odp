@@ -23,7 +23,7 @@
 #define MAX_RX_P_LINK 12
 #define PKT_BURST_SZ (MAX_RX_P_LINK / N_RX_THR)
 
-/** Per EthIf data */
+/** Per If data */
 typedef struct rx_thread_if_data {
 	odp_packet_t pkts[MAX_RX_P_LINK]; /**< PKT mapped to Rx tags */
 	odp_bool_t broken[MAX_RX_P_LINK]; /**< Is Rx currently broken */
@@ -78,14 +78,23 @@ static inline int MAX(int a, int b)
 	return b > a ? b : a;
 }
 
-static void _set_rx_conf(unsigned if_id, int rx_id, odp_packet_t pkt)
+static int _configure_rx(rx_config_t *rx_config, int rx_id)
 {
+	odp_packet_t pkt = _odp_packet_alloc(rx_config->pool);
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+
+	if (pkt == ODP_PACKET_INVALID)
+		return -1;
+
+	rx_thread_hdl.if_data[rx_config->pktio_id].
+		pkts[rx_id - rx_config->min_port] = pkt;
+
+	int ret;
+	uint32_t len;
+	uint8_t * base_addr = packet_map(pkt_hdr, 0, &len);
 	mppa_noc_dnoc_rx_configuration_t conf = {
-		.buffer_base = (unsigned long)packet_map(pkt_hdr, 0, NULL) -
-		sizeof(mppa_ethernet_header_t),
-		.buffer_size = pkt_hdr->frame_len +
-		1 * sizeof(mppa_ethernet_header_t),
+		.buffer_base = (unsigned long)base_addr - rx_config->header_sz,
+		.buffer_size = len + rx_config->header_sz,
 		.current_offset = 0,
 		.event_counter = 0,
 		.item_counter = 1,
@@ -95,24 +104,11 @@ static void _set_rx_conf(unsigned if_id, int rx_id, odp_packet_t pkt)
 		.counter_id = 0
 	};
 
-	int ret = mppa_noc_dnoc_rx_configure(if_id, rx_id, conf);
-
+	ret = mppa_noc_dnoc_rx_configure(rx_config->dma_if, rx_id, conf);
 	ODP_ASSERT(!ret);
-	ret = mppa_dnoc[if_id]->rx_queues[rx_id].
+
+	ret = mppa_dnoc[rx_config->dma_if]->rx_queues[rx_id].
 		get_drop_pkt_nb_and_activate.reg;
-}
-
-static int _configure_rx(rx_config_t *rx_config, int rx_id)
-{
-	odp_packet_t pkt = _odp_packet_alloc(rx_config->pool);
-
-	if (pkt == ODP_PACKET_INVALID)
-		return -1;
-
-	rx_thread_hdl.if_data[rx_config->pktio_id].
-		pkts[rx_id - rx_config->min_port] = pkt;
-	_set_rx_conf(rx_config->dma_if, rx_id, pkt);
-
 	mppa_noc_enable_event(rx_config->dma_if,
 			      MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
 			      rx_id, (1 << BSP_NB_PE_P) - 1);
