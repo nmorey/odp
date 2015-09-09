@@ -136,34 +136,33 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	if (pkt == ODP_PACKET_INVALID)
 		if_data->dropped_pkts[th_id]++;
 
+	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
+		&mppa_dnoc[th->dma_if]->rx_queues[rx_id];
+
 	if (new_pkt == ODP_PACKET_INVALID) {
 		/* No packets were available. Map small dirty
 		 * buffer to receive NoC packet but drop
 		 * the frame */
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_base.dword =
-			(unsigned long)th->drop_pkt_ptr;
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_size.dword =
-			th->drop_pkt_len;
+		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
+		rx_queue->buffer_size.dword = th->drop_pkt_len;
 		/* We willingly do not change the offset here as we want
 		 * to spread DMA Rx within the drop_pkt buffer */
 	} else {
 		/* Map the buffer in the DMA Rx */
 		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(new_pkt);
 
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_base.dword =
-			(unsigned long)
+		rx_queue->buffer_base.dword = (unsigned long)
 			((uint8_t *)(pkt_hdr->buf_hdr.addr) +
 			 pkt_hdr->headroom - rx_config->header_sz);
 
 		/* Rearm the DMA Rx and check for droppped packets */
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].current_offset.reg =
-			0ULL;
+		rx_queue->current_offset.reg = 0ULL;
 
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_size.dword =
-			pkt_hdr->frame_len + 1 * rx_config->header_sz;
+		rx_queue->buffer_size.dword = pkt_hdr->frame_len +
+			1 * rx_config->header_sz;
 	}
 
-	int dropped = mppa_dnoc[th->dma_if]->rx_queues[rx_id].
+	int dropped = rx_queue->
 		get_drop_pkt_nb_and_activate.reg;
 
 	if (dropped) {
@@ -172,21 +171,17 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 
 		/* Put back a dummy buffer.
 		 * We will drop those next ones anyway ! */
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_base.dword =
-			(unsigned long)th->drop_pkt_ptr;
-		mppa_dnoc[th->dma_if]->rx_queues[rx_id].buffer_size.dword =
-			th->drop_pkt_len;
+		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
+		rx_queue->buffer_size.dword = th->drop_pkt_len;
 
 		/* Really force those values.
 		 * Item counter must be 2 in this case. */
 		int j;
 
 		for (j = 0; j < 16; ++j)
-			mppa_dnoc[th->dma_if]->rx_queues[rx_id].
-				item_counter.reg = 2;
+			rx_queue->item_counter.reg = 2;
 		for (j = 0; j < 16; ++j)
-			mppa_dnoc[th->dma_if]->rx_queues[rx_id].
-				activation.reg = 0x1;
+			rx_queue->activation.reg = 0x1;
 
 		/* +1 for the extra item counter we just configure.
 		 * The second item counter
