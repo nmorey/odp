@@ -421,7 +421,7 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	return 0;
 }
 
-odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
+static odp_anybuf_t *_buffer_alloc(odp_pool_t pool_hdl, size_t size)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
@@ -431,7 +431,7 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 	if ((pool->s.flags.unsegmented && totsize > pool->s.seg_size) ||
 	    (!pool->s.flags.unsegmented &&
 	     totsize > pool->s.seg_size * ODP_BUFFER_MAX_SEG))
-		return ODP_BUFFER_INVALID;
+		return NULL;
 
 	/* Try to satisfy request from the local cache */
 	if(POOL_HAS_LOCAL_CACHE)
@@ -443,27 +443,43 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 		int n_buf = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)&buf, 1);
 
 		if (odp_unlikely(n_buf == 0))
-			return ODP_BUFFER_INVALID;
+			return NULL;
 
 		/* Get blocks for this buffer, if pool uses application data */
 		if (buf->buf.size < totsize) {
-			return ODP_BUFFER_INVALID;
+			return NULL;
 		}
 	}
 
 	/* By default, buffers inherit their pool's zeroization setting */
 	buf->buf.flags.zeroized = pool->s.flags.zeroized;
 
+	return buf;
+}
+
+odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
+{
+	odp_anybuf_t *buf = (odp_anybuf_t *)_buffer_alloc(pool_hdl, size);
+
+	if (buf == NULL)
+		return ODP_BUFFER_INVALID;
+
 	if (buf->buf.type == ODP_EVENT_PACKET)
-		packet_init(pool, &buf->pkt, size);
+		packet_init(odp_pool_to_entry(pool_hdl), &buf->pkt, size);
 
 	return odp_hdr_to_buf(&buf->buf);
 }
 
 odp_buffer_t odp_buffer_alloc(odp_pool_t pool_hdl)
 {
-	return buffer_alloc(pool_hdl,
-			    odp_pool_to_entry(pool_hdl)->s.params.buf.size);
+	odp_anybuf_t * buf =
+		_buffer_alloc(pool_hdl,
+			      odp_pool_to_entry(pool_hdl)->s.params.buf.size);
+
+	if (buf == NULL)
+		return ODP_BUFFER_INVALID;
+
+	return 	odp_hdr_to_buf(&buf->buf);
 }
 
 void odp_buffer_free(odp_buffer_t buf)
