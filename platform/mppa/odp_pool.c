@@ -300,6 +300,12 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		/* Initialization will increment these to their target vals */
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
 
+		/* Reset other pool globals to initial state */
+		pool->s.low_wm_assert = 0;
+		pool->s.quiesced = 0;
+		pool->s.headroom = headroom;
+		pool->s.tailroom = tailroom;
+
 		uint8_t *buf = udata_base_addr - buf_stride;
 		uint8_t *udat = udata_stride == 0 ? NULL :
 			udata_base_addr + udata_size - udata_stride;
@@ -334,11 +340,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			blk -= pool->s.seg_size;
 		} while (buf >= mdata_base_addr && blk >= block_base_addr);
 
-		/* Reset other pool globals to initial state */
-		pool->s.low_wm_assert = 0;
-		pool->s.quiesced = 0;
-		pool->s.headroom = headroom;
-		pool->s.tailroom = tailroom;
 
 		/* Watermarks are hard-coded for now to control caching */
 		pool->s.high_wm = buf_num / 2;
