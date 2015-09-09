@@ -19,6 +19,7 @@
 #include <odp/hints.h>
 #include <odp_debug_internal.h>
 #include <odp_atomic_internal.h>
+#include <odp_packet_internal.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -620,8 +621,16 @@ int get_buf_multi(struct pool_entry_s *pool, odp_buffer_hdr_t *buffers[],
 void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buffers[],
 	     const unsigned n_buffers)
 {
-	__builtin_k1_wpurge();
 	uint32_t prod_head, cons_tail, prod_next;
+
+	if (pool->params.type == ODP_POOL_PACKET) {
+		for (unsigned i = 0; i < n_buffers; ++i) {
+			packet_init((pool_entry_t *)pool,
+				    (odp_packet_hdr_t*)buffers[i],
+				    pool->params.pkt.len);
+		}
+	}
+	__builtin_k1_wpurge();
 
 	do {
 		prod_head =  odp_atomic_load_u32(&pool->prod_head);
