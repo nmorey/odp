@@ -202,6 +202,7 @@ odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 	uint32_t i;
 	queue_entry_t *queue;
 	odp_queue_t handle = ODP_QUEUE_INVALID;
+
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
 		queue = &queue_tbl.queue[i];
 
@@ -348,12 +349,11 @@ static int _queue_enq_update(queue_entry_t *queue, odp_buffer_hdr_t *head,
 		/* Empty queue */
 		STORE_PTR(queue->s.head, head);
 		STORE_PTR(queue->s.tail, tail);
-		tail->next = NULL;
 	} else {
 		STORE_PTR(((typeof(queue->s.tail))LOAD_PTR(queue->s.tail))->next, head);
 		STORE_PTR(queue->s.tail, tail);
-		tail->next = NULL;
 	}
+	STORE_PTR(tail->next, NULL);
 
 	if (status == QUEUE_STATUS_NOTSCHED) {
 		STORE_S32(queue->s.status, QUEUE_STATUS_SCHED);
@@ -518,11 +518,12 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[],
 	queue_entry_t *origin_qe;
 	uint64_t order;
 
+	/* Chain input buffers together */
 	for (i = 0; i < num - 1; i++)
-		buf_hdr[i]->next = buf_hdr[i+1];
+		buf_hdr[i]->next = buf_hdr[i + 1];
 
-	tail = buf_hdr[num-1];
-	buf_hdr[num-1]->next = NULL;
+	tail = buf_hdr[num - 1];
+	buf_hdr[num - 1]->next = NULL;
 
 	/* Handle ordered enqueues commonly via links */
 	get_queue_order(&origin_qe, &order, buf_hdr[0]);
@@ -532,6 +533,7 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[],
 		return rc == 0 ? num : rc;
 	}
 
+	/* Handle unordered enqueues */
 	LOCK(queue);
 	int status = LOAD_S32(queue->s.status);
 	if (odp_unlikely(status < QUEUE_STATUS_READY)) {
@@ -540,18 +542,7 @@ int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[],
 		return -1;
 	}
 
-	/* Empty queue */
-	if (LOAD_PTR(queue->s.head) == NULL)
-		STORE_PTR(queue->s.head, buf_hdr[0]);
-	else
-		STORE_PTR(((typeof(queue->s.tail))LOAD_PTR(queue->s.tail))->next, buf_hdr[0]);
-
-	STORE_PTR(queue->s.tail, tail);
-
-	if (status == QUEUE_STATUS_NOTSCHED) {
-		STORE_PTR(queue->s.status, QUEUE_STATUS_SCHED);
-		sched = 1; /* retval: schedule queue */
-	}
+	sched = _queue_enq_update(queue, buf_hdr[0], tail, status);
 	UNLOCK(queue);
 
 	/* Add queue to scheduling */
@@ -578,12 +569,16 @@ int odp_queue_enq(odp_queue_t handle, odp_event_t ev)
 {
 	queue_entry_t *queue;
 	queue   = queue_to_qentry(handle);
+
+	/* No chains via this entry */
+	((odp_buffer_hdr_t*)handle)->link = NULL;
+
 	return queue->s.enqueue(queue, (odp_buffer_hdr_t *)ev, 1);
 }
 
 int queue_enq_internal(odp_buffer_hdr_t *buf_hdr)
 {
-	return buf_hdr->origin_qe->s.enqueue(buf_hdr->target_qe, buf_hdr,
+	return buf_hdr->target_qe->s.enqueue(buf_hdr->target_qe, buf_hdr,
 					     buf_hdr->flags.sustain);
 }
 
@@ -598,20 +593,15 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 
 	buf_hdr       = LOAD_PTR(queue->s.head);
 	if (buf_hdr == NULL) {
+		/* Already empty queue */
+		if (queue->s.status == QUEUE_STATUS_SCHED)
+			queue->s.status = QUEUE_STATUS_NOTSCHED;
 		UNLOCK(queue);
 		return NULL;
 	}
 
 	INVALIDATE(buf_hdr);
 	STORE_PTR(queue->s.head, buf_hdr->next);
-	if (buf_hdr->next == NULL) {
-		/* Queue is now empty */
-		STORE_PTR(queue->s.tail, NULL);
-		if (LOAD_S32(queue->s.status) == QUEUE_STATUS_SCHED)
-			STORE_S32(queue->s.status, QUEUE_STATUS_NOTSCHED);
-	}
-
-	buf_hdr->next = NULL;
 
 	/* Note that order should really be assigned on enq to an
 	 * ordered queue rather than deq, however the logic is simpler
@@ -625,6 +615,11 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	} else {
 		buf_hdr->origin_qe = NULL;
 	}
+	if (buf_hdr->next == NULL) {
+		/* Queue is now empty */
+		STORE_PTR(queue->s.tail, NULL);
+	}
+	buf_hdr->next = NULL;
 
 	UNLOCK(queue);
 
@@ -1007,6 +1002,7 @@ void odp_schedule_order_unlock(odp_schedule_order_lock_t *lock ODP_UNUSED)
 	queue_entry_t *origin_qe;
 	uint64_t *sync;
 
+	__k1_wmb();
 	get_sched_sync(&origin_qe, &sync);
 	if (!origin_qe)
 		return;

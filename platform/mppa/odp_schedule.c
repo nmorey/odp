@@ -84,14 +84,14 @@ typedef struct {
 
 } sched_local_t;
 
-/* Internal routine to get scheduler thread mask addrs */
-odp_thrmask_t *thread_sched_grp_mask(int index);
-
 /* Global scheduler context */
 static sched_t *sched;
 
 /* Thread local scheduler context */
 static __thread sched_local_t sched_local;
+
+/* Internal routine to get scheduler thread mask addrs */
+odp_thrmask_t *thread_sched_grp_mask(int index);
 
 static void sched_local_init(void)
 {

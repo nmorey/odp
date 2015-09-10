@@ -424,6 +424,9 @@ static void *schedule_common_(void *arg)
 				bctx = odp_buffer_addr(
 					odp_buffer_from_event(events[0]));
 				odp_schedule_order_lock(&qctx->order_lock);
+
+				INVALIDATE(qctx);
+				INVALIDATE(bctx);
 				CU_ASSERT(bctx->sequence ==
 					  qctx->lock_sequence);
 				qctx->lock_sequence += num;
@@ -442,6 +445,9 @@ static void *schedule_common_(void *arg)
 				qctx = odp_queue_context(from);
 				bctx = odp_buffer_addr(buf);
 				odp_schedule_order_lock(&qctx->order_lock);
+
+				INVALIDATE(qctx);
+				INVALIDATE(bctx);
 				CU_ASSERT(bctx->sequence ==
 					  qctx->lock_sequence);
 				qctx->lock_sequence += num;
