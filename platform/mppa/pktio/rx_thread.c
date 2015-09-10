@@ -284,7 +284,7 @@ static void _poll_mask(rx_thread_t *th, int th_id,
 		queue_entry_t *qentry;
 
 		qentry = queue_to_qentry(if_data->rx_config.queue);
-		queue_enq_multi(qentry, hdr_tbl[pktio_id], QUEUE_MULTI_MAX);
+		queue_enq_multi(qentry, hdr_tbl[pktio_id], QUEUE_MULTI_MAX, 0);
 		nbr_qentry[pktio_id] = 0;
 	}
 
@@ -322,7 +322,7 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 		if (!nbr[i])
 			continue;
 		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
-		queue_enq_multi(qentry, hdr_tbl[i], nbr[i]);
+		queue_enq_multi(qentry, hdr_tbl[i], nbr[i], 0);
 	}
 	return;
 }
