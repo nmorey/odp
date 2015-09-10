@@ -709,7 +709,7 @@ int mppa_88E1111_copper_autoneg_enable(mppa_88E1111_interface_t * interface)
 	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
 	// Set bit 12 & 15 of register 0
 	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
-	reg |= 0x9000;
+	reg |= 0x1000;
 	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 0, reg);
 	// Perform a soft reset
 	status |= mppa_88E1111_copper_reset(interface);
@@ -750,11 +750,11 @@ int mppa_88E1111_copper_autoneg_disable(mppa_88E1111_interface_t * interface)
 	reg = reg & 0xff00;
 	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 22, reg);
 	// Clear bit 12 and set bit 15 of register 0 
-	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 27, &reg);
-	reg = (reg & 0xefff) | 0x8000;
-	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 27, reg);
+	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 0, &reg);
+	reg = (reg & 0xefff) ;
+	status |= interface->mppa_88E1111_write(interface->context, interface->chip_id, 0, reg);
 	// Perform a soft reset
-//  status |= mppa_88E1111_copper_reset(interface);
+    status |= mppa_88E1111_copper_reset(interface);
 
 	return status;
 }
@@ -1154,11 +1154,10 @@ int mppa_88E1111_copper_get_real_rate(mppa_88E1111_interface_t * interface, uint
 		*rate = (reg >> 14);
 	else
 		return -1;
-
 	return status;
 }
 
-int mppa_88E1111_copper_get_real_duplex(mppa_88E1111_interface_t * interface, uint8_t * rate)
+int mppa_88E1111_copper_get_real_duplex_mode(mppa_88E1111_interface_t * interface, uint8_t * duplex)
 {
 	// Get bit 13 & 6 of register 0 page 0
 	uint16_t reg;
@@ -1171,7 +1170,7 @@ int mppa_88E1111_copper_get_real_duplex(mppa_88E1111_interface_t * interface, ui
 	// Read register status
 	status |= interface->mppa_88E1111_read(interface->context, interface->chip_id, 17, &reg);
 	if(reg >> 11 & 0x1) //The link is resovled ?
-		*rate = ((reg >> 13) & 0x1);
+		*duplex = ((reg >> 13) & 0x1);
 	else
 		return -1;
 	return status;

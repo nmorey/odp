@@ -17,6 +17,9 @@
 #ifndef _K1_NOCV2_DECR_NOTIF_RELOAD_ETH
 #define _K1_NOCV2_DECR_NOTIF_RELOAD_ETH 0x7
 #endif
+#define BSP_ETH_NB_FIELD_PER_RULE_DEVELOPER	10
+#define BSP_ETH_NB_FIELD_PER_RULE_ETH_530	2
+
 
 static inline int no_printf( __attribute__ ((unused))
 			    const char *fmt, ...)
@@ -155,5 +158,5 @@ uint16_t compute_hash(uint8_t * packet_to_send,
 					  uint32_t current_packet_size,
 					  uint16_t * current_offset_per_field,
 					  uint8_t * current_hash_mask_per_field,
-					  uint8_t * current_min_max_mask, uint32_t nb_fields);
+					  uint8_t * current_min_max_mask);
 #endif				/* UTILS_H */

@@ -135,7 +135,6 @@ void dump_stat(mppa_ethernet_lane_stat_t * stat);
 void copy_stat(unsigned int lane_id, mppa_ethernet_lane_stat_t * out);
 int compare_stat(mppa_ethernet_lane_stat_t * a, mppa_ethernet_lane_stat_t * b);
 int dump_registers();
-void mppa_eth_mdio_synchronize();
 
 
 #endif
