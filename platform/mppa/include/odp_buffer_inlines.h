@@ -84,9 +84,10 @@ static inline void *buffer_map(odp_buffer_hdr_t *buf,
 	int seg_offset = offset;
 
 	if (seglen) {
+		uint32_t buf_size = buf->size;
 		uint32_t buf_left = limit - offset;
-		*seglen = seg_offset + buf_left <= buf->size ?
-			buf_left : buf->size - seg_offset;
+		*seglen = seg_offset + buf_left <= buf_size ?
+			buf_left : buf_size - seg_offset;
 	}
 
 	return (void *)(seg_offset + (uint8_t *)buf->addr);

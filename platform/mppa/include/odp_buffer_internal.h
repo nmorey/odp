@@ -71,16 +71,18 @@ struct odp_buffer_hdr_t {
 		struct odp_buffer_hdr_t *link;
 	};
 	union {
-		uint32_t all;
+		uint16_t all;
 		struct {
-			uint32_t zeroized:1; /* Zeroize buf data on free */
-			uint32_t hdrdata:1;  /* Data is in buffer hdr */
-			uint32_t sustain:1;  /* Sustain order */
+			uint16_t zeroized:1; /* Zeroize buf data on free */
+			uint16_t hdrdata:1;  /* Data is in buffer hdr */
+			uint16_t sustain:1;  /* Sustain order */
 		};
 	} flags;
 	int8_t                   type;       /* buffer type */
 	int8_t                   event_type; /* for reuse as event */
-	uint32_t                 size;       /* max data size */
+	uint16_t                 size;       /* max data size */
+	uint16_t                 uarea_size; /* size of user area */
+	void                    *uarea_addr; /* user area address */
 	odp_pool_t               pool_hdl;   /* buffer pool handle */
 	odp_atomic_u32_t         ref_count;  /* reference count */
 	union {
@@ -88,11 +90,9 @@ struct odp_buffer_hdr_t {
 		void            *buf_ctx;    /* user context */
 		const void      *buf_cctx;   /* const alias for ctx */
 	};
-	void                    *uarea_addr; /* user area address */
-	uint32_t                 uarea_size; /* size of user area */
 	void                    *addr;       /* block addrs */
-	uint64_t                 order;      /* sequence for ordered queues */
 	queue_entry_t           *origin_qe;  /* ordered queue origin */
+	uint64_t                 order;      /* sequence for ordered queues */
 	union {
 		queue_entry_t   *target_qe;  /* ordered queue target */
 		uint64_t         sync;       /* for ordered synchronization */

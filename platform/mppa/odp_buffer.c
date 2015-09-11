@@ -69,7 +69,7 @@ int odp_buffer_snprint(char *str, uint32_t n, odp_buffer_t buf)
 	len += snprintf(&str[len], n - len,
 			"  addr         %p\n",        hdr->addr);
 	len += snprintf(&str[len], n - len,
-			"  size         %" PRIu32 "\n",        hdr->size);
+			"  size         %" PRIu16 "\n",        hdr->size);
 	len += snprintf(&str[len], n - len,
 			"  ref_count    %" PRIu32 "\n",
 			odp_atomic_load_u32(&hdr->ref_count));
