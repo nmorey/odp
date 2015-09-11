@@ -390,11 +390,9 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 
 	thr = odp_thread_id();
 
-	INVALIDATE(sched);
-
 	for (i = 0; i < ODP_CONFIG_SCHED_PRIOS; i++) {
 
-		if (sched->pri_count[i] == 0)
+		if (LOAD_U32(sched->pri_count[i]) == 0)
 			continue;
 
 		odp_queue_t  pri_q;
@@ -405,7 +403,7 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 		int num;
 		int qe_grp;
 
-		pri_q = sched->pri_queue[i];
+		pri_q = LOAD_PTR(sched->pri_queue[i]);
 		ev    = odp_queue_deq(pri_q);
 
 		if (ev == ODP_EVENT_INVALID)
@@ -433,15 +431,18 @@ static int schedule(odp_queue_t *out_queue, odp_event_t out_ev[],
 		qe  = sched_cmd->qe;
 		qe_grp = qe->s.param.sched.group;
 
-		if (qe_grp > ODP_SCHED_GROUP_ALL &&
-		    !odp_thrmask_isset(sched->sched_grp[qe_grp].mask,
-				       thr)) {
-			/* This thread is not eligible for work from
-			 * this queue, so continue scheduling it.
-			 */
-			if (odp_queue_enq(pri_q, ev))
-				ODP_ABORT("schedule failed\n");
-			continue;
+		if (qe_grp > ODP_SCHED_GROUP_ALL) {
+			const odp_thrmask_t *mask =
+				LOAD_PTR(sched->sched_grp[qe_grp].mask);
+
+			if(!odp_thrmask_isset(mask, thr)) {
+				/* This thread is not eligible for work from
+				 * this queue, so continue scheduling it.
+				 */
+				if (odp_queue_enq(pri_q, ev))
+					ODP_ABORT("schedule failed\n");
+				continue;
+			}
 		}
 
 		/* For ordered queues we want consecutive events to
