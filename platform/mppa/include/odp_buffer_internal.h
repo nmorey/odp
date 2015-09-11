@@ -90,7 +90,6 @@ struct odp_buffer_hdr_t {
 	};
 	void                    *uarea_addr; /* user area address */
 	uint32_t                 uarea_size; /* size of user area */
-	uint32_t                 segcount;   /* segment count */
 	uint32_t                 segsize;    /* segment size */
 	void                    *addr;       /* block addrs */
 	uint64_t                 order;      /* sequence for ordered queues */

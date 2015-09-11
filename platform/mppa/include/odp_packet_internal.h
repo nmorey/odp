@@ -183,8 +183,7 @@ static inline void packet_init(pool_entry_t *pool,
 	*/
 	pkt_hdr->frame_len = size;
 	pkt_hdr->headroom  = pool->s.headroom;
-	pkt_hdr->tailroom  =
-		(pool->s.seg_size * pkt_hdr->buf_hdr.segcount) -
+	pkt_hdr->tailroom  = pool->s.seg_size -
 		(pool->s.headroom + size);
 }
 

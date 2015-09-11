@@ -327,7 +327,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			tmp->pool_hdl = (odp_pool_t)pool;
 			tmp->uarea_addr = (void *)udat;
 			tmp->uarea_size = p_udata_size;
-			tmp->segcount = 1;
 			tmp->segsize = pool->s.seg_size;
 
 			/* Set 1st seg addr for zero-len buffers */
