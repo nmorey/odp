@@ -57,12 +57,11 @@ int odp_pktio_init_global(void)
 		queue_entry->s.pktout = (odp_pktio_t)pktio_entry;
 	}
 
-	for (pktio_if = 0; pktio_if_ops[pktio_if] != NULL; pktio_if++) {
-		if (pktio_if_ops[pktio_if]->init != NULL) {
-			if (pktio_if_ops[pktio_if]->init()) {
-				return -1;
-			}
-		}
+	for (pktio_if = 0; pktio_if_ops[pktio_if]; ++pktio_if) {
+		if (pktio_if_ops[pktio_if]->init)
+			if (pktio_if_ops[pktio_if]->init())
+				ODP_ERR("failed to initialized pktio type %d",
+					pktio_if);
 	}
 
 	return 0;
@@ -73,7 +72,14 @@ int odp_pktio_term_global(void)
 	pktio_entry_t *pktio_entry;
 	int ret = 0;
 	int id;
+	int pktio_if;
 
+	for (pktio_if = 0; pktio_if_ops[pktio_if]; ++pktio_if) {
+		if (pktio_if_ops[pktio_if]->term)
+			if (pktio_if_ops[pktio_if]->term())
+				ODP_ERR("failed to terminate pktio type %d",
+					pktio_if);
+	}
 	for (id = 0; id < ODP_CONFIG_PKTIO_ENTRIES; ++id) {
 		pktio_entry = &pktio_tbl.entries[id];
 		odp_queue_destroy(pktio_entry->s.outq_default);
@@ -222,7 +228,6 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool,
 	} else {
 		snprintf(pktio_entry->s.name, IF_NAMESIZE, "%s", dev);
 		pktio_entry->s.state = STATE_STOP;
-
 		unlock_entry_classifier(pktio_entry);
 	}
 
@@ -278,17 +283,14 @@ int odp_pktio_start(odp_pktio_t id)
 	int res = 0;
 
 	entry = get_pktio_entry(id);
-	if (!entry) {
-		fprintf(stderr, "NO ENTRY\n");
+	if (!entry)
 		return -1;
-	}
 
 	lock_entry(entry);
 	if (entry->s.ops->start)
 		res = entry->s.ops->start(entry);
-	if(!res)
+	if (!res)
 		entry->s.state = STATE_START;
-
 	unlock_entry(entry);
 
 	return res;
@@ -306,7 +308,7 @@ int odp_pktio_stop(odp_pktio_t id)
 	lock_entry(entry);
 	if (entry->s.ops->stop)
 		res = entry->s.ops->stop(entry);
-	if(!res)
+	if (!res)
 		entry->s.state = STATE_STOP;
 	unlock_entry(entry);
 
@@ -551,7 +553,7 @@ odp_buffer_hdr_t *pktin_dequeue(queue_entry_t *qentry)
 		return NULL;
 
 	if (j > 1)
-		queue_enq_multi(qentry, &tmp_hdr_tbl[1], j-1, 0);
+		queue_enq_multi(qentry, &tmp_hdr_tbl[1], j - 1, 0);
 	buf_hdr = tmp_hdr_tbl[0];
 	return buf_hdr;
 }
