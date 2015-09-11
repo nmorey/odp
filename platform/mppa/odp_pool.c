@@ -454,6 +454,9 @@ static odp_anybuf_t *_buffer_alloc(odp_pool_t pool_hdl, size_t size)
 	/* By default, buffers inherit their pool's zeroization setting */
 	buf->buf.flags.zeroized = pool->s.flags.zeroized;
 
+	/* By default, buffers are not associated with an ordered queue */
+	buf->buf.origin_qe = NULL;
+
 	return buf;
 }
 

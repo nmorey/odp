@@ -31,7 +31,7 @@ extern "C" {
  */
 
 /**
- * @typedef odp_schedule_olock_t
+ * @typedef odp_schedule_order_lock_t
  * Scheduler ordered context lock
  */
 
@@ -48,6 +48,26 @@ extern "C" {
 /**
  * @def ODP_SCHED_GROUP_NAME_LEN
  * Maximum schedule group name length in chars
+ */
+
+/**
+ * @def ODP_SCHED_GROUP_INVALID
+ * Invalid scheduler group
+ */
+
+/**
+ * @def ODP_SCHED_GROUP_ALL
+ * Predefined scheduler group of all threads
+ */
+
+/**
+ * @def ODP_SCHED_GROUP_WORKER
+ * Predefined scheduler group of all worker threads
+ */
+
+/**
+ * @def ODP_SCHED_GROUP_CONTROL
+ * Predefined scheduler group of all control threads
  */
 
 /**
@@ -220,18 +240,79 @@ odp_schedule_group_t odp_schedule_group_create(const char *name,
 int odp_schedule_group_destroy(odp_schedule_group_t group);
 
 /**
+ * Look up a schedule group by name
+ *
+ * Return the handle of a schedule group from its name
+ *
+ * @param name   Name of schedule group
+ *
+ * @return Handle of schedule group for specified name
+ * @retval ODP_SCHEDULE_GROUP_INVALID No matching schedule group found
+ */
+odp_schedule_group_t odp_schedule_group_lookup(const char *name);
+
+/**
+ * Join a schedule group
+ *
+ * Join a threadmask to an existing schedule group
+ *
+ * @param group  Schdule group handle
+ * @param mask   Thread mask
+ *
+ * @retval 0 on success
+ * @retval <0 on failure
+ */
+int odp_schedule_group_join(odp_schedule_group_t group,
+			    const odp_thrmask_t *mask);
+
+/**
+ * Leave a schedule group
+ *
+ * Remove a threadmask from an existing schedule group
+ *
+ * @param group  Schedule group handle
+ * @param mask   Thread mask
+ *
+ * @retval 0 on success
+ * @retval <0 on failure
+ *
+ * @note Leaving a schedule group means threads in the specified mask will no
+ * longer receive events from queues belonging to the specified schedule
+ * group. This effect is not instantaneous, however, and events that have been
+ * prestaged may still be presented to the masked threads.
+ */
+int odp_schedule_group_leave(odp_schedule_group_t group,
+			     const odp_thrmask_t *mask);
+
+/**
+ * Get a schedule group's thrmask
+ *
+ * @param      group   Schedule group handle
+ * @param[out] thrmask The current thrmask used for this schedule group
+ *
+ * @retval 0  On success
+ * @retval <0 Invalid group specified
+ */
+int odp_schedule_group_thrmask(odp_schedule_group_t group,
+			       odp_thrmask_t *thrmask);
+
+/**
  * Initialize ordered context lock
  *
  * Initialize an ordered queue context lock. The lock can be associated only
  * with ordered queues and used only within an ordered synchronization context.
  *
- * @param queue   Ordered queue
  * @param lock    Ordered context lock
+ * @param queue   Ordered queue
  *
  * @retval 0 on success
  * @retval <0 on failure
+ *
+ * @note At present a thread may only use a single ordered lock. Attempts to
+ * use multiple ordered locks within an order context are undefined.
  */
-int odp_schedule_olock_init(odp_queue_t queue, odp_schedule_olock_t *lock);
+int odp_schedule_order_lock_init(odp_schedule_order_lock_t *lock,
+				 odp_queue_t queue);
 
 /**
  * Acquire ordered context lock
@@ -244,7 +325,7 @@ int odp_schedule_olock_init(odp_queue_t queue, odp_schedule_olock_t *lock);
  *
  * @param lock    Ordered context lock
  */
-void odp_schedule_olock_lock(odp_schedule_olock_t *lock);
+void odp_schedule_order_lock(odp_schedule_order_lock_t *lock);
 
 /**
  * Release ordered context lock
@@ -254,7 +335,7 @@ void odp_schedule_olock_lock(odp_schedule_olock_t *lock);
  *
  * @param lock    Ordered context lock
  */
-void odp_schedule_olock_unlock(odp_schedule_olock_t *lock);
+void odp_schedule_order_unlock(odp_schedule_order_lock_t *lock);
 
 /**
  * @}
