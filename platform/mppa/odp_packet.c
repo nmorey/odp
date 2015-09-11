@@ -365,7 +365,7 @@ void *odp_packet_seg_buf_addr(odp_packet_t pkt,
 uint32_t odp_packet_seg_buf_len(odp_packet_t pkt,
 				odp_packet_seg_t seg ODP_UNUSED)
 {
-	return ((odp_packet_hdr_t *)pkt)->buf_hdr.segsize;
+	return ((odp_packet_hdr_t *)pkt)->buf_hdr.size;
 }
 
 void *odp_packet_seg_data(odp_packet_t pkt,
