@@ -311,21 +311,22 @@ pcie_send_packets(pcie_status_t * pcie, odp_packet_t pkt_table[], unsigned int p
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
 	unsigned int tx_index = pcie->port_id % NOC_UC_COUNT;
+	unsigned int size;
 
 	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
+		size = pkt_hdr->frame_len / sizeof(uint64_t);
 		/* Setup parameters and pointers */
-		uc_conf.parameters[i * 2] = pkt_hdr->frame_len /
-			sizeof(uint64_t);
-		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len %
-			sizeof(uint64_t);
+		if ((pkt_hdr->frame_len % sizeof(uint64_t)) != 0)
+			size++;
+			
+		uc_conf.parameters[i] = size;
 		uc_pointers.thread_pointers[i] =
 			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
 			(uintptr_t) &_data_start;
 	}
 	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
-		uc_conf.parameters[i * 2] = 0;
-		uc_conf.parameters[i * 2 + 1] = 0;
+		uc_conf.parameters[i] = 0;
 		uc_pointers.thread_pointers[i] = 0;
 	}
 

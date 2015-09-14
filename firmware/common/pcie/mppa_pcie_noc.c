@@ -68,8 +68,8 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		return ack;
 	}
 
-	ack.cmd.open.eth_tx_tag = rx_id;
-	ack.cmd.open.eth_tx_if = __k1_get_cluster_id() + if_id;
+	ack.cmd.pcie_open.tx_tag = rx_id;
+	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
 
 	return ack;
 }

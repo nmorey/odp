@@ -203,8 +203,8 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
 	status[eth_if].cluster[remoteClus].rx_tag = rx_port;
 
-	ack.cmd.open.eth_tx_if = externalAddress;
-	ack.cmd.open.eth_tx_tag = rx_port;
+	ack.cmd.eth_open.tx_if = externalAddress;
+	ack.cmd.eth_open.tx_tag = rx_port;
 
 	return ack;
 
