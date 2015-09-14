@@ -24,6 +24,7 @@ extern "C" {
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
 #include <odp_buffer_inlines.h>
+#include <odp_rx_internal.h>
 
 #include <odp/config.h>
 #include <odp/hints.h>
@@ -71,7 +72,23 @@ typedef struct {
 } pkt_loop_t;
 
 typedef struct {
-	struct eth_status * status;          /**< Ethernet internal data */
+	odp_pool_t pool;                      /**< pool to alloc packets from */
+	odp_spinlock_t wlock;        /**< Tx lock */
+
+	/* Rx Data */
+	rx_config_t rx_config;
+
+	uint8_t slot_id;             /**< IO Eth Id */
+	uint8_t port_id;             /**< Eth Port id. 4 for 40G */
+
+	/* Tx data */
+	uint16_t tx_if;              /**< Remote DMA interface to forward
+				      *   to Eth Egress */
+	uint16_t tx_tag;             /**< Remote DMA tag to forward to
+				      *   Eth Egress */
+
+	mppa_dnoc_header_t header;
+	mppa_dnoc_channel_config_t config;
 } pkt_eth_t;
 
 struct pktio_entry {

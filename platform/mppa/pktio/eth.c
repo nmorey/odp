@@ -95,28 +95,6 @@ static int cluster_init_dnoc_tx(void)
 	return 0;
 }
 
-typedef struct eth_status {
-	odp_pool_t pool;                      /**< pool to alloc packets from */
-	odp_spinlock_t wlock;        /**< Tx lock */
-
-	/* Rx Data */
-	rx_config_t rx_config;
-
-	uint8_t slot_id;             /**< IO Eth Id */
-	uint8_t port_id;             /**< Eth Port id. 4 for 40G */
-
-	/* Tx data */
-	uint16_t tx_if;              /**< Remote DMA interface to forward
-				      *   to Eth Egress */
-	uint16_t tx_tag;             /**< Remote DMA tag to forward to
-				      *   Eth Egress */
-
-	mppa_dnoc_header_t header;
-	mppa_dnoc_channel_config_t config;
-
-
-} eth_status_t;
-
 /**
  * #############################
  * PKTIO Interface
@@ -161,11 +139,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 	}
 
-	pktio_entry->s.pkt_eth.status = malloc(sizeof(*pktio_entry->s.pkt_eth.status));
-	if (!pktio_entry->s.pkt_eth.status)
-		return -1;
-
-	eth_status_t *eth = pktio_entry->s.pkt_eth.status;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	/*
 	 * Init eth status
 	 */
@@ -240,7 +214,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 static int eth_close(pktio_entry_t * const pktio_entry)
 {
 
-	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	int slot_id = eth->slot_id;
 	int port_id = eth->port_id;
 	odp_rpc_t *ack_msg;
@@ -271,7 +245,6 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	rx_thread_link_close(slot_id * MAX_ETH_PORTS + port_id);
 
 	free(eth);
-	pktio_entry->s.pkt_eth.status = NULL;
 	return ack.status;
 }
 
@@ -288,7 +261,7 @@ static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	queue_entry_t *qentry;
 
 	qentry = queue_to_qentry(eth->rx_config.queue);
@@ -297,7 +270,7 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 
 
 static inline int
-eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_count)
+eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
@@ -371,7 +344,7 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	unsigned int sent = 0;
-	eth_status_t * eth = pktio_entry->s.pkt_eth.status;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	unsigned int pkt_count;
 
 
