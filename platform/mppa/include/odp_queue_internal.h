@@ -97,6 +97,8 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue);
 
 int queue_enq_internal(odp_buffer_hdr_t *buf_hdr);
 
+int queue_enq_list(queue_entry_t *queue, odp_buffer_hdr_t *head,
+		   odp_buffer_hdr_t *tail);
 int queue_enq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num,
 		    int sustain);
 int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num);
