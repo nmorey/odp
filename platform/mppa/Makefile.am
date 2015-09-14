@@ -155,6 +155,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_packet_io.c \
 			   pktio/io_ops.c \
 			   pktio/eth.c \
+			   pktio/pcie.c \
 			   pktio/cluster.c \
 			   pktio/drop.c \
 			   pktio/magic.c \
@@ -178,6 +179,7 @@ __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_weak.c \
 			   odp_time.c \
 			   ucode_fw/ucode_eth.c \
+			   ucode_fw/ucode_pcie.c \
 			   ucode_fw/odp_ucode_linear.c
 
 

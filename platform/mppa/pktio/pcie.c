@@ -19,15 +19,15 @@
 #include "odp_pool_internal.h"
 #include "odp_rpc_internal.h"
 #include "odp_rx_internal.h"
-#include "ucode_fw/ucode_eth.h"
+#include "ucode_fw/ucode_pcie.h"
 
 
-#define MAX_ETH_SLOTS 2
-#define MAX_ETH_PORTS 4
-#define N_RX_P_ETH 12
+#define MAX_PCIE_SLOTS 2
+#define MAX_PCIE_INTERFACES 4
+#define N_RX_P_PCIE 12
 
 #define NOC_UC_COUNT		2
-#define MAX_PKT_PER_UC		4
+#define MAX_PKT_PER_UC		8
 /* must be > greater than max_threads */
 #define MAX_JOB_PER_UC          32
 #define DNOC_CLUS_IFACE_ID	0
@@ -37,24 +37,24 @@
 
 extern char _heap_end;
 
-typedef struct eth_uc_job_ctx {
+typedef struct pcie_uc_job_ctx {
 	bool is_running;
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
-} eth_uc_job_ctx_t;
+} pcie_uc_job_ctx_t;
 
-typedef struct eth_uc_ctx {
+typedef struct pcie_uc_ctx {
 	unsigned int dnoc_tx_id;
 	unsigned int dnoc_uc_id;
 
 	unsigned joined_jobs;
 	unsigned int job_id;
-	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
-} eth_uc_ctx_t;
+	pcie_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
+} pcie_uc_ctx_t;
 
-static eth_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
+static pcie_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
 
-typedef struct eth_status {
+typedef struct pcie_status {
 	odp_pool_t pool;                      /**< pool to alloc packets from */
 	odp_spinlock_t wlock;        /**< Tx lock */
 
@@ -73,7 +73,7 @@ typedef struct eth_status {
 	mppa_dnoc_header_t header;
 	mppa_dnoc_channel_config_t config;
 
-} eth_status_t;
+} pcie_status_t;
 
 /**
  * #############################
@@ -81,14 +81,14 @@ typedef struct eth_status {
  * #############################
  */
 
-static int eth_init_dnoc_tx(void)
+static int pcie_init_dnoc_tx(void)
 {
 	int i;
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
-	uc_conf.program_start = (uintptr_t)ucode_eth;
+	uc_conf.program_start = (uintptr_t)ucode_pcie;
 	uc_conf.buffer_base = (uintptr_t)&_data_start;
 	uc_conf.buffer_size = (uintptr_t)&_heap_end - (uintptr_t)&_data_start;
 
@@ -122,70 +122,70 @@ static int eth_init_dnoc_tx(void)
 	return 0;
 }
 
-static int eth_init(void)
+static int pcie_init(void)
 {
 	if (rx_thread_init())
 		return 1;
 
-	if(eth_init_dnoc_tx())
+	if(pcie_init_dnoc_tx())
 		return 1;
 
 	return 0;
 }
 
-static int eth_rpc_send_eth_open(eth_status_t *eth)
+static int pcie_rpc_send_pcie_open(pcie_status_t *pcie)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
 
 	/*
-	 * RPC Msg to IOETH  #N so the LB will dispatch to us
+	 * RPC Msg to IOPCIE  #N so the LB will dispatch to us
 	 */
-	odp_rpc_cmd_eth_open_t open_cmd = {
+	odp_rpc_cmd_pcie_open_t open_cmd = {
 		{
-			.ifId = eth->port_id,
-			.dma_if = eth->rx_config.dma_if,
-			.min_rx = eth->rx_config.min_port,
-			.max_rx = eth->rx_config.max_port,
+			.ifId = pcie->port_id,
+			.dma_if = pcie->rx_config.dma_if,
+			.min_rx = pcie->rx_config.min_port,
+			.max_rx = pcie->rx_config.max_port,
 		}
 	};
 	odp_rpc_t cmd = {
 		.data_len = 0,
-		.pkt_type = ODP_RPC_CMD_ETH_OPEN,
+		.pkt_type = ODP_RPC_CMD_PCIE_OPEN,
 		.inl_data = open_cmd.inl_data,
 		.flags = 0,
 	};
 	
-	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(eth->slot_id, cluster_id),
-			 odp_rpc_get_ioeth_tag_id(eth->slot_id, cluster_id),
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(pcie->slot_id, cluster_id),
+			 odp_rpc_get_ioddr_tag_id(pcie->slot_id, cluster_id),
 			 &cmd, NULL);
 
 	odp_rpc_wait_ack(&ack_msg, NULL);
 	ack.inl_data = ack_msg->inl_data;
 	if (ack.status) {
-		fprintf(stderr, "[ETH] Error: Server declined opening of eth interface\n");
+		fprintf(stderr, "[PCIE] Error: Server declined opening of pcie interface\n");
 		return 1;
 	}
 
-	eth->tx_if = ack.cmd.eth_open.tx_if;
-	eth->tx_tag = ack.cmd.eth_open.tx_tag;
+	pcie->tx_if = ack.cmd.pcie_open.tx_if;
+	pcie->tx_tag = ack.cmd.pcie_open.tx_tag;
 
 	return 0;
 }
 
-static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
+static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
 	int ret = 0;
 	/*
 	 * Check device name and extract slot/port
 	 */
-	if (devname[0] != 'e')
+	if (devname[0] != 'p')
 		return -1;
 
 	int slot_id = devname[1] - '0';
-	if (slot_id < 0 || slot_id >= MAX_ETH_SLOTS)
+	if (slot_id < 0 || slot_id >= MAX_PCIE_SLOTS)
 		return -1;
 
 	int port_id = 4;
@@ -194,117 +194,114 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 		port_id = devname[3] - '0';
 
-		if (port_id < 0 || port_id >= MAX_ETH_PORTS)
+		if (port_id < 0 || port_id >= MAX_PCIE_INTERFACES)
 			return -1;
 
 		if(devname[4] != 0)
 			return -1;
 	}
 
-	pktio_entry->s.pkt_data = malloc(sizeof(eth_status_t));
+	pktio_entry->s.pkt_data = malloc(sizeof(pcie_status_t));
 	if (!pktio_entry->s.pkt_data)
 		return -1;
 
-	eth_status_t *eth = pktio_entry->s.pkt_data;
+	pcie_status_t *pcie = pktio_entry->s.pkt_data;
 
-	eth->slot_id = slot_id;
-	eth->port_id = port_id;
-	eth->pool = pool;
-	odp_spinlock_init(&eth->wlock);
+	pcie->slot_id = slot_id;
+	pcie->port_id = port_id;
+	pcie->pool = pool;
+	odp_spinlock_init(&pcie->wlock);
 
 	/* Setup Rx threads */
-	eth->rx_config.dma_if = 0;
-	eth->rx_config.pool = pool;
-	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
-	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH);
+	pcie->rx_config.dma_if = 0;
+	pcie->rx_config.pool = pool;
+	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id;
+	/* FIXME */
+	pcie->rx_config.header_sz = sizeof(NULL);
+	rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
 
-	ret = eth_rpc_send_eth_open(eth);
+	ret = pcie_rpc_send_pcie_open(pcie);
 
-	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
-					    &eth->config, &eth->header);
+	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), pcie->tx_if,
+					    &pcie->config, &pcie->header);
 
-	eth->config._.loopback_multicast = 0;
-	eth->config._.cfg_pe_en = 1;
-	eth->config._.cfg_user_en = 1;
-	eth->config._.write_pe_en = 1;
-	eth->config._.write_user_en = 1;
-	eth->config._.decounter_id = 0;
-	eth->config._.decounted = 0;
-	eth->config._.payload_min = 1;
-	eth->config._.payload_max = 32;
-	eth->config._.bw_current_credit = 0xff;
-	eth->config._.bw_max_credit     = 0xff;
-	eth->config._.bw_fast_delay     = 0x00;
-	eth->config._.bw_slow_delay     = 0x00;
+	pcie->config._.loopback_multicast = 0;
+	pcie->config._.cfg_pe_en = 1;
+	pcie->config._.cfg_user_en = 1;
+	pcie->config._.write_pe_en = 1;
+	pcie->config._.write_user_en = 1;
+	pcie->config._.decounter_id = 0;
+	pcie->config._.decounted = 0;
+	pcie->config._.payload_min = 1;
+	pcie->config._.payload_max = 32;
+	pcie->config._.bw_current_credit = 0xff;
+	pcie->config._.bw_max_credit     = 0xff;
+	pcie->config._.bw_fast_delay     = 0x00;
+	pcie->config._.bw_slow_delay     = 0x00;
 
-	eth->header._.tag = eth->tx_tag;
-	eth->header._.valid = 1;
+	pcie->header._.tag = pcie->tx_tag;
+	pcie->header._.valid = 1;
 
 	return ret;
 }
 
-static int eth_close(pktio_entry_t * const pktio_entry)
+static int pcie_close(pktio_entry_t * const pktio_entry)
 {
 
-	eth_status_t * eth = pktio_entry->s.pkt_data;
-	int slot_id = eth->slot_id;
-	int port_id = eth->port_id;
+	pcie_status_t * pcie = pktio_entry->s.pkt_data;
+	int slot_id = pcie->slot_id;
+	int port_id = pcie->port_id;
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
 
 	odp_rpc_cmd_clos_t close_cmd = {
 		{
-			.ifId = eth->port_id = port_id
+			.ifId = pcie->port_id = port_id
 
 		}
 	};
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_ETH_CLOS,
+		.pkt_type = ODP_RPC_CMD_PCIE_CLOS,
 		.data_len = 0,
 		.flags = 0,
 		.inl_data = close_cmd.inl_data
 	};
 
-	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
-			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(slot_id, cluster_id),
+			 odp_rpc_get_ioddr_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
 
 	odp_rpc_wait_ack(&ack_msg, NULL);
 	ack.inl_data = ack_msg->inl_data;
 
 	/* Push Context to handling threads */
-	rx_thread_link_close(slot_id * MAX_ETH_PORTS + port_id);
+	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + port_id);
 
-	free(eth);
+	free(pcie);
 	pktio_entry->s.pkt_data = NULL;
 	return ack.status;
 }
 
-static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
+static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 			    void *mac_addr ODP_UNUSED)
 {
 	/* FIXME */
 	return -1;
 }
 
-
-
-
-static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
+static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	eth_status_t * eth = pktio_entry->s.pkt_data;
+	pcie_status_t * pcie = pktio_entry->s.pkt_data;
 	queue_entry_t *qentry;
 
-	qentry = queue_to_qentry(eth->rx_config.queue);
+	qentry = queue_to_qentry(pcie->rx_config.queue);
 	return queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
 }
 
-
 static inline int
-eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_count)
+pcie_send_packets(pcie_status_t * pcie, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
@@ -313,7 +310,7 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	unsigned int tx_index = pcie->port_id % NOC_UC_COUNT;
 
 	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
@@ -332,12 +329,12 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		uc_pointers.thread_pointers[i] = 0;
 	}
 
-	odp_spinlock_lock(&eth->wlock);
+	odp_spinlock_lock(&pcie->wlock);
 	INVALIDATE(g_uc_ctx);
 	{
-		eth_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
+		pcie_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
 		unsigned job_id = ctx->job_id++;
-		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
+		pcie_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
 
 		/* Wait for previous run(s) to complete */
 		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
@@ -345,10 +342,10 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 								   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
 								   ctx->dnoc_tx_id);
 			for(i = ctx->joined_jobs; i < ctx->joined_jobs + ev_counter; ++i) {
-				eth_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
+				pcie_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
 				joined_job->is_running = 0;
 				/* Free previous packets */
-				ret_buf(&((pool_entry_t *)eth->pool)->s,
+				ret_buf(&((pool_entry_t *)pcie->pool)->s,
 					(odp_buffer_hdr_t**)joined_job->pkt_table, joined_job->pkt_count);
 			}
 			ctx->joined_jobs += ev_counter;
@@ -359,7 +356,7 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		uc_conf.event_counter = 0;
 
 		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						  uc_conf, eth->header, eth->config);
+						  uc_conf, pcie->header, pcie->config);
 		if (nret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
@@ -369,16 +366,16 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 						 program_run);
 	}
-	odp_spinlock_unlock(&eth->wlock);
+	odp_spinlock_unlock(&pcie->wlock);
 
 	return 0;
 }
 
-static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
+static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	unsigned int sent = 0;
-	eth_status_t * eth = pktio_entry->s.pkt_data;
+	pcie_status_t * pcie = pktio_entry->s.pkt_data;
 	unsigned int pkt_count;
 
 
@@ -386,7 +383,7 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
 			(len - sent);
 
-		eth_send_packets(eth, &pkt_table[sent], pkt_count);
+		pcie_send_packets(pcie, &pkt_table[sent], pkt_count);
 		sent += pkt_count;
 	}
 
@@ -394,29 +391,29 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return sent;
 }
 
-static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
+static int pcie_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
 				odp_bool_t enable ODP_UNUSED){
 	return -1;
 }
 
-static int eth_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
+static int pcie_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
 	return -1;
 }
 
-static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
+static int pcie_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
 	return -1;
 }
-const pktio_if_ops_t eth_pktio_ops = {
-	.init = eth_init,
+const pktio_if_ops_t pcie_pktio_ops = {
+	.init = pcie_init,
 	.term = NULL,
-	.open = eth_open,
-	.close = eth_close,
+	.open = pcie_open,
+	.close = pcie_close,
 	.start = NULL,
 	.stop = NULL,
-	.recv = eth_recv,
-	.send = eth_send,
-	.mtu_get = eth_mtu_get,
-	.promisc_mode_set = eth_promisc_mode_set,
-	.promisc_mode_get = eth_promisc_mode,
-	.mac_get = eth_mac_addr_get,
+	.recv = pcie_recv,
+	.send = pcie_send,
+	.mtu_get = pcie_mtu_get,
+	.promisc_mode_set = pcie_promisc_mode_set,
+	.promisc_mode_get = pcie_promisc_mode,
+	.mac_get = pcie_mac_addr_get,
 };

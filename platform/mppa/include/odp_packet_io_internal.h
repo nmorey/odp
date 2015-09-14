@@ -45,7 +45,6 @@ extern "C" {
 
 /* Forward declaration */
 struct pktio_if_ops;
-struct eth_status;
 
 typedef struct {
 	int clus_id;			/**< Cluster ID */
@@ -70,10 +69,6 @@ typedef struct {
 	odp_bool_t promisc;		/**< promiscuous mode state */
 } pkt_loop_t;
 
-typedef struct {
-	struct eth_status * status;          /**< Ethernet internal data */
-} pkt_eth_t;
-
 struct pktio_entry {
 	const struct pktio_if_ops *ops; /**< Implementation specific methods */
 	odp_rwlock_t lock;		/**< entry RW lock */
@@ -91,7 +86,7 @@ struct pktio_entry {
 		pkt_magic_t pkt_magic;
 		pkt_loop_t pkt_loop;
 		pkt_cluster_t pkt_cluster;
-		pkt_eth_t pkt_eth;
+		void *pkt_data;
 	};
 	enum {
 		STATE_START = 0,

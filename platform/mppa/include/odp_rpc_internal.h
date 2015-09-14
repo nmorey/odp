@@ -31,8 +31,9 @@ typedef enum {
 	ODP_RPC_CMD_BAS_PING     /**< BASE: Ping command. server sends back ack = 0 */,
 	ODP_RPC_CMD_BAS_SYNC     /**< SYNC: Sync command. server wait for every clusters to make a sync before sending ack */,
 	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
+	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */,
 	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
-	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */
+	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */
 } odp_rpc_cmd_e;
 
 
@@ -55,13 +56,19 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_clos_t;
 
+typedef odp_rpc_cmd_clos_t odp_rpc_cmd_pcie_clos_t;
+
 typedef struct {
 	uint8_t status;
 	union {
 		struct {
-			uint16_t eth_tx_if;	/* IO Cluster id */
-			uint8_t eth_tx_tag;	/* Tag of the IO Cluster rx */
-		} open;
+			uint16_t tx_if;	/* IO Cluster id */
+			uint8_t tx_tag;	/* Tag of the IO Cluster rx */
+		} eth_open;
+		struct {
+			uint16_t tx_if;	/* IO Cluster id */
+			uint8_t tx_tag;	/* Tag of the IO Cluster rx */
+		} pcie_open;
 	} cmd;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
