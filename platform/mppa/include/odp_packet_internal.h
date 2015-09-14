@@ -75,18 +75,15 @@ typedef union {
 
 	struct {
 		/* Bitfield flags for each detected error */
-		uint32_t app_error:1; /**< Error bit for application use */
-		uint32_t frame_len:1; /**< Frame length error */
-		uint32_t snap_len:1;  /**< Snap length error */
-		uint32_t l2_chksum:1; /**< L2 checksum error, checks TBD */
-		uint32_t ip_err:1;    /**< IP error,  checks TBD */
-		uint32_t tcp_err:1;   /**< TCP error, checks TBD */
-		uint32_t udp_err:1;   /**< UDP error, checks TBD */
+		uint16_t app_error:1; /**< Error bit for application use */
+		uint16_t frame_len:1; /**< Frame length error */
+		uint16_t snap_len:1;  /**< Snap length error */
+		uint16_t l2_chksum:1; /**< L2 checksum error, checks TBD */
+		uint16_t ip_err:1;    /**< IP error,  checks TBD */
+		uint16_t tcp_err:1;   /**< TCP error, checks TBD */
+		uint16_t udp_err:1;   /**< UDP error, checks TBD */
 	};
 } error_flags_t;
-
-_ODP_STATIC_ASSERT(sizeof(error_flags_t) == sizeof(uint32_t),
-		   "ERROR_FLAGS_SIZE_ERROR");
 
 /**
  * Packet output flags
@@ -97,15 +94,12 @@ typedef union {
 
 	struct {
 		/* Bitfield flags for each output option */
-		uint32_t l3_chksum_set:1; /**< L3 chksum bit is valid */
-		uint32_t l3_chksum:1;     /**< L3 chksum override */
-		uint32_t l4_chksum_set:1; /**< L3 chksum bit is valid */
-		uint32_t l4_chksum:1;     /**< L4 chksum override  */
+		uint16_t l3_chksum_set:1; /**< L3 chksum bit is valid */
+		uint16_t l3_chksum:1;     /**< L3 chksum override */
+		uint16_t l4_chksum_set:1; /**< L3 chksum bit is valid */
+		uint16_t l4_chksum:1;     /**< L4 chksum override  */
 	};
 } output_flags_t;
-
-_ODP_STATIC_ASSERT(sizeof(output_flags_t) == sizeof(uint32_t),
-		   "OUTPUT_FLAGS_SIZE_ERROR");
 
 /**
  * Internal Packet header
