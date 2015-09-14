@@ -15,6 +15,13 @@
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
+enum state {
+	STATE_BOOT = 0,
+	STATE_RUN,
+	STATE_STOP,
+};
+
+
 struct clus_bin_boot {
 	int clus_id;
 	char *clus_bin;
@@ -25,6 +32,7 @@ struct clus_bin_boot {
 };
 
 static unsigned int clus_count = 0;
+static enum state current_state = STATE_BOOT;
 
 struct clus_bin_boot clus_bin_boots[BSP_NB_CLUSTER_MAX] = {{0}};
 
@@ -45,6 +53,8 @@ static int io_check_cluster_sync_status()
 		printf("sending ack to %d\n", clus);
 		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);
 	}
+
+	current_state += 1;
 
 	return 1;
 }
@@ -86,6 +96,8 @@ static void iopcie_rpc_poll()
 		/* If the command is a sync one, then wait for every clusters to be synced */
 		if (msg->pkt_type == ODP_RPC_CMD_BAS_SYNC) {
 			io_check_cluster_sync_status();
+			if (current_state == STATE_STOP)
+				return;
 		} else {
 			odp_rpc_server_ack(msg, ack);
 		}

@@ -115,6 +115,8 @@ static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_i
 #endif
 }
 
+extern int g_rpc_init;
+
 int odp_rpc_client_init(void);
 int odp_rpc_client_term(void);
 

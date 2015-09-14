@@ -116,6 +116,8 @@ int odp_rpc_server_start(odp_rpc_handler_t handler)
 			return ret;
 	}
 
+	g_rpc_init = 1;
+
 	return 0;
 }
 static int get_if_rx_id(unsigned interface_id)
