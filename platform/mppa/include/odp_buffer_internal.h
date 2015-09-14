@@ -81,7 +81,6 @@ struct odp_buffer_hdr_t {
 	int8_t                   type;       /* buffer type */
 	int8_t                   event_type; /* for reuse as event */
 	uint16_t                 size;       /* max data size */
-	uint16_t                 uarea_size; /* size of user area */
 	void                    *uarea_addr; /* user area address */
 	odp_pool_t               pool_hdl;   /* buffer pool handle */
 	union {

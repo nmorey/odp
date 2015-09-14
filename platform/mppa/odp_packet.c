@@ -224,7 +224,7 @@ void *odp_packet_user_area(odp_packet_t pkt)
 
 uint32_t odp_packet_user_area_size(odp_packet_t pkt)
 {
-	return ((odp_packet_hdr_t *)pkt)->buf_hdr.uarea_size;
+	return odp_pool_to_entry(odp_packet_pool(pkt))->s.udata_size;
 }
 
 void *odp_packet_l2_ptr(odp_packet_t pkt, uint32_t *len)
@@ -598,13 +598,16 @@ void _odp_packet_copy_md_to_packet(odp_packet_t srcpkt, odp_packet_t dstpkt)
 	dsthdr->input = srchdr->input;
 	dsthdr->buf_hdr.buf_ctx = srchdr->buf_hdr.buf_ctx;
 	if (dsthdr->buf_hdr.uarea_addr &&
-	    srchdr->buf_hdr.uarea_addr)
+	    srchdr->buf_hdr.uarea_addr) {
+		uint16_t src_size = odp_pool_to_entry(srchdr->buf_hdr.pool_hdl)
+			->s.udata_size;
+		uint16_t dst_size = odp_pool_to_entry(dsthdr->buf_hdr.pool_hdl)
+			->s.udata_size;
+
 		memcpy(dsthdr->buf_hdr.uarea_addr,
 		       srchdr->buf_hdr.uarea_addr,
-		       dsthdr->buf_hdr.uarea_size <=
-		       srchdr->buf_hdr.uarea_size ?
-		       dsthdr->buf_hdr.uarea_size :
-		       srchdr->buf_hdr.uarea_size);
+		       dst_size <= src_size ? dst_size : src_size);
+	}
 	odp_atomic_store_u32(
 		&dsthdr->buf_hdr.ref_count,
 		odp_atomic_load_u32(
