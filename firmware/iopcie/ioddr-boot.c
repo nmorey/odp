@@ -21,12 +21,35 @@ struct clus_bin_boot {
 	const char *clus_argv[MAX_ARGS];
 	int clus_argc;
 	odp_rpc_t msg;
-	int status;
+	int sync_status;
 };
+
+static unsigned int clus_count = 0;
 
 struct clus_bin_boot clus_bin_boots[BSP_NB_CLUSTER_MAX] = {{0}};
 
-odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
+static int io_check_cluster_sync_status()
+{
+	unsigned int clus;
+	odp_rpc_cmd_ack_t ack = {.status = 0 };
+
+	/* Check that all clusters have synced */
+	for( clus = 0; clus < clus_count; clus++) {
+		if (clus_bin_boots[clus].sync_status == 0)
+			return 0;
+	}
+
+	/* If so ack them */
+	for (clus = 0; clus < clus_count; clus++) {
+		clus_bin_boots[clus].sync_status = 0;
+		printf("sending ack to %d\n", clus);
+		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);
+	}
+
+	return 1;
+}
+
+static odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
 	odp_rpc_cmd_ack_t ack = {.status = -1 };
 
@@ -34,48 +57,48 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 	case ODP_RPC_CMD_PCIE_OPEN:
 		return mppa_pcie_eth_open(remoteClus, msg);
 		break;
+	case ODP_RPC_CMD_BAS_SYNC:
+		printf("received sync req from clus %d\n", remoteClus);
+		clus_bin_boots[remoteClus].msg = *msg;
+		clus_bin_boots[remoteClus].sync_status = 1;
+		ack.status = 0;
+		break;
 	case ODP_RPC_CMD_BAS_INVL:
 	default:
 		fprintf(stderr, "[RPC] Error: Invalid MSG\n");
 		exit(EXIT_FAILURE);
 	}
+
 	return ack;
 }
 
-static void io_wait_cluster_sync(unsigned int clus_count)
+static void iopcie_rpc_poll()
 {
-	odp_rpc_t *tmp_msg;
-	odp_rpc_cmd_ack_t ack = {.status = 0};
-	unsigned int booted_clus = 0;
-	int clus;
-
 	while (1) {
-		clus = odp_rpc_server_poll_msg(&tmp_msg, NULL);
-		if(clus >= 0) {
-			if (tmp_msg->pkt_type != ODP_RPC_CMD_BAS_SYNC) {
-				printf("Receive invalid rpc pkt type\n");
-				exit(1);
-			}
-			clus_bin_boots[clus].msg = *tmp_msg;
-			booted_clus++;
-			if (booted_clus == clus_count) {
-				break;
-			}
+		int remoteClus;
+		odp_rpc_t *msg;
+
+		remoteClus = odp_rpc_server_poll_msg(&msg, NULL);
+		if(remoteClus < 0)
+			continue;
+
+		odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
+		/* If the command is a sync one, then wait for every clusters to be synced */
+		if (msg->pkt_type == ODP_RPC_CMD_BAS_SYNC) {
+			io_check_cluster_sync_status();
+		} else {
+			odp_rpc_server_ack(msg, ack);
 		}
-
-	}
-
-	for (clus = 0; clus < (int) clus_count; clus++) {
-		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);		
 	}
 }
 
+
 int main (int argc, char *argv[])
 {
-	int i, clus_count = 0, clus_status, opt;
+	unsigned int i;
+	int clus_status, opt;
 	int ret;
 	mppa_power_pid_t clus_pid[BSP_NB_CLUSTER_MAX];
-	uint64_t clus_mask = 0;
 
 	if (argc < 2) {
 		printf("Missing arguments\n");
@@ -83,7 +106,7 @@ int main (int argc, char *argv[])
 	}
 
 
-	while ((opt = getopt(argc, argv, "c:a:i:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:a:")) != -1) {
 		switch (opt) {
 		case 'c':
 			clus_bin_boots[clus_count].clus_bin = strdup(optarg);
@@ -95,9 +118,6 @@ int main (int argc, char *argv[])
 		case 'a':
 			clus_bin_boots[clus_count - 1].clus_argv[clus_bin_boots[clus_count].clus_argc] = strdup(optarg);
 			clus_bin_boots[clus_count - 1].clus_argc++;
-			break;
-		case 'i':
-			clus_bin_boots[clus_count - 1].clus_id = atoi(optarg);
 			break;
 		default: /* '?' */
 			fprintf(stderr, "Wrong arguments\n");
@@ -116,11 +136,6 @@ int main (int argc, char *argv[])
 
 	printf("Spawning %d clusters\n", clus_count);
 
-	for (i = 0; i < clus_count; i++)
-		clus_mask |= (1 << clus_bin_boots[i].clus_id);
-
-
-
 	for (i = 0; i < clus_count; i++) {
 		clus_bin_boots[i].clus_argv[clus_bin_boots[i].clus_argc] = NULL;
 		printf("Spawning %s on cluster %d with %d args\n", clus_bin_boots[i].clus_argv[0], clus_bin_boots[i].clus_id, clus_bin_boots[i].clus_argc);
@@ -134,10 +149,8 @@ int main (int argc, char *argv[])
 		}
 	}
 
-
-	io_wait_cluster_sync(clus_count);
-
 	/* Poll rpc and eth */
+	iopcie_rpc_poll();
 
 	for (i = 0; i < clus_count; i++) {
 		if (mppa_power_base_waitpid(clus_pid[i], &clus_status, 0) != clus_pid[i]) {
