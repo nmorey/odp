@@ -1,10 +1,10 @@
 include ../Makefile.inc
 
-noinst_LTLIBRARIES = libodprandom.la
-libodprandom_la_SOURCES = random.c
+noinst_LTLIBRARIES = libtestrandom.la
+libtestrandom_la_SOURCES = random.c
 
 bin_PROGRAMS = random_main$(EXEEXT)
 dist_random_main_SOURCES = random_main.c
-random_main_LDADD = libodprandom.la $(LIBCUNIT_COMMON) $(LIBODP)
+random_main_LDADD = libtestrandom.la $(LIBCUNIT_COMMON) $(LIBODP)
 
 EXTRA_DIST = random.h

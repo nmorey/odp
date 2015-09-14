@@ -233,6 +233,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->rx_config.dma_if = 0;
 	eth->rx_config.pool = pool;
 	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
+	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
 	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH);
 
 	ret = eth_rpc_send_eth_open(eth);
@@ -355,8 +356,6 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 		unsigned job_id = ctx->job_id++;
 		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
 
-		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
-
 		/* Wait for previous run(s) to complete */
 		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
 			int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
@@ -371,6 +370,8 @@ eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_
 			}
 			ctx->joined_jobs += ev_counter;
 		}
+		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
+
 		uc_conf.pointers = &uc_pointers;
 		uc_conf.event_counter = 0;
 

@@ -100,8 +100,8 @@ odpapiinclude_HEADERS = \
 		  $(top_srcdir)/include/odp/api/random.h \
 		  $(top_srcdir)/include/odp/api/rwlock.h \
 		  $(top_srcdir)/include/odp/api/schedule.h \
-		  $(top_srcdir)/include/odp/api/shared_memory.h \
 		  $(top_srcdir)/include/odp/api/schedule_types.h \
+		  $(top_srcdir)/include/odp/api/shared_memory.h \
 		  $(top_srcdir)/include/odp/api/spinlock.h \
 		  $(top_srcdir)/include/odp/api/std_types.h \
 		  $(top_srcdir)/include/odp/api/sync.h \
@@ -123,6 +123,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_classification_internal.h \
 		  $(srcdir)/include/odp_crypto_internal.h \
 		  $(srcdir)/include/odp_debug_internal.h \
+		  $(srcdir)/include/odp_forward_typedefs_internal.h \
 		  $(srcdir)/include/odp_internal.h \
 		  $(srcdir)/include/odp_packet_internal.h \
 		  $(srcdir)/include/odp_packet_io_internal.h \

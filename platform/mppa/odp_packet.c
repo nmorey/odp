@@ -320,14 +320,14 @@ int odp_packet_l4_offset_set(odp_packet_t pkt, uint32_t offset)
 	return 0;
 }
 
-int odp_packet_is_segmented(odp_packet_t pkt)
+int odp_packet_is_segmented(odp_packet_t pkt ODP_UNUSED)
 {
-	return ((odp_packet_hdr_t *)pkt)->buf_hdr.segcount > 1;
+	return 0;
 }
 
-int odp_packet_num_segs(odp_packet_t pkt)
+int odp_packet_num_segs(odp_packet_t pkt ODP_UNUSED)
 {
-	return ((odp_packet_hdr_t *)pkt)->buf_hdr.segcount;
+	return 1;
 }
 
 odp_packet_seg_t odp_packet_first_seg(odp_packet_t pkt)
@@ -365,7 +365,7 @@ void *odp_packet_seg_buf_addr(odp_packet_t pkt,
 uint32_t odp_packet_seg_buf_len(odp_packet_t pkt,
 				odp_packet_seg_t seg ODP_UNUSED)
 {
-	return ((odp_packet_hdr_t *)pkt)->buf_hdr.segsize;
+	return ((odp_packet_hdr_t *)pkt)->buf_hdr.size;
 }
 
 void *odp_packet_seg_data(odp_packet_t pkt,

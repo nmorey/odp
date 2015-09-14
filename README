@@ -10,7 +10,7 @@ OpenDataPlane (ODP) for MPPA project source code.
 Main git repository:
     https://github.com/kalray/odp-mppa.git
 
-Officiel ODP git repository:
+Official ODP git repository:
     git://git.linaro.org/lng/odp.git
 
 How to build:

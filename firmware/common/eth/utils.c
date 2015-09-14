@@ -393,15 +393,27 @@ static uint8_t reverse_byte(uint8_t x)
 					   uint32_t current_packet_size __attribute__ ((unused)),
 					   uint16_t * current_offset_per_field,
 					   uint8_t * current_hash_mask_per_field,
-					   uint8_t * current_min_max_mask, uint32_t nb_fields)
+					   uint8_t * current_min_max_mask)
 {
-
 	uint64_t extracted_values[10];
 	uint8_t hash_values[80];
 	int32_t i, j, l, v;
 	uint8_t xor_flags;
 	uint16_t crc = 0xFFFF;
-
+	uint32_t nb_fields;
+	if (__bsp_flavour == BSP_DEVELOPER)
+	{
+		nb_fields = BSP_ETH_NB_FIELD_PER_RULE_DEVELOPER;
+	}
+	else if (__bsp_flavour == BSP_ETH_530)
+	{
+		nb_fields = BSP_ETH_NB_FIELD_PER_RULE_ETH_530;
+	}
+	else
+	{
+		printf("Not supported platform\n");
+		exit(-1);
+	}
 	//Generate buffer of containing the value to hash
 	for (i = nb_fields - 1; i >= 0; i--) {
 		//Extract 64bits of the message at the correct offset

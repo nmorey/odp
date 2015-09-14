@@ -19,6 +19,7 @@
 #include <odp/hints.h>
 #include <odp_debug_internal.h>
 #include <odp_atomic_internal.h>
+#include <odp_packet_internal.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -299,6 +300,12 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 		/* Initialization will increment these to their target vals */
 		odp_atomic_store_u32(&pool->s.blkcount, 0);
 
+		/* Reset other pool globals to initial state */
+		pool->s.low_wm_assert = 0;
+		pool->s.quiesced = 0;
+		pool->s.headroom = headroom;
+		pool->s.tailroom = tailroom;
+
 		uint8_t *buf = udata_base_addr - buf_stride;
 		uint8_t *udat = udata_stride == 0 ? NULL :
 			udata_base_addr + udata_size - udata_stride;
@@ -320,8 +327,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			tmp->pool_hdl = (odp_pool_t)pool;
 			tmp->uarea_addr = (void *)udat;
 			tmp->uarea_size = p_udata_size;
-			tmp->segcount = 1;
-			tmp->segsize = pool->s.seg_size;
 
 			/* Set 1st seg addr for zero-len buffers */
 			tmp->addr = blk;
@@ -333,11 +338,6 @@ odp_pool_t odp_pool_create(const char *name, odp_pool_param_t *params)
 			blk -= pool->s.seg_size;
 		} while (buf >= mdata_base_addr && blk >= block_base_addr);
 
-		/* Reset other pool globals to initial state */
-		pool->s.low_wm_assert = 0;
-		pool->s.quiesced = 0;
-		pool->s.headroom = headroom;
-		pool->s.tailroom = tailroom;
 
 		/* Watermarks are hard-coded for now to control caching */
 		pool->s.high_wm = buf_num / 2;
@@ -419,7 +419,7 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	return 0;
 }
 
-odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
+static odp_anybuf_t *_buffer_alloc(odp_pool_t pool_hdl, size_t size)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
@@ -429,7 +429,7 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 	if ((pool->s.flags.unsegmented && totsize > pool->s.seg_size) ||
 	    (!pool->s.flags.unsegmented &&
 	     totsize > pool->s.seg_size * ODP_BUFFER_MAX_SEG))
-		return ODP_BUFFER_INVALID;
+		return NULL;
 
 	/* Try to satisfy request from the local cache */
 	if(POOL_HAS_LOCAL_CACHE)
@@ -441,27 +441,46 @@ odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 		int n_buf = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)&buf, 1);
 
 		if (odp_unlikely(n_buf == 0))
-			return ODP_BUFFER_INVALID;
+			return NULL;
 
 		/* Get blocks for this buffer, if pool uses application data */
 		if (buf->buf.size < totsize) {
-			return ODP_BUFFER_INVALID;
+			return NULL;
 		}
 	}
 
 	/* By default, buffers inherit their pool's zeroization setting */
 	buf->buf.flags.zeroized = pool->s.flags.zeroized;
 
+	/* By default, buffers are not associated with an ordered queue */
+	buf->buf.origin_qe = NULL;
+
+	return buf;
+}
+
+odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
+{
+	odp_anybuf_t *buf = (odp_anybuf_t *)_buffer_alloc(pool_hdl, size);
+
+	if (buf == NULL)
+		return ODP_BUFFER_INVALID;
+
 	if (buf->buf.type == ODP_EVENT_PACKET)
-		packet_init(pool, &buf->pkt, size);
+		packet_init(odp_pool_to_entry(pool_hdl), &buf->pkt, size);
 
 	return odp_hdr_to_buf(&buf->buf);
 }
 
 odp_buffer_t odp_buffer_alloc(odp_pool_t pool_hdl)
 {
-	return buffer_alloc(pool_hdl,
-			    odp_pool_to_entry(pool_hdl)->s.params.buf.size);
+	odp_anybuf_t * buf =
+		_buffer_alloc(pool_hdl,
+			      odp_pool_to_entry(pool_hdl)->s.params.buf.size);
+
+	if (buf == NULL)
+		return ODP_BUFFER_INVALID;
+
+	return 	odp_hdr_to_buf(&buf->buf);
 }
 
 void odp_buffer_free(odp_buffer_t buf)
@@ -548,4 +567,127 @@ odp_pool_t odp_buffer_pool(odp_buffer_t buf)
 void odp_pool_param_init(odp_pool_param_t *params)
 {
 	memset(params, 0, sizeof(odp_pool_param_t));
+}
+
+
+int get_buf_multi(struct pool_entry_s *pool, odp_buffer_hdr_t *buffers[],
+		  unsigned n_buffers)
+{
+	uint32_t cons_head, prod_tail, cons_next;
+	unsigned n_bufs;
+	if(n_buffers > POOL_MULTI_MAX)
+		n_buffers = POOL_MULTI_MAX;
+
+	do {
+		n_bufs = n_buffers;
+		cons_head =  odp_atomic_load_u32(&pool->cons_head);
+		prod_tail = odp_atomic_load_u32(&pool->prod_tail);
+		/* No Buf available */
+		if(cons_head == prod_tail){
+			return 0;
+		}
+
+		if(prod_tail > cons_head) {
+			/* Linear buffer list */
+			if(prod_tail - cons_head < n_bufs)
+				n_bufs = prod_tail - cons_head;
+		} else {
+			/* Go to the end of the buffer and look for more */
+			unsigned avail = prod_tail + (pool->buf_num + 1) - cons_head;
+			if(avail < n_bufs)
+				n_bufs = avail;
+		}
+		cons_next = cons_head + n_bufs;
+		if(cons_next > pool->buf_num)
+			cons_next = cons_next - (pool->buf_num + 1);
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->cons_head, &cons_head,
+						      cons_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			break;
+		}
+	} while(1);
+
+	for (unsigned i = 0, idx = cons_head; i < n_bufs; ++i, ++idx){
+		if(odp_unlikely(idx > pool->buf_num))
+			idx = idx - (pool->buf_num + 1);
+		buffers[i] = LOAD_PTR(pool->buf_ptrs[idx]);
+	}
+
+	while (odp_atomic_load_u32(&pool->cons_tail) != cons_head)
+		odp_spin();
+
+	odp_atomic_store_u32(&pool->cons_tail, cons_next);
+
+	if (POOL_HAS_LOCAL_CACHE) {
+		/* Check for low watermark condition */
+		uint32_t bufcount = prod_tail - cons_next;
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
+
+		if (bufcount <= pool->low_wm &&
+		    bufcount + n_buffers > pool->low_wm &&
+		    !LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 1);
+		}
+	}
+
+	return n_bufs;
+}
+
+void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buffers[],
+	     const unsigned n_buffers)
+{
+	uint32_t prod_head, cons_tail, prod_next;
+
+	if (pool->params.type == ODP_POOL_PACKET) {
+		for (unsigned i = 0; i < n_buffers; ++i) {
+			packet_init((pool_entry_t *)pool,
+				    (odp_packet_hdr_t*)buffers[i],
+				    pool->params.pkt.len);
+		}
+	}
+	__builtin_k1_wpurge();
+
+	do {
+		prod_head =  odp_atomic_load_u32(&pool->prod_head);
+
+		prod_next = prod_head + n_buffers;
+		if(prod_next > pool->buf_num)
+			prod_next = prod_next - (pool->buf_num + 1);
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&pool->prod_head, &prod_head,
+						      prod_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			cons_tail = odp_atomic_load_u32(&pool->cons_tail);
+			break;
+
+		}
+	} while(1);
+
+	for (unsigned i = 0, idx = prod_head; i < n_buffers; ++i, ++idx) {
+		if(odp_unlikely(idx > pool->buf_num))
+			idx = idx - (pool->buf_num + 1);
+
+		STORE_PTR(pool->buf_ptrs[idx], buffers[i]);
+	}
+	while (odp_atomic_load_u32(&pool->prod_tail) != prod_head)
+		odp_spin();
+
+	odp_atomic_store_u32(&pool->prod_tail, prod_next);
+
+	if(POOL_HAS_LOCAL_CACHE) {
+		/* Check if low watermark condition should be deasserted */
+		uint32_t bufcount = (prod_next - cons_tail);
+		if(bufcount > pool->buf_num)
+			bufcount += pool->buf_num;
+
+		if (bufcount >= pool->high_wm &&
+		    bufcount - n_buffers < pool->high_wm &&
+		    LOAD_U32(pool->low_wm_assert)) {
+			STORE_U32(pool->low_wm_assert, 0);
+		}
+	}
 }

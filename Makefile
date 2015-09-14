@@ -1,5 +1,8 @@
 all: build
 
+ifdef VERBOSE
+DEBUG_CONF_FLAGS := --enable-debug-print
+endif
 ifdef DEBUG
 DEBUG_CONF_FLAGS := --enable-debug-print --enable-debug
 endif

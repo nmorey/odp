@@ -52,6 +52,18 @@ typedef struct mppa_ethernet_header_s {
 	union mppa_ethernet_header_info_t info;
 } mppa_ethernet_header_t;
 
+static inline void mppa_ethernet_header_print(const mppa_ethernet_header_t *hdr)
+{
+	printf("EthPkt %p => {Size=%d,Hash=%d,Lane=%d,IO=%d,Rule=%03d,Id=%04d} @ %llu\n",
+	       hdr,
+	       hdr->info._.pkt_size,
+	       hdr->info._.hash_key,
+	       hdr->info._.lane_id,
+	       hdr->info._.io_id,
+	       hdr->info._.rule_id,
+	       hdr->info._.pkt_id, hdr->timestamp);
+}
+
 int rx_thread_init(void);
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports);
 int rx_thread_link_close(uint8_t pktio_id);

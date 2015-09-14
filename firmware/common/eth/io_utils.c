@@ -3,7 +3,7 @@
 #include "io_utils.h"
 #include "qsfp_utils.h"
 
-static mppa_88E1111_interface_t i2c_ifce;
+static mppa_88E1111_interface_t ifce_88E1111;
 static int phy_status = -1;
 
 static struct {
@@ -74,7 +74,6 @@ void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	mppabeth_phy_cfg_tx_pstate((void *) mppa_eth_pcie_csr[0], 0, PHY_SERDES_PSTATE_P0);
 	for(i = 1; i < 4 ; i++){
       	if(((serdes_lane_valid >> i) & 1) == 1) {
-			printf("Set state %d\n",i);
 			mppabeth_phy_cfg_rx_pstate((void *) mppa_eth_pcie_csr[0], i, PHY_SERDES_PSTATE_P0);
 			mppabeth_phy_cfg_tx_pstate((void *) mppa_eth_pcie_csr[0], i, PHY_SERDES_PSTATE_P0);
 		}
@@ -98,9 +97,7 @@ void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	mppabeth_mac_disable_reset((void *) &(mppa_ethernet[0]->mac));
 	for(i = 0; i < 4 ; i++){
 		if(((serdes_lane_valid >> i) & 1) == 1) {
-			printf("Enable clk %d\n",i);
 			mppabeth_phy_enable_clk((void *) mppa_eth_pcie_csr[0], i);
-			printf("clk valid = %x\n", mppa_eth_pcie_csr[0]->clk_valid.word);
 		}
 	}
 }
@@ -164,7 +161,16 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 		if (mode != MPPA_ETH_MAC_ETHMODE_1G)
 			return -EINVAL;
 
-		mppa_eth_mdio_synchronize();
+		ifce_88E1111.mdio_master.mppa_clk_period_ps = 50000;
+		ifce_88E1111.chip_id = 0;
+		ifce_88E1111.context = (void *) (&(ifce_88E1111.mdio_master));
+		ifce_88E1111.mppa_88E1111_read = (void *) mppa_eth_mdio_read;
+		ifce_88E1111.mppa_88E1111_write = (void *) mppa_eth_mdio_write;
+
+		mppa_eth_mdio_init(ifce_88E1111.chip_id);
+		mppa_88E1111_configure(&ifce_88E1111);
+		mppa_88E1111_synchronize(&ifce_88E1111);
+
 		break;
 	case BSP_DEVELOPER:
 		/* Only 1G is working for the moment */
@@ -176,24 +182,24 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 					return -EINVAL;
 				}
 				ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
-				i2c_ifce.i2c_master = ethernet_i2c_master;
-				i2c_ifce.i2c_bus = 2;
-				i2c_ifce.i2c_coma_pin = 12 + 3 * (lane_id % 2);
-				i2c_ifce.i2c_reset_n_pin = 13 + 3 * (lane_id % 2);
-				i2c_ifce.i2c_int_n_pin = 14;
-				i2c_ifce.i2c_gic = 0;
-				i2c_ifce.chip_id = 0x40 + lane_id % 2; /* Lane 2 is chip 0x40, Lane 3 0x41 */
+				ifce_88E1111.i2c_master = ethernet_i2c_master;
+				ifce_88E1111.i2c_bus = 2;
+				ifce_88E1111.i2c_coma_pin = 12 + 3 * (lane_id % 2);
+				ifce_88E1111.i2c_reset_n_pin = 13 + 3 * (lane_id % 2);
+				ifce_88E1111.i2c_int_n_pin = 14;
+				ifce_88E1111.i2c_gic = 0;
+				ifce_88E1111.chip_id = 0x40 + lane_id % 2; /* Lane 2 is chip 0x40, Lane 3 0x41 */
 
-				mppa_i2c_init(i2c_ifce.i2c_master,
-						  i2c_ifce.i2c_bus,
-						  i2c_ifce.i2c_coma_pin,
-						  i2c_ifce.i2c_reset_n_pin, i2c_ifce.i2c_int_n_pin, i2c_ifce.i2c_gic);
-				i2c_ifce.context = i2c_ifce.i2c_master;
-				i2c_ifce.mppa_88E1111_read = mppa_i2c_register_read;
-				i2c_ifce.mppa_88E1111_write = mppa_i2c_register_write;
+				mppa_i2c_init(ifce_88E1111.i2c_master,
+						  ifce_88E1111.i2c_bus,
+						  ifce_88E1111.i2c_coma_pin,
+						  ifce_88E1111.i2c_reset_n_pin, ifce_88E1111.i2c_int_n_pin, ifce_88E1111.i2c_gic);
+				ifce_88E1111.context = ifce_88E1111.i2c_master;
+				ifce_88E1111.mppa_88E1111_read = mppa_i2c_register_read;
+				ifce_88E1111.mppa_88E1111_write = mppa_i2c_register_write;
 
-				mppa_88E1111_configure(&i2c_ifce);
-				if (mppa_88E1111_synchronize(&i2c_ifce)) {
+				mppa_88E1111_configure(&ifce_88E1111);
+				if (mppa_88E1111_synchronize(&ifce_88E1111)) {
 					return -EIO;
 				}
 				break;
@@ -223,15 +229,22 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 
 	if(mode == MPPA_ETH_MAC_ETHMODE_1G) {
 		uint8_t rate;
-		if (mppa_88E1111_copper_get_real_rate(&i2c_ifce, &rate) == -1) {
+		if (mppa_88E1111_copper_get_real_rate(&ifce_88E1111, &rate) == -1) {
 #ifdef VERBOSE
 			printf("Link %d autoneg failed\n", lane_id);
 #endif
 			return -ENETDOWN;
 		}
+#ifdef VERBOSE
+		uint8_t duplex;
+		mppa_88E1111_copper_get_duplex_mode(&ifce_88E1111, &duplex);
+		printf("Link at %s with %s-duplex\n", 
+				  rate == MPPA_ETH_MAC_SGMIIRATE_10MB ? "10mbit/s" 
+				: rate == MPPA_ETH_MAC_SGMIIRATE_100MB ? "100mbit/s"
+			    : "1Gbit/s", duplex == 1 ? "Full" : "Half" );
+#endif
 		mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), rate);
 	}
-
 	//Basic mac settings
 	mppabeth_mac_enable_rx_check_sfd((void *)&(mppa_ethernet[0]->mac));
 	mppabeth_mac_enable_rx_check_preambule((void *)&(mppa_ethernet[0]->mac));
@@ -590,16 +603,4 @@ int dump_registers()
 	return status;
 }
 
-void mppa_eth_mdio_synchronize()
-{
-	mppa_88E1111_interface_t mdio_ifce;
-	mdio_ifce.mdio_master.mppa_clk_period_ps = 50000;
-	mdio_ifce.chip_id = 0;
-	mdio_ifce.context = (void *) (&(mdio_ifce.mdio_master));
-	mdio_ifce.mppa_88E1111_read = (void *) mppa_eth_mdio_read;
-	mdio_ifce.mppa_88E1111_write = (void *) mppa_eth_mdio_write;
 
-	mppa_eth_mdio_init(mdio_ifce.chip_id);
-	mppa_88E1111_configure(&mdio_ifce);
-	mppa_88E1111_synchronize(&mdio_ifce);
-}
