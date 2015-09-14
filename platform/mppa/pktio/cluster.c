@@ -224,40 +224,15 @@ static int cluster_configure_cnoc_tx(int clus_id, int tag)
 	return 0;
 }
 
-static int cluster_io_sync(void)
-{
-	unsigned cluster_id = __k1_get_cluster_id();
-	odp_rpc_t *ack_msg;
-
-	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_BAS_SYNC,
-		.data_len = 0,
-		.flags = 0,
-	};
-
-	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
-			odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
-			 &cmd, NULL);
-
-	odp_rpc_wait_ack(&ack_msg, NULL);
-
-	return 0;
-}
-
 static int cluster_init(void)
 {
 	mppacl_init_available_clusters();
-
 
 	if (cluster_init_noc_rx())
 		return 1;
 
 	if (cluster_init_noc_tx())
 		return 1;
-
-	/* We need to sync only when spawning from another IO */
-	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
-		cluster_io_sync();
 
 	return 0;
 }
