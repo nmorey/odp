@@ -66,6 +66,11 @@ typedef struct rx_thread {
 	rx_thread_data_t th_data[N_RX_THR];
 } rx_thread_t;
 
+typedef struct {
+	odp_buffer_hdr_t  *head;
+	odp_buffer_hdr_t **tail;
+} rx_buffer_list_t;
+
 static rx_thread_t rx_thread_hdl;
 
 static inline int MIN(int a, int b)
@@ -237,8 +242,7 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 }
 
 static void _poll_mask(rx_thread_t *th, int th_id,
-		      odp_buffer_hdr_t *hdr_tbl[][QUEUE_MULTI_MAX],
-		      int nbr_qentry[MAX_RX_IF], int rx_id)
+		       rx_buffer_list_t hdr_list[], int rx_id)
 {
 	const int pktio_id = th->tag2id[rx_id];
 	const rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
@@ -277,16 +281,8 @@ static void _poll_mask(rx_thread_t *th, int th_id,
 		/* Packet was corrupted */
 		return;
 
-	hdr_tbl[pktio_id][nbr_qentry[pktio_id]++] = (odp_buffer_hdr_t *)pkt;
-
-	if (MAX_RX_P_LINK / N_RX_THR > QUEUE_MULTI_MAX &&
-	    nbr_qentry[pktio_id] == QUEUE_MULTI_MAX){
-		queue_entry_t *qentry;
-
-		qentry = queue_to_qentry(if_data->rx_config.queue);
-		queue_enq_multi(qentry, hdr_tbl[pktio_id], QUEUE_MULTI_MAX, 0);
-		nbr_qentry[pktio_id] = 0;
-	}
+	*(hdr_list[pktio_id].tail) = (odp_buffer_hdr_t *)pkt;
+	hdr_list[pktio_id].tail = &((odp_buffer_hdr_t *)pkt)->next;
 
 	return;
 }
@@ -296,10 +292,13 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 	int i;
 	uint64_t mask = 0;
 
-	odp_buffer_hdr_t *hdr_tbl[MAX_RX_IF][QUEUE_MULTI_MAX];
-	int nbr[MAX_RX_IF] = {0};
+	rx_buffer_list_t hdr_list[MAX_RX_IF];
 	const rx_thread_data_t *th_data = &th->th_data[th_id];
 
+	for (i = 0; i < MAX_RX_IF; ++i) {
+		hdr_list[i].head = NULL;
+		hdr_list[i].tail = &hdr_list[i].head;
+	}
 	for (i = th_data->min_mask; i <= th_data->max_mask; ++i) {
 		mask = mppa_dnoc[th->dma_if]->rx_global.events[i].dword &
 			th_data->ev_masks[i];
@@ -313,16 +312,20 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			_poll_mask(th, th_id, hdr_tbl, nbr, rx_id);
+			_poll_mask(th, th_id, hdr_list, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
 
-		if (!nbr[i])
+		if (!hdr_list[i].head)
 			continue;
 		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
-		queue_enq_multi(qentry, hdr_tbl[i], nbr[i], 0);
+
+		odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
+			((uint8_t*)hdr_list[i].tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
+		tail->next = NULL;
+		queue_enq_list(qentry, hdr_list[i].head, tail);
 	}
 	return;
 }
