@@ -116,13 +116,7 @@ typedef struct {
 	uint16_t l3_offset; /**< offset to L3 hdr, e.g. IPv4, IPv6 */
 	uint16_t l4_offset; /**< offset to L4 hdr (TCP, UDP, SCTP, also ICMP) */
 	uint16_t payload_offset; /**< offset to payload */
-
-	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
-	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
-	uint16_t l3_protocol;    /**< Parsed L3 protocol */
-	uint16_t l3_len;         /**< Layer 3 length */
 	uint16_t l4_protocol;    /**< Parsed L4 protocol */
-	uint16_t l4_len;         /**< Layer 4 length */
 
 	uint16_t frame_len;
 	uint16_t headroom;
@@ -132,6 +126,19 @@ typedef struct {
 
 	odp_crypto_generic_op_result_t op_result;  /**< Result for crypto */
 } odp_packet_hdr_t;
+
+typedef struct {
+	uint8_t *parseptr;
+	uint32_t offset;
+	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
+	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
+
+	uint16_t l3_protocol;    /**< Parsed L3 protocol */
+	uint16_t l3_len;
+
+	uint16_t l4_len;
+
+} odp_packet_parsing_ctx_t;
 
 typedef struct odp_packet_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_packet_hdr_t))];
@@ -193,12 +200,7 @@ static inline void copy_packet_parser_metadata(odp_packet_hdr_t *src_hdr,
 	dst_hdr->l4_offset      = src_hdr->l4_offset;
 	dst_hdr->payload_offset = src_hdr->payload_offset;
 
-	dst_hdr->vlan_s_tag     = src_hdr->vlan_s_tag;
-	dst_hdr->vlan_c_tag     = src_hdr->vlan_c_tag;
-	dst_hdr->l3_protocol    = src_hdr->l3_protocol;
-	dst_hdr->l3_len         = src_hdr->l3_len;
 	dst_hdr->l4_protocol    = src_hdr->l4_protocol;
-	dst_hdr->l4_len         = src_hdr->l4_len;
 }
 
 static inline void *packet_map(odp_packet_hdr_t *pkt_hdr,
