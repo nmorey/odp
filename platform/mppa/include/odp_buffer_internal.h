@@ -84,14 +84,13 @@ struct odp_buffer_hdr_t {
 	uint16_t                 uarea_size; /* size of user area */
 	void                    *uarea_addr; /* user area address */
 	odp_pool_t               pool_hdl;   /* buffer pool handle */
-	odp_atomic_u32_t         ref_count;  /* reference count */
 	union {
-		uint64_t         buf_u64;    /* user u64 */
 		void            *buf_ctx;    /* user context */
 		const void      *buf_cctx;   /* const alias for ctx */
 	};
 	void                    *addr;       /* block addrs */
 	queue_entry_t           *origin_qe;  /* ordered queue origin */
+	odp_atomic_u32_t         ref_count;  /* reference count */
 	uint64_t                 order;      /* sequence for ordered queues */
 	union {
 		queue_entry_t   *target_qe;  /* ordered queue target */

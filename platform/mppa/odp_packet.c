@@ -596,7 +596,7 @@ void _odp_packet_copy_md_to_packet(odp_packet_t srcpkt, odp_packet_t dstpkt)
 	odp_packet_hdr_t *dsthdr = odp_packet_hdr(dstpkt);
 
 	dsthdr->input = srchdr->input;
-	dsthdr->buf_hdr.buf_u64 = srchdr->buf_hdr.buf_u64;
+	dsthdr->buf_hdr.buf_ctx = srchdr->buf_hdr.buf_ctx;
 	if (dsthdr->buf_hdr.uarea_addr &&
 	    srchdr->buf_hdr.uarea_addr)
 		memcpy(dsthdr->buf_hdr.uarea_addr,
