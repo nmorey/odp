@@ -66,10 +66,6 @@ extern "C" {
 /* Common buffer header */
 struct odp_buffer_hdr_t {
 	struct odp_buffer_hdr_t *next;       /* next buf in a list--keep 1st */
-	union {                              /* Multi-use secondary link */
-		struct odp_buffer_hdr_t *prev;
-		struct odp_buffer_hdr_t *link;
-	};
 	union {
 		uint16_t all;
 		struct {
@@ -92,7 +88,10 @@ struct odp_buffer_hdr_t {
 	odp_atomic_u32_t         ref_count;  /* reference count */
 	uint64_t                 order;      /* sequence for ordered queues */
 	union {
-		queue_entry_t   *target_qe;  /* ordered queue target */
+		struct {
+			queue_entry_t   *target_qe;  /* ordered queue target */
+			struct odp_buffer_hdr_t *link;
+		};
 		uint64_t         sync;       /* for ordered synchronization */
 	};
 };
