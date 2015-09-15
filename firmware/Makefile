@@ -14,6 +14,7 @@ else
 _CFLAGS    += -O2
 endif
 
+ifndef INCLUDING_FIRMWARE
 BIN      := $(BUILDDIR)/$(FIRMDIR).kelf
 INSTBIN  := $(INSTDIR)/$(FIRMDIR).kelf
 all: $(BIN)
@@ -31,3 +32,4 @@ $(INSTBIN): $(BIN)
 
 valid:
 long:
+endif
