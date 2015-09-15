@@ -283,8 +283,9 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 			    void *mac_addr ODP_UNUSED)
 {
-	/* FIXME */
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	memcpy(mac_addr, eth->mac_addr, ETH_ALEN);
+	return ETH_ALEN;
 }
 
 static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
@@ -399,7 +400,8 @@ static int pcie_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
 }
 
 static int pcie_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	return eth->mtu;
 }
 const pktio_if_ops_t pcie_pktio_ops = {
 	.init = pcie_init,
