@@ -362,6 +362,17 @@ static int _queue_enq_update(queue_entry_t *queue, odp_buffer_hdr_t *head,
 	return 0;
 }
 
+int queue_enq_list(queue_entry_t *queue, odp_buffer_hdr_t *head,
+		   odp_buffer_hdr_t *tail){
+
+	LOCK(queue);
+
+	_queue_enq_update(queue, head, tail, QUEUE_STATUS_READY);
+
+	UNLOCK(queue);
+
+	return 0;
+}
 static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 			      int sustain, uint64_t order,
 			      queue_entry_t *origin_qe)

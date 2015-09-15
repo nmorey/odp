@@ -1,12 +1,16 @@
 #ifndef __FIRMWARE__IOETH__RPC__H__
 #define __FIRMWARE__IOETH__RPC__H__
 
+#include <odp/debug.h>
+
 #ifndef BSP_NB_DMA_IO_MAX
 #define BSP_NB_DMA_IO_MAX 8
 #endif
 
 #define RPC_BASE_RX 10
 #define RPC_MAX_PAYLOAD 128 /* max payload in bytes */
+
+#define ETH_ALEN 6
 
 typedef struct {
 	uint64_t data[4];
@@ -33,7 +37,8 @@ typedef enum {
 	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */,
 	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
-	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */
+	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */,
+	ODP_RPC_CMD_N_CMD        /**< Number of commands */
 } odp_rpc_cmd_e;
 
 
@@ -46,32 +51,51 @@ typedef union {
 	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_eth_open_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_OPEN_T__SIZE_ERROR");
 
 typedef odp_rpc_cmd_eth_open_t odp_rpc_cmd_pcie_open_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_OPEN_T__SIZE_ERROR");
+
 
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
 	};
 	odp_rpc_inl_data_t inl_data;
-} odp_rpc_cmd_clos_t;
+} odp_rpc_cmd_eth_clos_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_CLOS_T__SIZE_ERROR");
 
-typedef odp_rpc_cmd_clos_t odp_rpc_cmd_pcie_clos_t;
+typedef odp_rpc_cmd_eth_clos_t odp_rpc_cmd_pcie_clos_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_CLOS_T__SIZE_ERROR");
 
-typedef struct {
-	uint8_t status;
+
+typedef union {
+	struct {
+		uint8_t status;
+	};
 	union {
 		struct {
 			uint16_t tx_if;	/* IO Cluster id */
-			uint8_t tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  mac[ETH_ALEN];
+			uint16_t mtu;
 		} eth_open;
 		struct {
 			uint16_t tx_if;	/* IO Cluster id */
-			uint8_t tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  mac[ETH_ALEN];
+			uint16_t mtu;
 		} pcie_open;
 	} cmd;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
+
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_ack_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ACK_T__SIZE_ERROR");
 
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
 	switch(ddr_id){

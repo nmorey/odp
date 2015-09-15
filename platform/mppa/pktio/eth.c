@@ -156,7 +156,7 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 		.inl_data = open_cmd.inl_data,
 		.flags = 0,
 	};
-	
+
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(eth->slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(eth->slot_id, cluster_id),
 			 &cmd, NULL);
@@ -170,6 +170,8 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 
 	eth->tx_if = ack.cmd.eth_open.tx_if;
 	eth->tx_tag = ack.cmd.eth_open.tx_tag;
+	memcpy(eth->mac_addr, ack.cmd.eth_open.mac, 6);
+	eth->mtu = ack.cmd.eth_open.mtu;
 
 	return 0;
 }
@@ -251,7 +253,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
 
-	odp_rpc_cmd_clos_t close_cmd = {
+	odp_rpc_cmd_eth_clos_t close_cmd = {
 		{
 			.ifId = eth->port_id = port_id
 
@@ -279,11 +281,12 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	return ack.status;
 }
 
-static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
-			    void *mac_addr ODP_UNUSED)
+static int eth_mac_addr_get(pktio_entry_t *pktio_entry,
+			    void *mac_addr)
 {
-	/* FIXME */
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	memcpy(mac_addr, eth->mac_addr, ETH_ALEN);
+	return ETH_ALEN;
 }
 
 
@@ -401,7 +404,8 @@ static int eth_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
 }
 
 static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	return eth->mtu;
 }
 const pktio_if_ops_t eth_pktio_ops = {
 	.init = eth_init,
