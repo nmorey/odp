@@ -58,16 +58,30 @@ int odp_rpc_client_term(void){
 	return 0;
 }
 
+static const char * rpc_cmd_names[ODP_RPC_CMD_N_CMD] = {
+	[ODP_RPC_CMD_BAS_INVL] = "INVALID",
+	[ODP_RPC_CMD_BAS_PING] = "PING",
+	[ODP_RPC_CMD_BAS_SYNC] = "SYNC",
+	[ODP_RPC_CMD_ETH_OPEN] = "ETH OPEN",
+	[ODP_RPC_CMD_ETH_CLOS] = "ETH CLOSE",
+	[ODP_RPC_CMD_PCIE_OPEN] = "PCIE OPEN",
+	[ODP_RPC_CMD_PCIE_CLOS] = "PCIE CLOSE",
+};
 void odp_rpc_print_msg(const odp_rpc_t * cmd)
 {
+	if (cmd->pkt_type >=  ODP_RPC_CMD_N_CMD) {
+		printf("Invalid Packet ! Type = %d\n", cmd->pkt_type);
+		return;
+	}
 	printf("RPC CMD:\n"
-	       "\tType: %u\n"
+	       "\tType: %u | %s\n"
 	       "\tData: %u\n"
 	       "\tDMA : %u\n"
 	       "\tTag : %u\n"
 	       "\tFlag: %x\n"
 	       "\tInl Data:\n",
-	       cmd->pkt_type, cmd->data_len, cmd->dma_id,
+	       cmd->pkt_type, rpc_cmd_names[cmd->pkt_type],
+	       cmd->data_len, cmd->dma_id,
 	       cmd->dnoc_tag, cmd->flags);
 	if (cmd->ack) {
 		odp_rpc_cmd_ack_t ack = { .inl_data = cmd->inl_data };
