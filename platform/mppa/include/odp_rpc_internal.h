@@ -67,9 +67,10 @@ typedef union {
 	};
 	struct {
 		uint8_t  status;
-		uint16_t eth_tx_if;
 		uint8_t  eth_tx_tag;
+		uint16_t eth_tx_if;
 		uint8_t  eth_mac[ETH_ALEN];
+		uint16_t eth_mtu;
 	} open;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
