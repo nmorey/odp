@@ -170,6 +170,8 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 
 	pcie->tx_if = ack.cmd.pcie_open.tx_if;
 	pcie->tx_tag = ack.cmd.pcie_open.tx_tag;
+	memcpy(pcie->mac_addr, ack.cmd.pcie_open.mac, 6);
+	pcie->mtu = ack.cmd.pcie_open.mtu;
 
 	return 0;
 }
