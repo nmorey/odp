@@ -10,6 +10,8 @@
 #define RPC_BASE_RX 10
 #define RPC_MAX_PAYLOAD 128 /* max payload in bytes */
 
+#define ETH_ALEN 6
+
 typedef struct {
 	uint64_t data[4];
 } odp_rpc_inl_data_t;
@@ -64,9 +66,10 @@ typedef union {
 		uint8_t status;
 	};
 	struct {
-		uint8_t status;
+		uint8_t  status;
 		uint16_t eth_tx_if;
-		uint8_t eth_tx_tag;
+		uint8_t  eth_tx_tag;
+		uint8_t  eth_mac[ETH_ALEN];
 	} open;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;

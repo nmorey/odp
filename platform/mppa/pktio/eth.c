@@ -208,6 +208,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->header._.tag = eth->tx_tag;
 	eth->header._.valid = 1;
 
+	memcpy(eth->mac_addr, ack.open.eth_mac, 6);
 	return ack.status;
 }
 

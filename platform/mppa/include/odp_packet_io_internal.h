@@ -74,6 +74,7 @@ typedef struct {
 typedef struct {
 	odp_pool_t pool;                /**< pool to alloc packets from */
 	odp_spinlock_t wlock;           /**< Tx lock */
+	uint8_t mac_addr[ETH_ALEN];     /**< Interface Mac address */
 	/* Rx Data */
 	rx_config_t rx_config;
 
