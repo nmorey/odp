@@ -15,7 +15,7 @@ CUNIT_INST_DIR:= $(TOP_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/
 MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
 MAKE_DEPS:= $(MAKE_AMS) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
-FIRMWARES := boot ioeth iounified
+FIRMWARES := iopcie ioeth iounified
 RULE_LIST_SERIAL   :=  install valid long
 RULE_LIST_PARALLEL := clean configure build
 RULE_LIST := $(RULE_LIST_SERIAL) $(RULE_LIST_PARALLEL)

@@ -12,11 +12,14 @@
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
+#include "../ucode_fw/odp_ucode_linear.h"
+
+#include "odp_rpc_internal.h"
+
 #include <unistd.h>
 
-#define DNOC_CLUS_BASE_RX	0
+#define DNOC_CLUS_BASE_RX	1
 
-#define CNOC_CLUS_SYNC_RX_ID	16
 #define CNOC_CLUS_BASE_RX_ID	0
 
 #define NOC_CLUS_IFACE_ID	0
@@ -37,15 +40,6 @@ struct cluster_pkt_header {
 };
 
 #define ODP_CLUS_DBG(fmt, ...)	ODP_DBG("[Clus %d] " fmt, __k1_get_cluster_id(), ##__VA_ARGS__)
-
-/** \brief odp_ucode_linear
- * linear transfer
- * arg0: number of 64 bits elements
- * arg1: number of 8 bits elements (payload size)
- * arg2: destination offset
- * arg3: local offset
- */
-extern unsigned long long odp_ucode_linear[] __attribute__((aligned(128)));
 
 /**
  * Node availability
@@ -146,33 +140,6 @@ static int cluster_init_cnoc_rx(int clus_id)
 	return 0;
 }
 
-static int cluster_init_io_cnoc_sync_rx(void)
-{
-#ifdef __k1b__
-	mppa_cnoc_mailbox_notif_t notif = {0};
-#endif
-	mppa_noc_ret_t ret;
-	mppa_noc_cnoc_rx_configuration_t conf = {0};
-
-	conf.mode = MPPA_NOC_CNOC_RX_BARRIER;
-	/* We only wait for a 1 value from IO */
-	conf.init_value = ~1;
-
-	/* CNoC */
-	ret = mppa_noc_cnoc_rx_alloc(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		return 1;
-
-	ret = mppa_noc_cnoc_rx_configure(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID, conf
-#ifdef __k1b__
-		, &notif
-#endif
-	);
-	if (ret != MPPA_NOC_RET_SUCCESS)
-		return 1;
-
-	return 0;
-}
 
 static int cluster_init_noc_rx(void)
 {
@@ -187,8 +154,6 @@ static int cluster_init_noc_rx(void)
 		if (cluster_init_cnoc_rx(clus_id))
 			return 1;
 	}
-
-	cluster_init_io_cnoc_sync_rx();
 
 	return 0;
 }
@@ -259,24 +224,6 @@ static int cluster_configure_cnoc_tx(int clus_id, int tag)
 	return 0;
 }
 
-static int cluster_io_sync(void)
-{
-	uint64_t value = 1 << __k1_get_cluster_id();
-
-	if (cluster_configure_cnoc_tx(NOC_IODDR0_ID, CNOC_CLUS_SYNC_RX_ID) != 0)
-		return 1;
-
-	mppa_noc_cnoc_tx_push_eot(NOC_CLUS_IFACE_ID, g_cnoc_tx_id, value);
-
-#ifdef __k1b__
-	while(mppa_noc_cnoc_rx_get_value(NOC_CLUS_IFACE_ID, CNOC_CLUS_SYNC_RX_ID) != 0);
-#else
-	mppa_noc_wait_clear_event(NOC_CLUS_IFACE_ID, MPPA_NOC_INTERRUPT_LINE_CNOC_RX, CNOC_CLUS_SYNC_RX_ID);
-#endif
-
-	return 0;
-}
-
 static int cluster_init(void)
 {
 	mppacl_init_available_clusters();
@@ -286,10 +233,6 @@ static int cluster_init(void)
 
 	if (cluster_init_noc_tx())
 		return 1;
-
-	/* We need to sync only when spawning from another IO */
-	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
-		cluster_io_sync();
 
 	return 0;
 }

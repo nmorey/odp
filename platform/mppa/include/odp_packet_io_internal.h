@@ -46,7 +46,6 @@ extern "C" {
 
 /* Forward declaration */
 struct pktio_if_ops;
-struct eth_status;
 
 typedef struct {
 	int clus_id;			/**< Cluster ID */
@@ -93,6 +92,8 @@ typedef struct {
 	mppa_dnoc_channel_config_t config;
 } pkt_eth_t;
 
+typedef pkt_eth_t pkt_pcie_t;
+
 struct pktio_entry {
 	const struct pktio_if_ops *ops; /**< Implementation specific methods */
 	odp_rwlock_t lock;		/**< entry RW lock */
@@ -111,6 +112,7 @@ struct pktio_entry {
 		pkt_loop_t pkt_loop;
 		pkt_cluster_t pkt_cluster;
 		pkt_eth_t pkt_eth;
+		pkt_pcie_t pkt_pcie;
 	};
 	enum {
 		STATE_START = 0,

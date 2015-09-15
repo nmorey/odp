@@ -77,7 +77,7 @@ static inline void _eth_status_init(eth_status_t * status)
 odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0};
-	odp_rpc_cmd_open_t data = { .inl_data = msg->inl_data };
+	odp_rpc_cmd_eth_open_t data = { .inl_data = msg->inl_data };
 	const int nocIf = get_eth_dma_id(remoteClus);
 	volatile mppa_dnoc_min_max_task_id_t *context;
 	mppa_dnoc_header_t header = { 0 };
@@ -171,7 +171,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 						  eth_if, nocIf - 4, nocTx,
 						  (1 << ETH_DEFAULT_CTX));
 
-	/* Now deal with Tx */
+	/* Now deal with Rx */
 	unsigned rx_port;
 	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
@@ -203,8 +203,8 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 
 	status[eth_if].cluster[remoteClus].rx_tag = rx_port;
 
-	ack.open.eth_tx_if = externalAddress;
-	ack.open.eth_tx_tag = rx_port;
+	ack.cmd.eth_open.tx_if = externalAddress;
+	ack.cmd.eth_open.tx_tag = rx_port;
 
 	return ack;
 
@@ -219,7 +219,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
-	odp_rpc_cmd_clos_t data = { .inl_data = msg->inl_data };
+	odp_rpc_cmd_eth_clos_t data = { .inl_data = msg->inl_data };
 	const uint32_t nocIf = get_eth_dma_id(remoteClus);
 	const int nocTx = status[data.ifId].cluster[remoteClus].txId;
 	const unsigned int eth_if = data.ifId % 4; /* 4 is actually 0 in 40G mode */

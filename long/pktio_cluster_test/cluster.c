@@ -53,7 +53,7 @@ static int default_pool_create(void)
 	return 0;
 }
 
-static odp_pktio_t create_pktio(const char *iface, int num)
+static odp_pktio_t create_pktio(const char *iface)
 {
 	odp_pktio_t pktio;
 	odp_pktio_param_t pktio_param;
@@ -75,7 +75,7 @@ static void pktio_test_mtu(void)
 {
 	int ret;
 	int mtu;
-	odp_pktio_t pktio = create_pktio(iface_name[0], 0);
+	odp_pktio_t pktio = create_pktio(iface_name[0]);
 
 	mtu = odp_pktio_mtu(pktio);
 	CU_ASSERT(mtu > 0);
@@ -95,7 +95,7 @@ static void pktio_test_mac(void)
 	printf("testing mac for %s\n", iface_name[0]);
 
 	for (i = 0; i < MAX_NUM_IFACES; i++) {
-		pktio = create_pktio(iface_name[i], 0);
+		pktio = create_pktio(iface_name[i]);
 
 		mac_len = odp_pktio_mac_addr(pktio, mac_addr, sizeof(mac_addr));
 		CU_ASSERT(ODPH_ETHADDR_LEN == mac_len);
@@ -217,5 +217,7 @@ static CU_SuiteInfo pktio_suites[] = {
 
 int main(int argc, char **argv)
 {
+	(void) argc;
+	(void) argv;
 	return odp_cunit_run(pktio_suites);
 }

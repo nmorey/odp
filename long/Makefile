@@ -30,7 +30,7 @@ cluster-system := $(OS_NAME)
 arch = $(CORE_ARCH)
 board = $(BOARD_NAME)
 
-cflags := -Wall -Werror
+cflags := -Wall -Werror -Wextra
 
 ifeq ($(MAKELEVEL),0)
 $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
@@ -41,16 +41,19 @@ LIB_NOC_LFLAGS :=  -lmppapower -lmpparouting -lmppanoc
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
-  BOOT_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)/boot.kelf
+  IOPCIE_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)/iopcie.kelf
 else
   ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
 
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
-  boot-srcs := $(ODP_SRC_DIR)/firmware/boot/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c
-  boot-lflags := $(LIB_NOC_LFLAGS)
-  boot-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/ -I$(ODP_SRC_DIR)/firmware/common/rpc/ -I$(ODP_SRC_DIR)/include/
-  BOOT_ELF := boot
+  iopcie-srcs := $(ODP_SRC_DIR)/firmware/iopcie/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c
+  iopcie-srcs += $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c $(wildcard $(ODP_SRC_DIR)/firmware/common/pcie/*.c)
+  iopcie-system := bare
+  iopcie-lflags := $(LIB_NOC_LFLAGS)
+  iopcie-cflags := -I$(ODP_SRC_DIR)/platform/mppa/include/ -I$(ODP_SRC_DIR)/firmware/rpc/
+  iopcie-cflags += -I$(ODP_SRC_DIR)/firmware/common/rpc/ -I$(ODP_SRC_DIR)/firmware/common/pcie/ -I$(ODP_SRC_DIR)/include/
+  IOPCIE_ELF := iopcie
 endif
 
 cluster-cflags := -I$(ODP_INSTALL_DIR)/$(INCLUDE_DIR)/include -I$(CUNIT_INSTALL_DIR)/include
@@ -59,14 +62,16 @@ cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/l
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include $($(ODP_ARCH)_CFLAGS)
 cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS)
 
-$(BOOT_ELF)-nameinmpk = boot
+$(IOPCIE_ELF)-nameinmpk = iopcie
+IOPCIE_NAME := iopcie
 
 # Empty direct assignement to allows += to work in included Makefiles
-io-bin := $(BOOT_ELF)
+io-bin := $(IOPCIE_ELF)
 mppa-bin :=
 cluster-bin :=
 cluster-tests :=
 mppa-tests :=
+sim-runner-opts := --mboard=mppa64
 
 # Subdirectories
 SUB_DIRS := $(wildcard */Makefile) 

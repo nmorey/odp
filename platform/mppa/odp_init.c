@@ -10,7 +10,29 @@
 #include <odp_debug_internal.h>
 #include <odp_rpc_internal.h>
 
+#include "HAL/hal/hal.h"
+
 struct odp_global_data_s odp_global_data;
+
+static int cluster_iopcie_sync(void)
+{
+	unsigned cluster_id = __k1_get_cluster_id();
+	odp_rpc_t *ack_msg;
+
+	odp_rpc_t cmd = {
+		.pkt_type = ODP_RPC_CMD_BAS_SYNC,
+		.data_len = 0,
+		.flags = 0,
+	};
+
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
+			odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
+			 &cmd, NULL);
+
+	odp_rpc_wait_ack(&ack_msg, NULL);
+
+	return 0;
+}
 
 int odp_init_global(const odp_init_t *params,
 		    const odp_platform_init_t *platform_params ODP_UNUSED)
@@ -53,6 +75,15 @@ int odp_init_global(const odp_init_t *params,
 		return -1;
 	}
 
+	if (odp_rpc_client_init()) {
+		ODP_ERR("ODP RPC init failed.\n");
+		return -1;
+	}
+
+	/* We need to sync only when spawning from another IO */
+	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
+		cluster_iopcie_sync();
+
 	if (odp_pktio_init_global()) {
 		ODP_ERR("ODP packet io init failed.\n");
 		return -1;
@@ -75,22 +106,12 @@ int odp_init_global(const odp_init_t *params,
 		return -1;
 	}
 
-	if (odp_rpc_client_init()) {
-		ODP_ERR("ODP RPC init failed.\n");
-		return -1;
-	}
-
 	return 0;
 }
 
 int odp_term_global(void)
 {
 	int rc = 0;
-
-	if (odp_rpc_client_term()) {
-		ODP_ERR("ODP RPC tem failed.\n");
-		return -1;
-	}
 
 	if (odp_classification_term_global()) {
 		ODP_ERR("ODP classificatio term failed.\n");
@@ -103,6 +124,14 @@ int odp_term_global(void)
 		rc = -1;
 	}
 #endif
+	/* We need to sync only when spawning from another IO */
+	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
+		cluster_iopcie_sync();
+
+	if (odp_rpc_client_term()) {
+		ODP_ERR("ODP RPC tem failed.\n");
+		return -1;
+	}
 
 	if (odp_pktio_term_global()) {
 		ODP_ERR("ODP pktio term failed.\n");

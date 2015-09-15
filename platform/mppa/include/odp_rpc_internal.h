@@ -33,8 +33,11 @@ typedef struct {
 typedef enum {
 	ODP_RPC_CMD_BAS_INVL = 0 /**< BASE: Invalid command. Skip */,
 	ODP_RPC_CMD_BAS_PING     /**< BASE: Ping command. server sends back ack = 0 */,
+	ODP_RPC_CMD_BAS_SYNC     /**< SYNC: Sync command. server wait for every clusters to make a sync before sending ack */,
 	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
-	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */
+	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */,
+	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
+	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */
 } odp_rpc_cmd_e;
 
 
@@ -46,32 +49,47 @@ typedef union {
 		uint8_t max_rx : 8;
 	};
 	odp_rpc_inl_data_t inl_data;
-} odp_rpc_cmd_open_t;
-
+} odp_rpc_cmd_eth_open_t;
 /** @internal Compile time assert */
-_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_OPEN_T__SIZE_ERROR");
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_OPEN_T__SIZE_ERROR");
+
+typedef odp_rpc_cmd_eth_open_t odp_rpc_cmd_pcie_open_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_OPEN_T__SIZE_ERROR");
+
 
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
 	};
 	odp_rpc_inl_data_t inl_data;
-} odp_rpc_cmd_clos_t;
-
+} odp_rpc_cmd_eth_clos_t;
 /** @internal Compile time assert */
-_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_CLOS_T__SIZE_ERROR");
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_CLOS_T__SIZE_ERROR");
+
+typedef odp_rpc_cmd_eth_clos_t odp_rpc_cmd_pcie_clos_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_CLOS_T__SIZE_ERROR");
+
 
 typedef union {
 	struct {
 		uint8_t status;
 	};
-	struct {
-		uint8_t  status;
-		uint8_t  eth_tx_tag;
-		uint16_t eth_tx_if;
-		uint8_t  eth_mac[ETH_ALEN];
-		uint16_t eth_mtu;
-	} open;
+	union {
+		struct {
+			uint16_t tx_if;	/* IO Cluster id */
+			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  mac[ETH_ALEN];
+			uint16_t mtu;
+		} eth_open;
+		struct {
+			uint16_t tx_if;	/* IO Cluster id */
+			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+			uint8_t  mac[ETH_ALEN];
+			uint16_t mtu;
+		} pcie_open;
+	} cmd;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
 
@@ -126,6 +144,8 @@ static inline int odp_rpc_get_ioeth_tag_id(unsigned eth_slot, unsigned cluster_i
 	return odp_rpc_get_ioddr_tag_id(eth_slot, cluster_id);
 #endif
 }
+
+extern int g_rpc_init;
 
 int odp_rpc_client_init(void);
 int odp_rpc_client_term(void);
