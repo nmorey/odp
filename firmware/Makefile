@@ -1,6 +1,6 @@
 BUILDDIR   := $(shell pwd)
-MAKEFILE   := $(shell echo $(MAKEFILE_LIST) | awk '{ print $$NF}')
-TOP_SRCDIR := $(shell readlink -f $$(dirname $(MAKEFILE))/..)
+MAKEFILE   := $(lastword $(MAKEFILE_LIST))
+TOP_SRCDIR := $(realpath $(dir $(MAKEFILE))/..)
 SRCFILES   += $(shell find $(SRCDIRS) -name "[^.]*.c")
 HDRFILES   += $(shell find $(SRCDIRS) -name "[^.]*.h")
 OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))

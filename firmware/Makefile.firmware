@@ -1,5 +1,5 @@
 ifndef SRCDIR
-	   SRCDIR   := $(shell dirname $$(echo $(MAKEFILE_LIST) | awk '{ print $$NF}'))
+	   SRCDIR   := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 endif
 
 FIRMDIR  := $(shell basename $(SRCDIR))
