@@ -249,11 +249,12 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	return ack.status;
 }
 
-static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
-			    void *mac_addr ODP_UNUSED)
+static int eth_mac_addr_get(pktio_entry_t *pktio_entry,
+			    void *mac_addr)
 {
-	/* FIXME */
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	memcpy(mac_addr, eth->mac_addr, ETH_ALEN);
+	return ETH_ALEN;
 }
 
 
