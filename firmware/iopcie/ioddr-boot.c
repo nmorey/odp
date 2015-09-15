@@ -137,8 +137,6 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	mppa_power_init();
-
 	mppa_pcie_eth_noc_init();
 	ret = odp_rpc_server_start(NULL);
 	if (ret) {
