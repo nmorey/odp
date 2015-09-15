@@ -90,6 +90,21 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 			printf("\t\tifId: %d\n", clos.ifId);
 		}
 		break;
+	case ODP_RPC_CMD_PCIE_OPEN:
+		{
+			odp_rpc_cmd_pcie_open_t open = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n"
+				"\t\tRx(s): [%d:%d]\n",
+				open.ifId,
+				open.min_rx, open.max_rx);
+		}
+		break;
+	case ODP_RPC_CMD_PCIE_CLOS:
+		{
+			odp_rpc_cmd_eth_clos_t clos = { .inl_data = cmd->inl_data };
+			printf("\t\tifId: %d\n", clos.ifId);
+		}
+		break;
 	case ODP_RPC_CMD_BAS_INVL:
 	case ODP_RPC_CMD_BAS_PING:
 	default:
