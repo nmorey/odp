@@ -400,12 +400,12 @@ static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
 }
 
 static int eth_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
-	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
-	return eth->mtu;
+	return -1;
 }
 
 static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
-	return -1;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	return eth->mtu;
 }
 const pktio_if_ops_t eth_pktio_ops = {
 	.init = eth_init,
