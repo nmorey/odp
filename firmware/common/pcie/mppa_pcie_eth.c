@@ -20,8 +20,6 @@ __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_contro
 	.magic = 0xDEADBEEF,
 };
 
-static uintptr_t g_current_pkt_addr = DDR_BUFFER_BASE_ADDR;
-
 static struct mppa_pcie_eth_ring_buff_desc *g_rx[IF_COUNT_MAX], *g_tx[IF_COUNT_MAX];
 
 int g_interrupt_flags[IF_COUNT_MAX] = {0};
@@ -31,17 +29,15 @@ static unsigned int g_if_count;
 static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
 {
 	struct mppa_pcie_eth_rx_ring_buff_entry *entries;
-	int i;
 
 	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_rx_ring_buff_entry));
 	if(!entries)
 		assert(0);
 
-	for(i = 0; i < RING_BUFFER_ENTRIES; i++) {
-		entries[i].pkt_addr = g_current_pkt_addr;
-		g_current_pkt_addr += MPPA_PCIE_ETH_DEFAULT_MTU + 18;
-	}
-
+	/* No rx packet for host by default */
+	rx->head = 0;
+	rx->tail = 0;
+ 
 	rx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
 	rx->ring_buffer_entries_addr = (uintptr_t) entries;
 }
@@ -49,16 +45,15 @@ static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
 static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 {
 	struct mppa_pcie_eth_tx_ring_buff_entry *entries;
-	int i;
 
 	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_tx_ring_buff_entry));
 	if(!entries)
 		assert(0);
 
-	for(i = 0; i < RING_BUFFER_ENTRIES; i++) {
-		entries[i].pkt_addr = g_current_pkt_addr;
-		g_current_pkt_addr += MPPA_PCIE_ETH_DEFAULT_MTU + 18;
-	}
+	/* Set the tx as full to avoid the host sending packets
+	 * We will fill the dexcriptor later */
+	tx->head = 0;
+	tx->tail = RING_BUFFER_ENTRIES - 1;
 
 	tx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
@@ -139,6 +134,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int if_id, void *addr, unsigned int size)
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
 	MPPA_PCIE_ETH_SET_RX_TAIL(if_id, rx_tail);
+	mppa_pcie_send_it_to_host();
 
 	return 0;
 }
@@ -150,7 +146,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int if_id, void *addr, unsigned int size)
 	struct mppa_pcie_eth_tx_ring_buff_entry *entry, **entries;
 	uint64_t daddr = (uintptr_t) addr;
 
-	/* Check if there is a new packet */
+	/* Check if there is room to add a rx */
 	tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
 	if (tx_head == tx_tail)
 		return -1;
@@ -162,69 +158,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int if_id, void *addr, unsigned int size)
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
 	MPPA_PCIE_ETH_SET_TX_HEAD(if_id, tx_head);
+	mppa_pcie_send_it_to_host();
 
 	return 0;
-}
-
-/**
- * Transfer all packet received on host tx to host rx
- */
-int main_loop()
-{
-	struct mppa_pcie_eth_tx_ring_buff_entry *tx_entry, *tx_entries;
-	struct mppa_pcie_eth_rx_ring_buff_entry *rx_entry, *rx_entries;
-	uint64_t tmp;
-	uint32_t tx_head, rx_tail, tx_tail;
-	unsigned int i;
-	int interrupt = 0, worked = 0;
-
-	for (i = 0; i < g_if_count; i++) {
-		/* Handle incoming tx packet */
-		tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(i);
-		tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(i);
-
-		worked = 0;
-
-		if (tx_head != tx_tail) {
-			tx_entries = (void *) (uintptr_t) g_tx[i]->ring_buffer_entries_addr;
-			rx_entries = (void *) (uintptr_t) g_rx[i]->ring_buffer_entries_addr;
-
-			rx_tail = __builtin_k1_lwu(&g_rx[i]->tail);
-
-			tx_entry = &tx_entries[tx_head];
-			rx_entry = &rx_entries[rx_tail];
-
-			rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
-
-			/* If the user head is the same as our next tail, there is no room to store a packet */
-			while(rx_tail == __builtin_k1_lwu(&g_rx[i]->head)) {
-			}
-
-			__builtin_k1_swu(&rx_entry->len, __builtin_k1_lwu(&tx_entry->len) & 0xffff);
-
-			/* Swap buffers */
-			tmp = __builtin_k1_ldu(&rx_entry->pkt_addr);
-			__builtin_k1_sdu(&rx_entry->pkt_addr, __builtin_k1_ldu(&tx_entry->pkt_addr));
-			__builtin_k1_sdu(&tx_entry->pkt_addr, tmp);
-
-			/* Update tx head and rx tail pointer and send it */
-			__builtin_k1_swu(&g_rx[i]->tail, rx_tail);
-			tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-			__builtin_k1_swu(&g_tx[i]->head, tx_head);
-
-
-			worked = 1;
-		}
-
-		if (worked || g_interrupt_flags[i]) {
-			if (__builtin_k1_lwu(&eth_control.configs[i].interrupt_status)) {
-				g_interrupt_flags[i] = 0;
-				interrupt = 1;
-			} else {
-				g_interrupt_flags[i] = 1;
-			}
-		}
-	}
-
-	return interrupt;
 }
