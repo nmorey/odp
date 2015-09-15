@@ -107,9 +107,9 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 	case ODP_RPC_CMD_PCIE_OPEN:
 		{
 			odp_rpc_cmd_pcie_open_t open = { .inl_data = cmd->inl_data };
-			printf("\t\tifId: %d\n"
+			printf("\t\tpcie_eth_id: %d\n"
 				"\t\tRx(s): [%d:%d]\n",
-				open.ifId,
+				open.pcie_eth_if_id,
 				open.min_rx, open.max_rx);
 		}
 		break;

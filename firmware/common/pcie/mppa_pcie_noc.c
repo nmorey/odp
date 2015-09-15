@@ -9,6 +9,7 @@ struct mppa_pcie_tx_cfg {
 	unsigned int cluster;
 	unsigned int rx_id;
 	volatile void *fifo_addr;
+	unsigned int pcie_eth_if;
 };
 
 struct mppa_pcie_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
@@ -70,6 +71,8 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		fprintf(stderr, "[PCIe] Error: Failed to setup tx on if %d\n", if_id);
 		return ack;
 	}
+
+	g_mppa_pcie_tx_cfg[if_id][tx_id].pcie_eth_if = open_cmd.pcie_eth_if_id; 
 
 	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, &rx_id, MPPA_NOC_NON_BLOCKING);
 	if(ret) {

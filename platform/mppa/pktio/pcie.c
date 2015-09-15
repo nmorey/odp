@@ -144,8 +144,7 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	 */
 	odp_rpc_cmd_pcie_open_t open_cmd = {
 		{
-			.ifId = pcie->port_id,
-			.dma_if = pcie->rx_config.dma_if,
+			.pcie_eth_if_id = pcie->port_id,
 			.min_rx = pcie->rx_config.min_port,
 			.max_rx = pcie->rx_config.max_port,
 		}
