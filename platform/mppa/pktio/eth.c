@@ -133,7 +133,7 @@ static int eth_init(void)
 	return 0;
 }
 
-static int eth_rpc_send_eth_open(eth_status_t *eth)
+static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
@@ -201,12 +201,10 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 	}
 
-	pktio_entry->s.pkt_data = malloc(sizeof(eth_status_t));
-	if (!pktio_entry->s.pkt_data)
-		return -1;
-
-	eth_status_t *eth = pktio_entry->s.pkt_data;
-
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
+	/*
+	 * Init eth status
+	 */
 	eth->slot_id = slot_id;
 	eth->port_id = port_id;
 	eth->pool = pool;
@@ -247,7 +245,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 static int eth_close(pktio_entry_t * const pktio_entry)
 {
 
-	eth_status_t * eth = pktio_entry->s.pkt_data;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	int slot_id = eth->slot_id;
 	int port_id = eth->port_id;
 	odp_rpc_t *ack_msg;
@@ -278,7 +276,6 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	rx_thread_link_close(slot_id * MAX_ETH_PORTS + port_id);
 
 	free(eth);
-	pktio_entry->s.pkt_data = NULL;
 	return ack.status;
 }
 
@@ -295,7 +292,7 @@ static int eth_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	eth_status_t * eth = pktio_entry->s.pkt_data;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	queue_entry_t *qentry;
 
 	qentry = queue_to_qentry(eth->rx_config.queue);
@@ -304,7 +301,7 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 
 
 static inline int
-eth_send_packets(eth_status_t * eth, odp_packet_t pkt_table[], unsigned int pkt_count)
+eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
@@ -378,7 +375,7 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	unsigned int sent = 0;
-	eth_status_t * eth = pktio_entry->s.pkt_data;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	unsigned int pkt_count;
 
 

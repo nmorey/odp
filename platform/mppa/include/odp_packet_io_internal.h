@@ -24,6 +24,7 @@ extern "C" {
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
 #include <odp_buffer_inlines.h>
+#include <odp_rx_internal.h>
 
 #include <odp/config.h>
 #include <odp/hints.h>
@@ -69,6 +70,28 @@ typedef struct {
 	odp_bool_t promisc;		/**< promiscuous mode state */
 } pkt_loop_t;
 
+typedef struct {
+	odp_pool_t pool;                      /**< pool to alloc packets from */
+	odp_spinlock_t wlock;        /**< Tx lock */
+
+	/* Rx Data */
+	rx_config_t rx_config;
+
+	uint8_t slot_id;             /**< IO Eth Id */
+	uint8_t port_id;             /**< Eth Port id. 4 for 40G */
+
+	/* Tx data */
+	uint16_t tx_if;              /**< Remote DMA interface to forward
+				      *   to Eth Egress */
+	uint16_t tx_tag;             /**< Remote DMA tag to forward to
+				      *   Eth Egress */
+
+	mppa_dnoc_header_t header;
+	mppa_dnoc_channel_config_t config;
+} pkt_eth_t;
+
+typedef pkt_eth_t pkt_pcie_t;
+
 struct pktio_entry {
 	const struct pktio_if_ops *ops; /**< Implementation specific methods */
 	odp_rwlock_t lock;		/**< entry RW lock */
@@ -86,7 +109,8 @@ struct pktio_entry {
 		pkt_magic_t pkt_magic;
 		pkt_loop_t pkt_loop;
 		pkt_cluster_t pkt_cluster;
-		void *pkt_data;
+		pkt_eth_t pkt_eth;
+		pkt_pcie_t pkt_pcie;
 	};
 	enum {
 		STATE_START = 0,

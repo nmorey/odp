@@ -133,7 +133,7 @@ static int pcie_init(void)
 	return 0;
 }
 
-static int pcie_rpc_send_pcie_open(pcie_status_t *pcie)
+static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
@@ -201,11 +201,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 			return -1;
 	}
 
-	pktio_entry->s.pkt_data = malloc(sizeof(pcie_status_t));
-	if (!pktio_entry->s.pkt_data)
-		return -1;
-
-	pcie_status_t *pcie = pktio_entry->s.pkt_data;
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
 	pcie->slot_id = slot_id;
 	pcie->port_id = port_id;
@@ -248,7 +244,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 static int pcie_close(pktio_entry_t * const pktio_entry)
 {
 
-	pcie_status_t * pcie = pktio_entry->s.pkt_data;
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	int slot_id = pcie->slot_id;
 	int port_id = pcie->port_id;
 	odp_rpc_t *ack_msg;
@@ -279,7 +275,6 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + port_id);
 
 	free(pcie);
-	pktio_entry->s.pkt_data = NULL;
 	return ack.status;
 }
 
@@ -293,7 +288,7 @@ static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	pcie_status_t * pcie = pktio_entry->s.pkt_data;
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	queue_entry_t *qentry;
 
 	qentry = queue_to_qentry(pcie->rx_config.queue);
@@ -301,7 +296,7 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 }
 
 static inline int
-pcie_send_packets(pcie_status_t * pcie, odp_packet_t pkt_table[], unsigned int pkt_count)
+pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
@@ -376,7 +371,7 @@ static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	unsigned int sent = 0;
-	pcie_status_t * pcie = pktio_entry->s.pkt_data;
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	unsigned int pkt_count;
 
 

@@ -66,10 +66,6 @@ extern "C" {
 /* Common buffer header */
 struct odp_buffer_hdr_t {
 	struct odp_buffer_hdr_t *next;       /* next buf in a list--keep 1st */
-	union {                              /* Multi-use secondary link */
-		struct odp_buffer_hdr_t *prev;
-		struct odp_buffer_hdr_t *link;
-	};
 	union {
 		uint16_t all;
 		struct {
@@ -81,20 +77,21 @@ struct odp_buffer_hdr_t {
 	int8_t                   type;       /* buffer type */
 	int8_t                   event_type; /* for reuse as event */
 	uint16_t                 size;       /* max data size */
-	uint16_t                 uarea_size; /* size of user area */
 	void                    *uarea_addr; /* user area address */
 	odp_pool_t               pool_hdl;   /* buffer pool handle */
-	odp_atomic_u32_t         ref_count;  /* reference count */
 	union {
-		uint64_t         buf_u64;    /* user u64 */
 		void            *buf_ctx;    /* user context */
 		const void      *buf_cctx;   /* const alias for ctx */
 	};
 	void                    *addr;       /* block addrs */
 	queue_entry_t           *origin_qe;  /* ordered queue origin */
+	odp_atomic_u32_t         ref_count;  /* reference count */
 	uint64_t                 order;      /* sequence for ordered queues */
 	union {
-		queue_entry_t   *target_qe;  /* ordered queue target */
+		struct {
+			queue_entry_t   *target_qe;  /* ordered queue target */
+			struct odp_buffer_hdr_t *link;
+		};
 		uint64_t         sync;       /* for ordered synchronization */
 	};
 };

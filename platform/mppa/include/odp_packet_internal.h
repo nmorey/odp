@@ -75,18 +75,15 @@ typedef union {
 
 	struct {
 		/* Bitfield flags for each detected error */
-		uint32_t app_error:1; /**< Error bit for application use */
-		uint32_t frame_len:1; /**< Frame length error */
-		uint32_t snap_len:1;  /**< Snap length error */
-		uint32_t l2_chksum:1; /**< L2 checksum error, checks TBD */
-		uint32_t ip_err:1;    /**< IP error,  checks TBD */
-		uint32_t tcp_err:1;   /**< TCP error, checks TBD */
-		uint32_t udp_err:1;   /**< UDP error, checks TBD */
+		uint16_t app_error:1; /**< Error bit for application use */
+		uint16_t frame_len:1; /**< Frame length error */
+		uint16_t snap_len:1;  /**< Snap length error */
+		uint16_t l2_chksum:1; /**< L2 checksum error, checks TBD */
+		uint16_t ip_err:1;    /**< IP error,  checks TBD */
+		uint16_t tcp_err:1;   /**< TCP error, checks TBD */
+		uint16_t udp_err:1;   /**< UDP error, checks TBD */
 	};
 } error_flags_t;
-
-_ODP_STATIC_ASSERT(sizeof(error_flags_t) == sizeof(uint32_t),
-		   "ERROR_FLAGS_SIZE_ERROR");
 
 /**
  * Packet output flags
@@ -97,15 +94,12 @@ typedef union {
 
 	struct {
 		/* Bitfield flags for each output option */
-		uint32_t l3_chksum_set:1; /**< L3 chksum bit is valid */
-		uint32_t l3_chksum:1;     /**< L3 chksum override */
-		uint32_t l4_chksum_set:1; /**< L3 chksum bit is valid */
-		uint32_t l4_chksum:1;     /**< L4 chksum override  */
+		uint16_t l3_chksum_set:1; /**< L3 chksum bit is valid */
+		uint16_t l3_chksum:1;     /**< L3 chksum override */
+		uint16_t l4_chksum_set:1; /**< L3 chksum bit is valid */
+		uint16_t l4_chksum:1;     /**< L4 chksum override  */
 	};
 } output_flags_t;
-
-_ODP_STATIC_ASSERT(sizeof(output_flags_t) == sizeof(uint32_t),
-		   "OUTPUT_FLAGS_SIZE_ERROR");
 
 /**
  * Internal Packet header
@@ -122,13 +116,7 @@ typedef struct {
 	uint16_t l3_offset; /**< offset to L3 hdr, e.g. IPv4, IPv6 */
 	uint16_t l4_offset; /**< offset to L4 hdr (TCP, UDP, SCTP, also ICMP) */
 	uint16_t payload_offset; /**< offset to payload */
-
-	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
-	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
-	uint16_t l3_protocol;    /**< Parsed L3 protocol */
-	uint16_t l3_len;         /**< Layer 3 length */
 	uint16_t l4_protocol;    /**< Parsed L4 protocol */
-	uint16_t l4_len;         /**< Layer 4 length */
 
 	uint16_t frame_len;
 	uint16_t headroom;
@@ -138,6 +126,19 @@ typedef struct {
 
 	odp_crypto_generic_op_result_t op_result;  /**< Result for crypto */
 } odp_packet_hdr_t;
+
+typedef struct {
+	uint8_t *parseptr;
+	uint32_t offset;
+	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
+	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
+
+	uint16_t l3_protocol;    /**< Parsed L3 protocol */
+	uint16_t l3_len;
+
+	uint16_t l4_len;
+
+} odp_packet_parsing_ctx_t;
 
 typedef struct odp_packet_hdr_stride {
 	uint8_t pad[ODP_CACHE_LINE_SIZE_ROUNDUP(sizeof(odp_packet_hdr_t))];
@@ -199,12 +200,7 @@ static inline void copy_packet_parser_metadata(odp_packet_hdr_t *src_hdr,
 	dst_hdr->l4_offset      = src_hdr->l4_offset;
 	dst_hdr->payload_offset = src_hdr->payload_offset;
 
-	dst_hdr->vlan_s_tag     = src_hdr->vlan_s_tag;
-	dst_hdr->vlan_c_tag     = src_hdr->vlan_c_tag;
-	dst_hdr->l3_protocol    = src_hdr->l3_protocol;
-	dst_hdr->l3_len         = src_hdr->l3_len;
 	dst_hdr->l4_protocol    = src_hdr->l4_protocol;
-	dst_hdr->l4_len         = src_hdr->l4_len;
 }
 
 static inline void *packet_map(odp_packet_hdr_t *pkt_hdr,

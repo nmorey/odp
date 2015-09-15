@@ -41,7 +41,7 @@ struct odp_atomic_u32_s {
 	union {
 		struct {
 			uint32_t v; /**< Actual storage for the atomic variable */
-			uint32_t lock; /**< Spin lock (if needed) used to ensure atomic access */
+			uint32_t _dummy; /**< Dummy field for force struct to 64b */
 		};
 		uint32_t _type;
 		uint64_t _u64;
