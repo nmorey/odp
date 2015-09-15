@@ -1,6 +1,8 @@
 #ifndef __FIRMWARE__IOETH__RPC__H__
 #define __FIRMWARE__IOETH__RPC__H__
 
+#include <odp/debug.h>
+
 #ifndef BSP_NB_DMA_IO_MAX
 #define BSP_NB_DMA_IO_MAX 8
 #endif
@@ -44,12 +46,18 @@ typedef union {
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_open_t;
 
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_OPEN_T__SIZE_ERROR");
+
 typedef union {
 	struct {
 		uint8_t ifId : 3; /* 0-3, 4 for 40G */
 	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_clos_t;
+
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_CLOS_T__SIZE_ERROR");
 
 typedef union {
 	struct {
@@ -62,6 +70,9 @@ typedef union {
 	} open;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
+
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_ack_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ACK_T__SIZE_ERROR");
 
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
 	switch(ddr_id){
