@@ -32,6 +32,8 @@
 #define MAX_JOB_PER_UC          32
 #define DNOC_CLUS_IFACE_ID	0
 
+#define PKTIO_PKT_MTU	1500
+
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 
@@ -145,6 +147,7 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	odp_rpc_cmd_pcie_open_t open_cmd = {
 		{
 			.pcie_eth_if_id = pcie->port_id,
+			.pkt_size = PKTIO_PKT_MTU,
 			.min_rx = pcie->rx_config.min_port,
 			.max_rx = pcie->rx_config.max_port,
 		}

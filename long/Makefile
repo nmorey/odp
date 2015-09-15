@@ -45,7 +45,7 @@ ifeq ($(USE_PACKAGES),1)
 else
   ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
-
+	
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
   iopcie-srcs := $(ODP_SRC_DIR)/firmware/iopcie/ioddr-boot.c $(ODP_SRC_DIR)/firmware/common/rpc/rpc-server.c
   iopcie-srcs += $(ODP_SRC_DIR)/platform/mppa/odp_rpc.c $(wildcard $(ODP_SRC_DIR)/firmware/common/pcie/*.c)

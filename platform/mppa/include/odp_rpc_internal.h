@@ -57,10 +57,10 @@ _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_open_t) == sizeof(odp_rpc_inl_data_t),
 
 typedef union {
 	struct {
+		uint16_t pkt_size;
 		uint8_t pcie_eth_if_id; /* PCIe eth interface number */
-		uint8_t dma_if : 8;
-		uint8_t min_rx : 8;
-		uint8_t max_rx : 8;
+		uint8_t min_rx;
+		uint8_t max_rx;
 	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_pcie_open_t;

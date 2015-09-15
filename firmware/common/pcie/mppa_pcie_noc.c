@@ -4,15 +4,8 @@
 #include "mppa_pcie_noc.h"
 #include "HAL/hal/hal.h"
 
-struct mppa_pcie_tx_cfg {
-	int opened;
-	unsigned int cluster;
-	unsigned int rx_id;
-	volatile void *fifo_addr;
-	unsigned int pcie_eth_if;
-};
 
-struct mppa_pcie_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
+struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
 
 int mppa_pcie_eth_noc_init()
 {
@@ -73,6 +66,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	}
 
 	g_mppa_pcie_tx_cfg[if_id][tx_id].pcie_eth_if = open_cmd.pcie_eth_if_id; 
+	g_mppa_pcie_tx_cfg[if_id][tx_id].mtu = open_cmd.pcie_eth_if_id;
 
 	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, &rx_id, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
@@ -83,5 +77,10 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	ack.cmd.pcie_open.tx_tag = rx_id;
 	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
 
+	ret = mppa_pcie_eth_add_forward(open_cmd.pcie_eth_if_id, &g_mppa_pcie_tx_cfg[if_id][tx_id]);
+	if (ret)
+		return ack;
+
+	ack.status = 0;
 	return ack;
 }

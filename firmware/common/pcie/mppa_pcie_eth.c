@@ -9,20 +9,47 @@
 #include <HAL/hal/hal.h>
 
 #include "mppa_pcie_eth.h"
+#include "mppa_pcie_noc.h"
 
 #define IF_COUNT_MAX 16
+
+#define MAX_DNOC_TX_PER_PCIE_ETH_IF	16	
 
 #define RING_BUFFER_ENTRIES	32
 #define DDR_BUFFER_BASE_ADDR	0x80000000
 
+#define MPPA_PCIE_GET_ETH_VALUE(__mode, __member, __if) __builtin_k1_lwu(&g_eth_if_cfg[__if].__mode->__member)
+#define MPPA_PCIE_ETH_GET_RX_TAIL(__if) MPPA_PCIE_GET_ETH_VALUE(rx, tail, __if)
+#define MPPA_PCIE_ETH_GET_TX_TAIL(__if) MPPA_PCIE_GET_ETH_VALUE(tx, tail, __if)
+#define MPPA_PCIE_ETH_GET_RX_HEAD(__if) MPPA_PCIE_GET_ETH_VALUE(rx, head, __if)
+#define MPPA_PCIE_ETH_GET_TX_HEAD(__if) MPPA_PCIE_GET_ETH_VALUE(tx, head, __if)
+
+#define MPPA_PCIE_SET_ETH_VALUE(__mode, __member, __if, __val) __builtin_k1_swu(&g_eth_if_cfg[__if].__mode->__member, __val)
+#define MPPA_PCIE_ETH_SET_RX_TAIL(__if, __val) MPPA_PCIE_SET_ETH_VALUE(rx, tail, __if, __val)
+#define MPPA_PCIE_ETH_SET_TX_TAIL(__if, __val) MPPA_PCIE_SET_ETH_VALUE(tx, tail, __if, __val)
+#define MPPA_PCIE_ETH_SET_RX_HEAD(__if, __val) MPPA_PCIE_SET_ETH_VALUE(rx, head, __if, __val)
+#define MPPA_PCIE_ETH_SET_TX_HEAD(__if, __val) MPPA_PCIE_SET_ETH_VALUE(tx, head, __if, __val)
+
+#define MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, __memb, __val) __builtin_k1_swu(&__entry->__memb, __val)
+#define MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, __memb, __val) __builtin_k1_sdu(&__entry->__memb, __val)
+#define MPPA_PCIE_ETH_SET_ENTRY_LEN(__entry, __val) MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, len, __val)
+#define MPPA_PCIE_ETH_SET_ENTRY_ADDR(__entry, __val) MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, pkt_addr, __val)
 
 __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_control = {
 	.magic = 0xDEADBEEF,
 };
 
-static struct mppa_pcie_eth_ring_buff_desc *g_rx[IF_COUNT_MAX], *g_tx[IF_COUNT_MAX];
+/**
+ * PCIe ethernet interface config
+ */
+struct mppa_pcie_g_eth_if_cfg {
+	struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg[MAX_DNOC_TX_PER_PCIE_ETH_IF];	/* Interfaces for the current */
+	unsigned int dnoc_tx_count;
+	unsigned int current_dnoc_tx;
+	struct mppa_pcie_eth_ring_buff_desc *rx, *tx;
+};
 
-int g_interrupt_flags[IF_COUNT_MAX] = {0};
+static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[IF_COUNT_MAX] = {{{0}, 0, 0, 0, 0}};
 
 static unsigned int g_if_count; 
 
@@ -80,13 +107,12 @@ void mppa_pcie_eth_init(int if_count)
 		setup_rx(&desc_ptr[0]);
 		setup_tx(&desc_ptr[1]);
 
-		g_rx[i] = &desc_ptr[0];
-		g_tx[i] = &desc_ptr[1];
+		g_eth_if_cfg[i].rx = &desc_ptr[0];
+		g_eth_if_cfg[i].tx = &desc_ptr[1];
 
 		eth_control.configs[i].rx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[0];
 		eth_control.configs[i].tx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[1];
 
-		g_interrupt_flags[i] = 0;
 	}
 
 	/* Ensure coherency */
@@ -98,27 +124,10 @@ void mppa_pcie_eth_init(int if_count)
 	mppa_pcie_send_it_to_host();
 }
 
-#define MPPA_PCIE_GET_ETH_VALUE(__mode, __member, __if) __builtin_k1_lwu(&g_ ## __mode[__if]->__member)
-#define MPPA_PCIE_ETH_GET_RX_TAIL(__if) MPPA_PCIE_GET_ETH_VALUE(rx, tail, __if)
-#define MPPA_PCIE_ETH_GET_TX_TAIL(__if) MPPA_PCIE_GET_ETH_VALUE(tx, tail, __if)
-#define MPPA_PCIE_ETH_GET_RX_HEAD(__if) MPPA_PCIE_GET_ETH_VALUE(rx, head, __if)
-#define MPPA_PCIE_ETH_GET_TX_HEAD(__if) MPPA_PCIE_GET_ETH_VALUE(tx, head, __if)
-
-#define MPPA_PCIE_SET_ETH_VALUE(__mode, __member, __if, __val) __builtin_k1_swu(&g_ ## __mode[__if]->__member, __val)
-#define MPPA_PCIE_ETH_SET_RX_TAIL(__if, __val) MPPA_PCIE_SET_ETH_VALUE(rx, tail, __if, __val)
-#define MPPA_PCIE_ETH_SET_TX_TAIL(__if, __val) MPPA_PCIE_SET_ETH_VALUE(tx, tail, __if, __val)
-#define MPPA_PCIE_ETH_SET_RX_HEAD(__if, __val) MPPA_PCIE_SET_ETH_VALUE(rx, head, __if, __val)
-#define MPPA_PCIE_ETH_SET_TX_HEAD(__if, __val) MPPA_PCIE_SET_ETH_VALUE(tx, head, __if, __val)
-
-#define MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, __memb, __val) __builtin_k1_swu(&__entry->__memb, __val)
-#define MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, __memb, __val) __builtin_k1_sdu(&__entry->__memb, __val)
-#define MPPA_PCIE_ETH_SET_ENTRY_LEN(__entry, __val) MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, len, __val)
-#define MPPA_PCIE_ETH_SET_ENTRY_ADDR(__entry, __val) MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, pkt_addr, __val)
-
-int mppa_pcie_eth_enqueue_tx(unsigned int if_id, void *addr, unsigned int size)
+int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size)
 {
-	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(if_id);
-	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(if_id);
+	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if);
+	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
 	struct mppa_pcie_eth_rx_ring_buff_entry *entry, **entries;
 	uint64_t daddr = (uintptr_t) addr;
 
@@ -127,22 +136,22 @@ int mppa_pcie_eth_enqueue_tx(unsigned int if_id, void *addr, unsigned int size)
 	if (rx_tail == rx_head)
 		return -1;
 
-	entries = (void *) (uintptr_t) g_rx[if_id]->ring_buffer_entries_addr;
+	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].rx->ring_buffer_entries_addr;
 	entry = entries[rx_tail];
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
-	MPPA_PCIE_ETH_SET_RX_TAIL(if_id, rx_tail);
+	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, rx_tail);
 	mppa_pcie_send_it_to_host();
 
 	return 0;
 }
 
-int mppa_pcie_eth_enqueue_rx(unsigned int if_id, void *addr, unsigned int size)
+int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int size)
 {
-	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(if_id);
-	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(if_id);
+	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
+	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if);
 	struct mppa_pcie_eth_tx_ring_buff_entry *entry, **entries;
 	uint64_t daddr = (uintptr_t) addr;
 
@@ -151,14 +160,55 @@ int mppa_pcie_eth_enqueue_rx(unsigned int if_id, void *addr, unsigned int size)
 	if (tx_head == tx_tail)
 		return -1;
 
-	entries = (void *) (uintptr_t) g_tx[if_id]->ring_buffer_entries_addr;
+	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
 	entry = entries[tx_head];
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
-	MPPA_PCIE_ETH_SET_TX_HEAD(if_id, tx_head);
+	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, tx_head);
 	mppa_pcie_send_it_to_host();
+
+	return 0;
+}
+
+/**
+ * Enqueue tx fifo addr while possible
+ */
+static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
+{
+	int ret;
+	unsigned int dnoc_tx_id = g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx;
+	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
+
+	/* Fill RX descriptors by adding pcie fifo tx addr in a round robbin way */
+	do {
+		tx_cfg = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_id];
+			
+		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu);
+
+		dnoc_tx_id++;
+		dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
+	} while(ret == 0);
+
+	g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx = dnoc_tx_id;
+	
+	return 0;
+}
+
+int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg)
+{
+	unsigned int dnoc_tx_count = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
+
+	if (dnoc_tx_count == MAX_DNOC_TX_PER_PCIE_ETH_IF) {
+		printf("Too many forward for this PCIe eth interface\n");
+		return 1;
+	}
+
+	g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_count] = dnoc_tx_cfg;
+	g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count++;
+
+	mppa_pcie_eth_fill_rx(pcie_eth_if_id);
 
 	return 0;
 }
