@@ -184,15 +184,17 @@ static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
 	/* Fill RX descriptors by adding pcie fifo tx addr in a round robbin way */
 	do {
 		tx_cfg = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_id];
-			
-		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu);
 
-		dnoc_tx_id++;
-		dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
+		/* Try to enqueue a fifo descriptor */
+		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu);
+		if (ret != 0) {
+			dnoc_tx_id++;
+			dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
+		}
 	} while(ret == 0);
 
 	g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx = dnoc_tx_id;
-	
+
 	return 0;
 }
 
