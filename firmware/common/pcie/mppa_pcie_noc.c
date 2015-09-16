@@ -1,8 +1,12 @@
 #include <stdio.h>
+#include <string.h>
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 #include "mppa_pcie_noc.h"
+#include "mppa_pcie_eth.h"
 #include "HAL/hal/hal.h"
+
+struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
 
 int mppa_pcie_eth_noc_init()
 {
@@ -39,12 +43,12 @@ int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int tx_id, unsigned i
 	if (nret)
 		return 1;
 
-	return 0;
-}
+	g_mppa_pcie_tx_cfg[iface_id][tx_id].opened = 1; 
+	g_mppa_pcie_tx_cfg[iface_id][tx_id].cluster = cluster_id;
+	g_mppa_pcie_tx_cfg[iface_id][tx_id].rx_id = rx_id;
+	g_mppa_pcie_tx_cfg[iface_id][tx_id].fifo_addr = &mppa_dnoc[iface_id]->dma_pcie_fifo.dma_rx[tx_id].pcie_fifo;
 
-volatile void *mppa_pcie_eth_get_fifo_addr(int iface_id, int tx_id)
-{
-	return &mppa_dnoc[iface_id]->dma_pcie_fifo.dma_rx[tx_id].pcie_fifo;
+	return 0;
 }
 
 odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
@@ -62,14 +66,24 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		return ack;
 	}
 
+	g_mppa_pcie_tx_cfg[if_id][tx_id].pcie_eth_if = open_cmd.pcie_eth_if_id; 
+	g_mppa_pcie_tx_cfg[if_id][tx_id].mtu = open_cmd.pcie_eth_if_id;
+
 	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, &rx_id, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
 		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
 		return ack;
 	}
 
+
+	ret = mppa_pcie_eth_add_forward(open_cmd.pcie_eth_if_id, &g_mppa_pcie_tx_cfg[if_id][tx_id]);
+	if (ret)
+		return ack;
+
 	ack.cmd.pcie_open.tx_tag = rx_id;
 	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
+	memcpy(ack.cmd.pcie_open.mac, g_pcie_eth_control.configs[open_cmd.pcie_eth_if_id].mac_addr, MAC_ADDR_LEN);
+	ack.status = 0;
 
 	return ack;
 }

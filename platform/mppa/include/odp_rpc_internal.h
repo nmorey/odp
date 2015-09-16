@@ -54,7 +54,16 @@ typedef union {
 /** @internal Compile time assert */
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_OPEN_T__SIZE_ERROR");
 
-typedef odp_rpc_cmd_eth_open_t odp_rpc_cmd_pcie_open_t;
+
+typedef union {
+	struct {
+		uint16_t pkt_size;
+		uint8_t pcie_eth_if_id; /* PCIe eth interface number */
+		uint8_t min_rx;
+		uint8_t max_rx;
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_pcie_open_t;
 /** @internal Compile time assert */
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_OPEN_T__SIZE_ERROR");
 
