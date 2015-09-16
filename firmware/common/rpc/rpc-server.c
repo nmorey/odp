@@ -22,19 +22,17 @@ static inline int rxToMsg(unsigned ifId, unsigned tag,
 			   odp_rpc_t **msg, uint8_t **payload)
 {
 	int remoteClus;
-#if defined(__ioddr__)
-	remoteClus = ifId + 4 * (tag - RPC_BASE_RX);
-#elif defined(__ioeth__)
-  #if defined(K1B_EXPLORER)
+#if defined(K1B_EXPLORER)
 	(void)ifId;
 	remoteClus = (tag - RPC_BASE_RX);
-  #else
+#elif defined(__ioddr__)
+	remoteClus = ifId + 4 * (tag - RPC_BASE_RX);
+#elif defined(__ioeth__)
 	int locIfId = ifId;
-    #if defined(__k1b__)
+  #if defined(__k1b__)
 	locIfId = locIfId - 4;
-    #endif
-	remoteClus = 4 * locIfId + (tag - RPC_BASE_RX);
   #endif
+	remoteClus = 4 * locIfId + (tag - RPC_BASE_RX);
 #else
 #error "Neither ioddr nor ioeth"
 #endif
