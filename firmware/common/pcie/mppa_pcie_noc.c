@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 #include "mppa_pcie_noc.h"
+#include "mppa_pcie_eth.h"
 #include "HAL/hal/hal.h"
-
 
 struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
 
@@ -74,13 +75,15 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		return ack;
 	}
 
-	ack.cmd.pcie_open.tx_tag = rx_id;
-	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
 
 	ret = mppa_pcie_eth_add_forward(open_cmd.pcie_eth_if_id, &g_mppa_pcie_tx_cfg[if_id][tx_id]);
 	if (ret)
 		return ack;
 
+	ack.cmd.pcie_open.tx_tag = rx_id;
+	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
+	memcpy(ack.cmd.pcie_open.mac, g_pcie_eth_control.configs[open_cmd.pcie_eth_if_id].mac_addr, MAC_ADDR_LEN);
 	ack.status = 0;
+
 	return ack;
 }
