@@ -140,6 +140,14 @@ int main (int argc, char *argv[])
 	mppa_power_init();
 
 	mppa_pcie_eth_noc_init();
+
+	printf("Initializing pcie eth interface\n");
+	ret = mppa_pcie_eth_init(16);
+	if (ret != 0) {
+		printf("Failed to initialize PCIe eth interface\n");
+		exit(1);
+	}
+
 	ret = odp_rpc_server_start(NULL);
 	if (ret) {
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");

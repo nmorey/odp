@@ -87,12 +87,15 @@ static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
 }
 
-void mppa_pcie_eth_init(int if_count)
+int mppa_pcie_eth_init(int if_count)
 {
 	unsigned int i;
 	struct mppa_pcie_eth_ring_buff_desc *desc_ptr;
 	g_if_count = if_count;
 	g_pcie_eth_control.if_count = g_if_count;
+
+	if (if_count > IF_COUNT_MAX)
+		return 1;
 
 	for (i = 0; i < g_if_count; i++) {
 		g_pcie_eth_control.configs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
@@ -103,7 +106,7 @@ void mppa_pcie_eth_init(int if_count)
 
 		desc_ptr = calloc(2, sizeof(struct mppa_pcie_eth_ring_buff_desc));
 		if(!desc_ptr)
-			assert(0);
+			return 1;
 
 		setup_rx(&desc_ptr[0]);
 		setup_tx(&desc_ptr[1]);
@@ -122,7 +125,9 @@ void mppa_pcie_eth_init(int if_count)
 	__builtin_k1_swu(&g_pcie_eth_control.magic, MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC);
 
 	/* Cross fingers for everything to be setup correctly ! */
-	mppa_pcie_send_it_to_host();
+	//~ mppa_pcie_send_it_to_host();
+
+	return 0;
 }
 
 int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size)
@@ -145,7 +150,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
 	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, rx_tail);
-	mppa_pcie_send_it_to_host();
+	//~ mppa_pcie_send_it_to_host();
 
 	return 0;
 }
@@ -153,24 +158,24 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int size)
 {
 	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
-	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if);
+	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if), next_tx_head;
 	struct mppa_pcie_eth_tx_ring_buff_entry *entry, **entries;
 	uint64_t daddr = (uintptr_t) addr;
 
 	/* Check if there is room to add a rx */
-	tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-	if (tx_head == tx_tail)
+	next_tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
+	if (next_tx_head == tx_tail)
 		return -1;
 
-	printf("Enqueuing rx for interface %p addr 0x%x to host tx descriptor %d\n", addr, size, tx_head);
+	printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %d\n", pcie_eth_if, addr, size, tx_head);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
 	entry = entries[tx_head];
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
-	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, tx_head);
-	mppa_pcie_send_it_to_host();
+	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, next_tx_head);
+	//~ mppa_pcie_send_it_to_host();
 
 	return 0;
 }

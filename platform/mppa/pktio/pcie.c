@@ -146,7 +146,7 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	 */
 	odp_rpc_cmd_pcie_open_t open_cmd = {
 		{
-			.pcie_eth_if_id = pcie->port_id,
+			.pcie_eth_if_id = pcie->pcie_eth_if_id,
 			.pkt_size = PKTIO_PKT_MTU,
 			.min_rx = pcie->rx_config.min_port,
 			.max_rx = pcie->rx_config.max_port,
@@ -175,6 +175,8 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	memcpy(pcie->mac_addr, ack.cmd.pcie_open.mac, ETH_ALEN);
 	pcie->mtu = ack.cmd.pcie_open.mtu;
 
+	printf("PCIe open ok on tx_if %d, tx_tag %d, mtu %d\n", pcie->tx_if, pcie->tx_tag, pcie->mtu);
+
 	return 0;
 }
 
@@ -192,13 +194,13 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	if (slot_id < 0 || slot_id >= MAX_PCIE_SLOTS)
 		return -1;
 
-	int port_id = 4;
+	int pcie_eth_if_id = 4;
 	if (devname[2] != 0) {
 		if(devname[2] != 'p')
 			return -1;
-		port_id = devname[3] - '0';
+		pcie_eth_if_id = devname[3] - '0';
 
-		if (port_id < 0 || port_id >= MAX_PCIE_INTERFACES)
+		if (pcie_eth_if_id < 0 || pcie_eth_if_id >= MAX_PCIE_INTERFACES)
 			return -1;
 
 		if(devname[4] != 0)
@@ -208,14 +210,14 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
 	pcie->slot_id = slot_id;
-	pcie->port_id = port_id;
+	pcie->pcie_eth_if_id = pcie_eth_if_id;
 	pcie->pool = pool;
 	odp_spinlock_init(&pcie->wlock);
 
 	/* Setup Rx threads */
 	pcie->rx_config.dma_if = 0;
 	pcie->rx_config.pool = pool;
-	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id;
+	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id;
 	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(NULL);
 	rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
@@ -250,13 +252,13 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	int slot_id = pcie->slot_id;
-	int port_id = pcie->port_id;
+	int pcie_eth_if_id = pcie->pcie_eth_if_id;
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
 
 	odp_rpc_cmd_pcie_clos_t close_cmd = {
 		{
-			.ifId = pcie->port_id = port_id
+			.ifId = pcie->pcie_eth_if_id = pcie_eth_if_id
 
 		}
 	};
@@ -276,7 +278,7 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 	ack.inl_data = ack_msg->inl_data;
 
 	/* Push Context to handling threads */
-	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + port_id);
+	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id);
 
 	free(pcie);
 	return ack.status;
@@ -310,9 +312,10 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = pcie->port_id % NOC_UC_COUNT;
+	unsigned int tx_index = pcie->pcie_eth_if_id % NOC_UC_COUNT;
 	unsigned int size;
 
+	printf("PCIe send\n");
 	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 		size = pkt_hdr->frame_len / sizeof(uint64_t);
@@ -379,7 +382,7 @@ static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	unsigned int pkt_count;
 
-
+	printf("PCIe send\n");
 	while(sent < len) {
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
 			(len - sent);
