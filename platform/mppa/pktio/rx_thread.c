@@ -20,7 +20,7 @@
 #include "odp_pool_internal.h"
 #include "odp_rx_internal.h"
 
-#define MAX_RX_P_LINK 12
+#define MAX_RX_P_LINK (12 * 4)
 #define PKT_BURST_SZ (MAX_RX_P_LINK / N_RX_THR)
 
 /** Per If data */
@@ -358,6 +358,9 @@ static void *_rx_thread_start(void *arg)
 
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 {
+	if (n_ports > MAX_RX_P_LINK)
+		return -1;
+
 	rx_thread_if_data_t *if_data =
 		&rx_thread_hdl.if_data[rx_config->pktio_id];
 	char loopq_name[ODP_QUEUE_NAME_LEN];
