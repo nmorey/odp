@@ -54,6 +54,7 @@ typedef struct rx_thread_data {
 } rx_thread_data_t;
 
 typedef struct rx_thread {
+	odp_atomic_u64_t update_id;
 	odp_rwlock_t lock;		/**< entry RW lock */
 	int dma_if;                     /**< DMA interface being watched */
 
@@ -348,9 +349,14 @@ static void *_rx_thread_start(void *arg)
 		hdr_list[i].tail = &hdr_list[i].head;
 		hdr_list[i].count = 0;
 	}
+	uint64_t last_update= -1LL;
 	while (1) {
 		odp_rwlock_read_lock(&th->lock);
-		INVALIDATE(th);
+		uint64_t update_id = odp_atomic_load_u64(&th->update_id);
+		if (update_id != last_update) {
+			INVALIDATE(th);
+			last_update = update_id;
+		}
 		for (int i = 0; i < N_ITER_LOCKED; ++i)
 			_poll_masks(th, th_id, hdr_list);
 		odp_rwlock_read_unlock(&th->lock);
@@ -483,6 +489,9 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 			}
 		}
 	}
+
+	odp_atomic_add_u64(&rx_thread_hdl.update_id, 1ULL);
+
 	odp_rwlock_write_unlock(&rx_thread_hdl.lock);
 	return first_rx;
 
@@ -533,6 +542,9 @@ int rx_thread_link_close(uint8_t pktio_id)
 			}
 		}
 	}
+
+	odp_atomic_add_u64(&rx_thread_hdl.update_id, 1ULL);
+
 	odp_rwlock_write_unlock(&rx_thread_hdl.lock);
 
 	return 0;
@@ -541,6 +553,8 @@ int rx_thread_link_close(uint8_t pktio_id)
 int rx_thread_init(void)
 {
 	odp_rwlock_init(&rx_thread_hdl.lock);
+	odp_atomic_init_u64(&rx_thread_hdl.update_id, 0ULL);
+
 	for (int i = 0; i < N_RX_THR; ++i) {
 		/* Start threads */
 
