@@ -27,7 +27,9 @@
 typedef struct rx_thread_if_data {
 	odp_packet_t pkts[MAX_RX_P_LINK]; /**< PKT mapped to Rx tags */
 	odp_bool_t broken[MAX_RX_P_LINK]; /**< Is Rx currently broken */
+
 	uint64_t dropped_pkts[N_RX_THR];
+	uint64_t oom[N_RX_THR]; /**< Is Rx currently broken */
 
 	uint64_t ev_masks[N_EV_MASKS];    /**< Mask to isolate events that
 					   * belong to us */
@@ -134,8 +136,13 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 
 	*rx_pkt = pkt;
 
-	if (pkt == ODP_PACKET_INVALID)
-		if_data->dropped_pkts[th_id]++;
+	if (pkt == ODP_PACKET_INVALID){
+		if (if_data->broken[rank]) {
+			if_data->dropped_pkts[th_id]++;
+		} else {
+			if_data->oom[th_id]++;
+		}
+	}
 
 	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
 		&mppa_dnoc[th->dma_if]->rx_queues[rx_id];
