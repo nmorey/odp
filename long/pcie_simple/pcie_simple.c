@@ -75,19 +75,27 @@ static int term_test()
 
 static int run_pcie_simple()
 {
-	int i;
+	int ret, i;
 	uint8_t *buf;
+	odp_packet_t packet;
 
-	odp_packet_t packet = odp_packet_alloc (pool, PKT_SIZE);
-	test_assert_ret(packet != ODP_PACKET_INVALID);
+	while (1) {
+		ret = odp_pktio_recv(pktio, &packet, 1);
+
+		test_assert_ret(ret >= 0);
+
+		if (ret == 1)
+			break;
+	}
+
+	test_assert_ret(odp_packet_is_valid(packet) == 1);
+	test_assert_ret(odp_packet_len(packet) == PKT_SIZE);
 
 	buf = odp_packet_data(packet);
-	odp_packet_l2_offset_set(packet, 0);
 
-	for (i = 0; i < PKT_SIZE; i++)
-		buf[i] = i;
-
-	test_assert_ret(odp_pktio_send(pktio, &packet, 1) >= 0);
+	for (i = 0; i < PKT_SIZE; i++) {
+		test_assert_ret(buf[i] == i);
+	}
 
 	return 0;
 }

@@ -359,6 +359,7 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 		uc_conf.pointers = &uc_pointers;
 		uc_conf.event_counter = 0;
 
+		printf("Configuring ");
 		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 						  uc_conf, pcie->header, pcie->config);
 		if (nret != MPPA_NOC_RET_SUCCESS)
