@@ -22,7 +22,7 @@
 
 #define MAX_RX_P_LINK (12 * 4)
 #define PKT_BURST_SZ (MAX_RX_P_LINK / N_RX_THR)
-#define N_ITER_LOCKED 1000
+#define N_ITER_LOCKED 1000000 /* About once per sec */
 
 /** Per If data */
 typedef struct rx_thread_if_data {
