@@ -29,7 +29,7 @@ typedef struct rx_thread_if_data {
 	odp_bool_t broken[MAX_RX_P_LINK]; /**< Is Rx currently broken */
 	uint64_t dropped_pkts[N_RX_THR];
 
-	unsigned ev_masks[N_EV_MASKS];    /**< Mask to isolate events that
+	uint64_t ev_masks[N_EV_MASKS];    /**< Mask to isolate events that
 					   * belong to us */
 	uint8_t pool_id;
 	rx_config_t rx_config;
@@ -308,7 +308,7 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 
 		/* We have an event */
 		while (mask != 0ULL) {
-			const int mask_bit = __k1_ctz(mask);
+			const int mask_bit = __k1_ctzdl(mask);
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
