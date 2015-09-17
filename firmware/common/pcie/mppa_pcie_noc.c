@@ -54,7 +54,7 @@ int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int tx_id, unsigned i
 odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 {
 	odp_rpc_cmd_pcie_open_t open_cmd = {.inl_data = msg->inl_data};
-	odp_rpc_cmd_ack_t ack = {.status = -1};
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
 	int if_id = remoteClus % BSP_NB_DMA_IO_MAX;
 	int tx_id = remoteClus / BSP_NB_DMA_IO_MAX;
 	unsigned int rx_id;
