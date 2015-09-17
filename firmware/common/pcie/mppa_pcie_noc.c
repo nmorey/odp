@@ -6,6 +6,12 @@
 #include "mppa_pcie_eth.h"
 #include "HAL/hal/hal.h"
 
+#define DDR_BUFFER_BASE_ADDR		0x80000000
+
+#define MPPA_PCIE_ETH_NOC_PKT_COUNT	16
+
+static unsigned int g_pkt_base_addr = DDR_BUFFER_BASE_ADDR;
+
 struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
 
 int mppa_pcie_eth_noc_init()
@@ -52,6 +58,32 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 	return 0;
 }
 
+static int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
+{
+	unsigned int buf_size = MPPA_PCIE_ETH_DEFAULT_MTU * MPPA_PCIE_ETH_NOC_PKT_COUNT;
+	mppa_noc_ret_t ret;
+	mppa_noc_dnoc_rx_configuration_t conf = MPPA_NOC_DNOC_RX_CONFIGURATION_INIT;
+
+	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, rx_id, MPPA_NOC_NON_BLOCKING);
+	if(ret) {
+		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
+		return 1;
+	}
+
+	conf.buffer_base = g_pkt_base_addr;
+	conf.buffer_size = buf_size;
+	g_pkt_base_addr += buf_size;
+
+	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
+	conf.activation = MPPA_NOC_ACTIVATED;
+
+	ret = mppa_noc_dnoc_rx_configure(if_id, *rx_id, conf);
+	if (ret)
+		return 1;
+
+	return 0;
+}
+
 odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 {
 	odp_rpc_cmd_pcie_open_t open_cmd = {.inl_data = msg->inl_data};
@@ -67,6 +99,10 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		return ack;
 	}
 
+	ret = mppa_pcie_eth_setup_rx(if_id, &rx_id);
+	if (ret)
+		return ack;
+
 	tx_cfg = &g_mppa_pcie_tx_cfg[if_id][tx_id];
 	tx_cfg->opened = 1; 
 	tx_cfg->cluster = remoteClus;
@@ -74,12 +110,6 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	tx_cfg->fifo_addr = &mppa_dnoc[if_id]->dma_pcie_fifo.dma_rx[tx_id].pcie_fifo;
 	tx_cfg->pcie_eth_if = open_cmd.pcie_eth_if_id; 
 	tx_cfg->mtu = open_cmd.pkt_size;
-
-	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, &rx_id, MPPA_NOC_NON_BLOCKING);
-	if(ret) {
-		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
-		return ack;
-	}
 
 	ret = mppa_pcie_eth_add_forward(open_cmd.pcie_eth_if_id, &g_mppa_pcie_tx_cfg[if_id][tx_id]);
 	if (ret)
