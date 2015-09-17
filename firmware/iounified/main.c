@@ -12,7 +12,7 @@ odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
 
 	(void)remoteClus;
-	odp_rpc_cmd_ack_t ack = {.status = -1 };
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
 	switch (msg->pkt_type){
 	case ODP_RPC_CMD_ETH_OPEN:
 		return eth_open(remoteClus, msg);

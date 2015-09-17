@@ -61,7 +61,7 @@ static int io_check_cluster_sync_status()
 
 static odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 {
-	odp_rpc_cmd_ack_t ack = {.status = -1 };
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
 
 	switch (msg->pkt_type){
 	case ODP_RPC_CMD_PCIE_OPEN:
