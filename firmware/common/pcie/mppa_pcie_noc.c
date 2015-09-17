@@ -107,7 +107,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	tx_cfg->opened = 1; 
 	tx_cfg->cluster = remoteClus;
 	tx_cfg->rx_id = rx_id;
-	tx_cfg->fifo_addr = &mppa_dnoc[if_id]->dma_pcie_fifo.dma_rx[tx_id].pcie_fifo;
+	tx_cfg->fifo_addr = &mppa_dnoc[if_id]->tx_ports[tx_id].push_data;
 	tx_cfg->pcie_eth_if = open_cmd.pcie_eth_if_id; 
 	tx_cfg->mtu = open_cmd.pkt_size;
 
