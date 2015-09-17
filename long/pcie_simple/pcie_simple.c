@@ -30,8 +30,6 @@ odp_pool_t pool;
 odp_pktio_t pktio;
 odp_queue_t inq;
 
-extern int __mppa_power_base_exit_return_status;
-
 static int setup_test()
 {
 	odp_pool_param_t params;
@@ -59,6 +57,8 @@ static int setup_test()
 
 	pktio = odp_pktio_open(pktio_name, pool, &pktio_param);
 	test_assert_ret(pktio != ODP_PKTIO_INVALID);
+
+	test_assert_ret(odp_pktio_start(pktio) == 0);
 
 	printf("Setup ok\n");
 	return 0;

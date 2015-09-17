@@ -27,8 +27,6 @@ odp_pool_t pool;
 odp_pktio_t pktio;
 odp_queue_t inq;
 
-extern int __mppa_power_base_exit_return_status;
-
 static int setup_test()
 {
 	odp_pool_param_t params;

@@ -315,7 +315,6 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 	unsigned int tx_index = pcie->pcie_eth_if_id % NOC_UC_COUNT;
 	unsigned int size;
 
-	printf("PCIe send\n");
 	for (i = 0; i < pkt_count; i++) {
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 		size = pkt_hdr->frame_len / sizeof(uint64_t);
@@ -328,6 +327,7 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
 			(uintptr_t) &_data_start;
 	}
+
 	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
 		uc_conf.parameters[i] = 0;
 		uc_pointers.thread_pointers[i] = 0;
@@ -382,7 +382,6 @@ static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	unsigned int pkt_count;
 
-	printf("PCIe send\n");
 	while(sent < len) {
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
 			(len - sent);

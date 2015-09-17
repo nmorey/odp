@@ -30,8 +30,6 @@ odp_queue_t inq;
 
 odp_pktio_t pktio_out;
 
-extern int __mppa_power_base_exit_return_status;
-
 static int setup_test()
 {
 	odp_pool_param_t params;
@@ -63,9 +61,13 @@ static int setup_test()
 	if (pktio_in == ODP_PKTIO_INVALID)
 		return 1;
 
+	test_assert_ret(odp_pktio_start(pktio_in) == 0);
+
 	pktio_out = odp_pktio_open(pktio_name_out, pool, &pktio_param);
 	if (pktio_out == ODP_PKTIO_INVALID)
 		return 1;
+
+	test_assert_ret(odp_pktio_start(pktio_out) == 0);
 
 	inq = odp_queue_create("inq_pktio_cluster",
 				ODP_QUEUE_TYPE_PKTIN,
