@@ -25,6 +25,12 @@
 #define N_ITER_LOCKED 1000000 /* About once per sec */
 
 /** Per If data */
+typedef struct {
+	odp_buffer_hdr_t  *head;
+	odp_buffer_hdr_t **tail;
+	int count;
+} rx_buffer_list_t;
+
 typedef struct rx_thread_if_data {
 	odp_packet_t pkts[MAX_RX_P_LINK]; /**< PKT mapped to Rx tags */
 	odp_bool_t broken[MAX_RX_P_LINK]; /**< Is Rx currently broken */
@@ -51,6 +57,7 @@ typedef struct rx_thread_data {
 	uint64_t ev_masks[4];           /**< Mask to isolate events that belong
 					 *   to us */
 	rx_pool_t pools[ODP_CONFIG_POOLS];
+	rx_buffer_list_t hdr_list[MAX_RX_IF];
 } rx_thread_data_t;
 
 typedef struct rx_thread {
@@ -69,12 +76,6 @@ typedef struct rx_thread {
 	rx_thread_if_data_t if_data[MAX_RX_IF];
 	rx_thread_data_t th_data[N_RX_THR];
 } rx_thread_t;
-
-typedef struct {
-	odp_buffer_hdr_t  *head;
-	odp_buffer_hdr_t **tail;
-	int count;
-} rx_buffer_list_t;
 
 static rx_thread_t rx_thread_hdl;
 
@@ -251,8 +252,7 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	return ret;
 }
 
-static void _poll_mask(rx_thread_t *th, int th_id,
-		       rx_buffer_list_t hdr_list[], int rx_id)
+static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
 {
 	const int pktio_id = th->tag2id[rx_id];
 	const rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
@@ -291,15 +291,15 @@ static void _poll_mask(rx_thread_t *th, int th_id,
 		/* Packet was corrupted */
 		return;
 
-	*(hdr_list[pktio_id].tail) = (odp_buffer_hdr_t *)pkt;
-	hdr_list[pktio_id].tail = &((odp_buffer_hdr_t *)pkt)->next;
-	hdr_list[pktio_id].count++;
+	rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[pktio_id];
+	*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
+	hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
+	hdr_list->count++;
 
 	return;
 }
 
-static void _poll_masks(rx_thread_t *th, int th_id,
-			rx_buffer_list_t hdr_list[])
+static void _poll_masks(rx_thread_t *th, int th_id)
 {
 	int i;
 	uint64_t mask = 0;
@@ -319,23 +319,24 @@ static void _poll_masks(rx_thread_t *th, int th_id,
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			_poll_mask(th, th_id, hdr_list, rx_id);
+			_poll_mask(th, th_id, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
+		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
 
-		if (!hdr_list[i].count)
+		if (!hdr_list->count)
 			continue;
 		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
 
 		odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
-			((uint8_t*)hdr_list[i].tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
+			((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
 		tail->next = NULL;
-		queue_enq_list(qentry, hdr_list[i].head, tail);
+		queue_enq_list(qentry, hdr_list->head, tail);
 
-		hdr_list[i].tail = &hdr_list[i].head;
-		hdr_list[i].count = 0;
+		hdr_list->tail = &hdr_list->head;
+		hdr_list->count = 0;
 	}
 	return;
 }
@@ -344,10 +345,10 @@ static void *_rx_thread_start(void *arg)
 {
 	rx_thread_t *th = &rx_thread_hdl;
 	int th_id = (unsigned long)(arg);
-	rx_buffer_list_t hdr_list[MAX_RX_IF];
 	for (int i = 0; i < MAX_RX_IF; ++i) {
-		hdr_list[i].tail = &hdr_list[i].head;
-		hdr_list[i].count = 0;
+		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
+		hdr_list->tail = &hdr_list->head;
+		hdr_list->count = 0;
 	}
 	uint64_t last_update= -1LL;
 	while (1) {
@@ -358,7 +359,7 @@ static void *_rx_thread_start(void *arg)
 			last_update = update_id;
 		}
 		for (int i = 0; i < N_ITER_LOCKED; ++i)
-			_poll_masks(th, th_id, hdr_list);
+			_poll_masks(th, th_id);
 		odp_rwlock_read_unlock(&th->lock);
 	}
 	return NULL;
