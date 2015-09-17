@@ -71,6 +71,7 @@ typedef struct rx_thread {
 typedef struct {
 	odp_buffer_hdr_t  *head;
 	odp_buffer_hdr_t **tail;
+	int count;
 } rx_buffer_list_t;
 
 static rx_thread_t rx_thread_hdl;
@@ -290,22 +291,19 @@ static void _poll_mask(rx_thread_t *th, int th_id,
 
 	*(hdr_list[pktio_id].tail) = (odp_buffer_hdr_t *)pkt;
 	hdr_list[pktio_id].tail = &((odp_buffer_hdr_t *)pkt)->next;
+	hdr_list[pktio_id].count++;
 
 	return;
 }
 
-static void _poll_masks(rx_thread_t *th, int th_id)
+static void _poll_masks(rx_thread_t *th, int th_id,
+			rx_buffer_list_t hdr_list[])
 {
 	int i;
 	uint64_t mask = 0;
 
-	rx_buffer_list_t hdr_list[MAX_RX_IF];
 	const rx_thread_data_t *th_data = &th->th_data[th_id];
 
-	for (i = 0; i < MAX_RX_IF; ++i) {
-		hdr_list[i].head = NULL;
-		hdr_list[i].tail = &hdr_list[i].head;
-	}
 	for (i = th_data->min_mask; i <= th_data->max_mask; ++i) {
 		mask = mppa_dnoc[th->dma_if]->rx_global.events[i].dword &
 			th_data->ev_masks[i];
@@ -325,7 +323,7 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
 
-		if (!hdr_list[i].head)
+		if (!hdr_list[i].count)
 			continue;
 		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
 
@@ -333,6 +331,9 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 			((uint8_t*)hdr_list[i].tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
 		tail->next = NULL;
 		queue_enq_list(qentry, hdr_list[i].head, tail);
+
+		hdr_list[i].tail = &hdr_list[i].head;
+		hdr_list[i].count = 0;
 	}
 	return;
 }
@@ -341,11 +342,15 @@ static void *_rx_thread_start(void *arg)
 {
 	rx_thread_t *th = &rx_thread_hdl;
 	int th_id = (unsigned long)(arg);
-
+	rx_buffer_list_t hdr_list[MAX_RX_IF];
+	for (int i = 0; i < MAX_RX_IF; ++i) {
+		hdr_list[i].tail = &hdr_list[i].head;
+		hdr_list[i].count = 0;
+	}
 	while (1) {
 		odp_rwlock_read_lock(&th->lock);
 		INVALIDATE(th);
-		_poll_masks(th, th_id);
+		_poll_masks(th, th_id, hdr_list);
 		odp_rwlock_read_unlock(&th->lock);
 	}
 	return NULL;
