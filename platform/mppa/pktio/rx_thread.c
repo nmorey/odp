@@ -36,7 +36,7 @@ typedef struct rx_thread_if_data {
 } rx_thread_if_data_t;
 
 typedef struct {
-	odp_packet_t spares[PKT_BURST_SZ * MAX_RX_IF];
+	odp_packet_t spares[PKT_BURST_SZ];
 	int n_spares;
 	int n_rx;
 } rx_pool_t;
@@ -263,7 +263,7 @@ static void _poll_mask(rx_thread_t *th, int th_id,
 		rx_pool->n_spares =
 			get_buf_multi(entry,
 				      (odp_buffer_hdr_t **)rx_pool->spares,
-				      rx_pool->n_rx);
+				      MIN(rx_pool->n_rx, PKT_BURST_SZ));
 	}
 	odp_packet_t pkt;
 
