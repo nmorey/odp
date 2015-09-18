@@ -239,13 +239,8 @@ static void _poll_mask(int th_id, int rx_id)
 {
 	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
 	const rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
-	uint16_t ev_counter =
-		mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
-	/* Weird... No data ! */
-	if (!ev_counter)
-		return;
-
+	mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
 	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
 	odp_packet_t pkt = _reload_rx(th_id, rx_id, rx_pool);
