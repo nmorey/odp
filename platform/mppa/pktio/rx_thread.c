@@ -70,7 +70,7 @@ typedef struct rx_thread {
 	uint8_t *drop_pkt_ptr;          /**< Pointer to drop_pkt buffer */
 	uint32_t drop_pkt_len;          /**< Size of drop_pkt buffer in bytes */
 
-	uint8_t tag2id[MAX_RX];          /**< LUT to convert Rx Tag
+	uint8_t tag2id[256];          /**< LUT to convert Rx Tag
 					  *   to If Id */
 
 	rx_thread_if_data_t if_data[MAX_RX_IF];
