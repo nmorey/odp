@@ -353,8 +353,8 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 
 	rx_config->min_port = first_rx;
 	rx_config->max_port = first_rx + n_rx - 1;
-	rx_config->pkt_offset = rx_config->header_sz +
-		((pool_entry_t *)rx_config->pool)->s.headroom;
+	rx_config->pkt_offset = ((pool_entry_t *)rx_config->pool)->s.headroom -
+		rx_config->header_sz;
 	/*
 	 * Compute event mask to detect events on our own tags later
 	 */
