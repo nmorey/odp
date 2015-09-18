@@ -124,7 +124,7 @@ int mppa_pcie_eth_init(int if_count)
 	__builtin_k1_swu(&g_pcie_eth_control.magic, MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC);
 
 	/* Cross fingers for everything to be setup correctly ! */
-	//~ mppa_pcie_send_it_to_host();
+	mppa_pcie_send_it_to_host();
 
 	return 0;
 }
@@ -149,7 +149,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
 	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, rx_tail);
-	//~ mppa_pcie_send_it_to_host();
+	mppa_pcie_send_it_to_host();
 
 	return 0;
 }
@@ -174,7 +174,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
 	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, next_tx_head);
-	//~ mppa_pcie_send_it_to_host();
+	mppa_pcie_send_it_to_host();
 
 	return 0;
 }
