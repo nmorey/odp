@@ -218,8 +218,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->rx_config.dma_if = 0;
 	pcie->rx_config.pool = pool;
 	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id;
-	/* FIXME */
-	pcie->rx_config.header_sz = sizeof(NULL);
+	pcie->rx_config.header_sz = sizeof(uint32_t);
 	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
 	if (ret < 0) {
 		ODP_DBG("Failed to open rx htread\n");
@@ -299,11 +298,32 @@ static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
+	int n_packet;
+	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	queue_entry_t *qentry;
 
-	qentry = queue_to_qentry(pcie->rx_config.queue);
-	return queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+	qentry = queue_to_qentry(eth->rx_config.queue);
+	n_packet =
+		queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+
+	for (int i = 0; i < n_packet; ++i) {
+		odp_packet_t pkt = pkt_table[i];
+		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+
+		uint8_t * const base_addr =
+			((uint8_t *)pkt_hdr->buf_hdr.addr) +
+			pkt_hdr->headroom;
+
+		_odp_packet_reset_parse(pkt);
+
+		uint32_t size;
+		uint8_t * const hdr_addr = base_addr -
+			sizeof(uint32_t);
+
+		size = LOAD_U32(hdr_addr);
+		packet_set_len(pkt, size - sizeof(uint32_t));
+	}
+	return n_packet;
 }
 
 static inline int
