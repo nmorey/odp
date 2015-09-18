@@ -188,7 +188,7 @@ static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 	int dropped = rx_queue->
 		get_drop_pkt_nb_and_activate.reg;
 
-	if (dropped) {
+	if (odp_unlikely(dropped)) {
 		/* We dropped some we need to try and
 		 * drop more to get better */
 
