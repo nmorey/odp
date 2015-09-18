@@ -220,35 +220,7 @@ static int _reload_rx(int th_id, int rx_id,
 		if_data->broken[rank] = false;
 
 		if_data->pkts[rank] = new_pkt;
-		if (pkt != ODP_PACKET_INVALID) {
-			/* Mark the new packet as unparsed and configure
-			 * its length from the LB header */
 
-			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
-			uint8_t * const base_addr =
-				((uint8_t *)pkt_hdr->buf_hdr.addr) +
-				pkt_hdr->headroom;
-
-			_odp_packet_reset_parse(pkt);
-
-			switch (rx_config->if_type) {
-			case RX_IF_TYPE_ETH: {
-				uint8_t * const hdr_addr = base_addr -
-					sizeof(mppa_ethernet_header_t);
-				mppa_ethernet_header_t * const header =
-					(mppa_ethernet_header_t *)hdr_addr;
-
-				INVALIDATE(header);
-
-				const unsigned len = header->info._.pkt_size -
-					1 * sizeof(mppa_ethernet_header_t);
-				packet_set_len(pkt, len);
-			}
-				break;
-			case RX_IF_TYPE_PCI:
-				assert(0);
-			}
-		}
 	}
 	return ret;
 }
