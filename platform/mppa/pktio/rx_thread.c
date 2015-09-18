@@ -45,7 +45,7 @@ typedef struct rx_thread_if_data {
 } rx_thread_if_data_t;
 
 typedef struct {
-	odp_packet_t spares[PKT_BURST_SZ];
+	odp_packet_t spares[PKT_BURST_SZ * 2];
 	int n_spares;
 	int n_rx;
 } rx_pool_t;
@@ -127,20 +127,27 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
-static int _reload_rx(int th_id, int rx_id,
-		      odp_packet_t spare, odp_packet_t *rx_pkt)
+static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 {
 	int pktio_id = rx_thread_hdl.tag2id[rx_id];
 	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 	int rank = rx_id - if_data->rx_config.min_port;
 	odp_packet_t pkt = if_data->pkts[rank];
-	odp_packet_t new_pkt = spare;
-	int ret = 1;
+	odp_packet_t newpkt = ODP_PACKET_INVALID;
 	const rx_config_t *rx_config = &if_data->rx_config;
 
-	*rx_pkt = pkt;
+	if (odp_unlikely(!rx_pool->n_spares)) {
+		/* Alloc */
+		struct pool_entry_s *entry =
+			&((pool_entry_t *)if_data->rx_config.pool)->s;
 
-	if (pkt == ODP_PACKET_INVALID){
+		rx_pool->n_spares =
+			get_buf_multi(entry,
+				      (odp_buffer_hdr_t **)rx_pool->spares,
+				      MIN(rx_pool->n_rx, PKT_BURST_SZ));
+	}
+
+	if (odp_unlikely(pkt == ODP_PACKET_INVALID)){
 		if (if_data->broken[rank]) {
 			if_data->dropped_pkts[th_id]++;
 		} else {
@@ -151,7 +158,7 @@ static int _reload_rx(int th_id, int rx_id,
 	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
 		&mppa_dnoc[rx_thread_hdl.dma_if]->rx_queues[rx_id];
 
-	if (new_pkt == ODP_PACKET_INVALID) {
+	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* No packets were available. Map small dirty
 		 * buffer to receive NoC packet but drop
 		 * the frame */
@@ -162,7 +169,10 @@ static int _reload_rx(int th_id, int rx_id,
 		 * to spread DMA Rx within the drop_pkt buffer */
 	} else {
 		/* Map the buffer in the DMA Rx */
-		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(new_pkt);
+		odp_packet_hdr_t *pkt_hdr;
+
+		newpkt = rx_pool->spares[--rx_pool->n_spares];
+		pkt_hdr = odp_packet_hdr(newpkt);
 
 		rx_queue->buffer_base.dword = (unsigned long)
 			((uint8_t *)(pkt_hdr->buf_hdr.addr) +
@@ -184,10 +194,13 @@ static int _reload_rx(int th_id, int rx_id,
 
 		/* Put back a dummy buffer.
 		 * We will drop those next ones anyway ! */
-		rx_queue->buffer_base.dword =
-			(unsigned long)rx_thread_hdl.drop_pkt_ptr;
-		rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
-
+		if (newpkt != ODP_PACKET_INVALID) {
+			rx_queue->buffer_base.dword =
+				(unsigned long)rx_thread_hdl.drop_pkt_ptr;
+			rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
+			/* Value was still in rx_pool. No need to store it again */
+			rx_pool->n_spares++;
+		}
 		/* Really force those values.
 		 * Item counter must be 2 in this case. */
 		int j;
@@ -205,24 +218,21 @@ static int _reload_rx(int th_id, int rx_id,
 
 		/* We didn't actually used the spare one */
 		if_data->pkts[rank] = ODP_PACKET_INVALID;
-		ret = 0;
 
 		if (pkt != ODP_PACKET_INVALID) {
 			/* If we pulled a packet, it has to be destroyed.
 			 * Mark it as parsed with frame_len error */
-			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
-
-			pkt_hdr->error_flags.frame_len = 1;
-			pkt_hdr->input_flags.unparsed = 0;
+			rx_pool->spares[rx_pool->n_spares++] = pkt;
+			pkt = ODP_PACKET_INVALID;
 		}
 
 	} else {
 		if_data->broken[rank] = false;
 
-		if_data->pkts[rank] = new_pkt;
+		if_data->pkts[rank] = newpkt;
 
 	}
-	return ret;
+	return pkt;
 }
 
 static void _poll_mask(int th_id, int rx_id)
@@ -232,33 +242,14 @@ static void _poll_mask(int th_id, int rx_id)
 	uint16_t ev_counter =
 		mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
-	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
-
 	/* Weird... No data ! */
 	if (!ev_counter)
 		return;
 
-	if (!rx_pool->n_spares) {
-		/* Alloc */
-		struct pool_entry_s *entry =
-			&((pool_entry_t *)if_data->rx_config.pool)->s;
 
-		rx_pool->n_spares =
-			get_buf_multi(entry,
-				      (odp_buffer_hdr_t **)rx_pool->spares,
-				      MIN(rx_pool->n_rx, PKT_BURST_SZ));
-	}
-	odp_packet_t pkt;
+	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
+	odp_packet_t pkt = _reload_rx(th_id, rx_id, rx_pool);
 
-	if (rx_pool->n_spares) {
-		rx_pool->n_spares -=
-			_reload_rx(th_id, rx_id,
-				   rx_pool->spares[rx_pool->n_spares - 1],
-				   &pkt);
-	} else {
-		_reload_rx(th_id, rx_id,
-			   ODP_PACKET_INVALID, &pkt);
-	}
 
 	if (pkt == ODP_PACKET_INVALID)
 		/* Packet was corrupted */
