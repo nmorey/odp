@@ -127,11 +127,11 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
-static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
+static int _reload_rx(int th_id, int rx_id,
 		      odp_packet_t spare, odp_packet_t *rx_pkt)
 {
-	int pktio_id = th->tag2id[rx_id];
-	rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
+	int pktio_id = rx_thread_hdl.tag2id[rx_id];
+	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 	int rank = rx_id - if_data->rx_config.min_port;
 	odp_packet_t pkt = if_data->pkts[rank];
 	odp_packet_t new_pkt = spare;
@@ -149,14 +149,15 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	}
 
 	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
-		&mppa_dnoc[th->dma_if]->rx_queues[rx_id];
+		&mppa_dnoc[rx_thread_hdl.dma_if]->rx_queues[rx_id];
 
 	if (new_pkt == ODP_PACKET_INVALID) {
 		/* No packets were available. Map small dirty
 		 * buffer to receive NoC packet but drop
 		 * the frame */
-		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
-		rx_queue->buffer_size.dword = th->drop_pkt_len;
+		rx_queue->buffer_base.dword =
+			(unsigned long)rx_thread_hdl.drop_pkt_ptr;
+		rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
 		/* We willingly do not change the offset here as we want
 		 * to spread DMA Rx within the drop_pkt buffer */
 	} else {
@@ -183,8 +184,9 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 
 		/* Put back a dummy buffer.
 		 * We will drop those next ones anyway ! */
-		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
-		rx_queue->buffer_size.dword = th->drop_pkt_len;
+		rx_queue->buffer_base.dword =
+			(unsigned long)rx_thread_hdl.drop_pkt_ptr;
+		rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
 
 		/* Really force those values.
 		 * Item counter must be 2 in this case. */
@@ -251,14 +253,14 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	return ret;
 }
 
-static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
+static void _poll_mask(int th_id, int rx_id)
 {
-	const int pktio_id = th->tag2id[rx_id];
-	const rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
+	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
+	const rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 	uint16_t ev_counter =
-		mppa_noc_dnoc_rx_lac_event_counter(th->dma_if, rx_id);
+		mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
-	rx_pool_t * rx_pool = &th->th_data[th_id].pools[if_data->pool_id];
+	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
 
 	/* Weird... No data ! */
 	if (!ev_counter)
@@ -278,11 +280,11 @@ static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
 
 	if (rx_pool->n_spares) {
 		rx_pool->n_spares -=
-			_reload_rx(th, th_id, rx_id,
+			_reload_rx(th_id, rx_id,
 				   rx_pool->spares[rx_pool->n_spares - 1],
 				   &pkt);
 	} else {
-		_reload_rx(th, th_id, rx_id,
+		_reload_rx(th_id, rx_id,
 			   ODP_PACKET_INVALID, &pkt);
 	}
 
@@ -290,7 +292,7 @@ static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
 		/* Packet was corrupted */
 		return;
 
-	rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[pktio_id];
+	rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[pktio_id];
 	*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 	hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 	hdr_list->count++;
@@ -298,15 +300,15 @@ static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
 	return;
 }
 
-static void _poll_masks(rx_thread_t *th, int th_id)
+static void _poll_masks(int th_id)
 {
 	int i;
 	uint64_t mask = 0;
 
-	const rx_thread_data_t *th_data = &th->th_data[th_id];
+	const rx_thread_data_t *th_data = &rx_thread_hdl.th_data[th_id];
 
 	for (i = th_data->min_mask; i <= th_data->max_mask; ++i) {
-		mask = mppa_dnoc[th->dma_if]->rx_global.events[i].dword &
+		mask = mppa_dnoc[rx_thread_hdl.dma_if]->rx_global.events[i].dword &
 			th_data->ev_masks[i];
 
 		if (mask == 0ULL)
@@ -318,16 +320,16 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			_poll_mask(th, th_id, rx_id);
+			_poll_mask(th_id, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
-		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
+		rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[i];
 
 		if (!hdr_list->count)
 			continue;
-		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
+		qentry = queue_to_qentry(rx_thread_hdl.if_data[i].rx_config.queue);
 
 		odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
 			((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
@@ -342,24 +344,24 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 
 static void *_rx_thread_start(void *arg)
 {
-	rx_thread_t *th = &rx_thread_hdl;
 	int th_id = (unsigned long)(arg);
 	for (int i = 0; i < MAX_RX_IF; ++i) {
-		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
+		rx_buffer_list_t * hdr_list =
+			&rx_thread_hdl.th_data[th_id].hdr_list[i];
 		hdr_list->tail = &hdr_list->head;
 		hdr_list->count = 0;
 	}
 	uint64_t last_update= -1LL;
 	while (1) {
-		odp_rwlock_read_lock(&th->lock);
-		uint64_t update_id = odp_atomic_load_u64(&th->update_id);
+		odp_rwlock_read_lock(&rx_thread_hdl.lock);
+		uint64_t update_id = odp_atomic_load_u64(&rx_thread_hdl.update_id);
 		if (update_id != last_update) {
-			INVALIDATE(th);
+			INVALIDATE(&rx_thread_hdl);
 			last_update = update_id;
 		}
 		for (int i = 0; i < N_ITER_LOCKED; ++i)
-			_poll_masks(th, th_id);
-		odp_rwlock_read_unlock(&th->lock);
+			_poll_masks(th_id);
+		odp_rwlock_read_unlock(&rx_thread_hdl.lock);
 	}
 	return NULL;
 }
