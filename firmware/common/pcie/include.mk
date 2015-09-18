@@ -1,1 +1,1 @@
-SRCDIRS  += $(dir $$(echo $(MAKEFILE_LIST) | awk '{ print $$NF}'))
+SRCDIRS  += $(dir $(realpath $(lastword $(MAKEFILE_LIST))))

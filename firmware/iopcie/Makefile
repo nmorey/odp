@@ -1,4 +1,4 @@
-SRCDIR   := $(shell dirname $$(echo $(MAKEFILE_LIST) | awk '{ print $$NF}'))
+SRCDIR   := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 SRCDIRS  := $(SRCDIR)
 
 _LDFLAGS = -lmppapower -lmppanoc -lmpparouting -T $(SRCDIR)/linker.ld

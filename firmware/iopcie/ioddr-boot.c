@@ -137,8 +137,6 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	mppa_power_init();
-
 	mppa_pcie_eth_noc_init();
 
 	printf("Initializing pcie eth interface\n");

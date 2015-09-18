@@ -107,6 +107,11 @@ typedef union {
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_ack_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ACK_T__SIZE_ERROR");
 
 static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id){
+#if defined(K1B_EXPLORER)
+	(void)ddr_id;
+	(void)cluster_id;
+	return 128;
+#else
 	switch(ddr_id){
 	case 0:
 		/* North */
@@ -117,11 +122,18 @@ static inline int odp_rpc_get_ioddr_dma_id(unsigned ddr_id, unsigned cluster_id)
 	default:
 		return -1;
 	}
+#endif
 }
 
 static inline int odp_rpc_get_ioddr_tag_id(unsigned ddr_id, unsigned cluster_id){
+#if defined(K1B_EXPLORER)
+	(void)ddr_id;
+	(void)cluster_id;
+	return RPC_BASE_RX + cluster_id;
+#else
 	(void) ddr_id;
 	return RPC_BASE_RX + (cluster_id / 4);
+#endif
 }
 
 static inline int odp_rpc_get_ioeth_dma_id(unsigned eth_slot, unsigned cluster_id){
