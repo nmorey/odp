@@ -210,7 +210,6 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 			 * Mark it as parsed with frame_len error */
 			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
 
-			_odp_packet_reset_parse(pkt);
 			pkt_hdr->error_flags.frame_len = 1;
 			pkt_hdr->input_flags.unparsed = 0;
 		}
