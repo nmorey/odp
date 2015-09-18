@@ -20,9 +20,9 @@
 #include "odp_pool_internal.h"
 #include "odp_rx_internal.h"
 
-#define MAX_RX_P_LINK (12 * 4)
-#define PKT_BURST_SZ (MAX_RX_P_LINK / N_RX_THR)
-#define N_ITER_LOCKED 1000000 /* About once per sec */
+#define MAX_RX (256)
+#define PKT_BURST_SZ (MAX_RX / N_RX_THR)
+#define N_ITER_LOCKED 100000 /* About once per sec */
 
 /** Per If data */
 typedef struct {
@@ -32,8 +32,8 @@ typedef struct {
 } rx_buffer_list_t;
 
 typedef struct rx_thread_if_data {
-	odp_packet_t pkts[MAX_RX_P_LINK]; /**< PKT mapped to Rx tags */
-	odp_bool_t broken[MAX_RX_P_LINK]; /**< Is Rx currently broken */
+	odp_packet_t pkts[MAX_RX]; /**< PKT mapped to Rx tags */
+	odp_bool_t broken[MAX_RX]; /**< Is Rx currently broken */
 
 	uint64_t dropped_pkts[N_RX_THR];
 	uint64_t oom[N_RX_THR]; /**< Is Rx currently broken */
@@ -45,7 +45,7 @@ typedef struct rx_thread_if_data {
 } rx_thread_if_data_t;
 
 typedef struct {
-	odp_packet_t spares[PKT_BURST_SZ];
+	odp_packet_t spares[PKT_BURST_SZ * 2];
 	int n_spares;
 	int n_rx;
 } rx_pool_t;
@@ -70,8 +70,8 @@ typedef struct rx_thread {
 	uint8_t *drop_pkt_ptr;          /**< Pointer to drop_pkt buffer */
 	uint32_t drop_pkt_len;          /**< Size of drop_pkt buffer in bytes */
 
-	uint8_t tag2id[256];             /**< LUT to convert Rx Tag
-					    to If Id */
+	uint8_t tag2id[256];          /**< LUT to convert Rx Tag
+					  *   to If Id */
 
 	rx_thread_if_data_t if_data[MAX_RX_IF];
 	rx_thread_data_t th_data[N_RX_THR];
@@ -127,20 +127,27 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
-static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
-		      odp_packet_t spare, odp_packet_t *rx_pkt)
+static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 {
-	int pktio_id = th->tag2id[rx_id];
-	rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
+	int pktio_id = rx_thread_hdl.tag2id[rx_id];
+	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 	int rank = rx_id - if_data->rx_config.min_port;
 	odp_packet_t pkt = if_data->pkts[rank];
-	odp_packet_t new_pkt = spare;
-	int ret = 1;
+	odp_packet_t newpkt = ODP_PACKET_INVALID;
 	const rx_config_t *rx_config = &if_data->rx_config;
 
-	*rx_pkt = pkt;
+	if (odp_unlikely(!rx_pool->n_spares)) {
+		/* Alloc */
+		struct pool_entry_s *entry =
+			&((pool_entry_t *)if_data->rx_config.pool)->s;
 
-	if (pkt == ODP_PACKET_INVALID){
+		rx_pool->n_spares =
+			get_buf_multi(entry,
+				      (odp_buffer_hdr_t **)rx_pool->spares,
+				      MIN(rx_pool->n_rx, PKT_BURST_SZ));
+	}
+
+	if (odp_unlikely(pkt == ODP_PACKET_INVALID)){
 		if (if_data->broken[rank]) {
 			if_data->dropped_pkts[th_id]++;
 		} else {
@@ -149,19 +156,23 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	}
 
 	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
-		&mppa_dnoc[th->dma_if]->rx_queues[rx_id];
+		&mppa_dnoc[rx_thread_hdl.dma_if]->rx_queues[rx_id];
 
-	if (new_pkt == ODP_PACKET_INVALID) {
+	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* No packets were available. Map small dirty
 		 * buffer to receive NoC packet but drop
 		 * the frame */
-		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
-		rx_queue->buffer_size.dword = th->drop_pkt_len;
+		rx_queue->buffer_base.dword =
+			(unsigned long)rx_thread_hdl.drop_pkt_ptr;
+		rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
 		/* We willingly do not change the offset here as we want
 		 * to spread DMA Rx within the drop_pkt buffer */
 	} else {
 		/* Map the buffer in the DMA Rx */
-		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(new_pkt);
+		odp_packet_hdr_t *pkt_hdr;
+
+		newpkt = rx_pool->spares[--rx_pool->n_spares];
+		pkt_hdr = odp_packet_hdr(newpkt);
 
 		rx_queue->buffer_base.dword = (unsigned long)
 			((uint8_t *)(pkt_hdr->buf_hdr.addr) +
@@ -177,15 +188,19 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 	int dropped = rx_queue->
 		get_drop_pkt_nb_and_activate.reg;
 
-	if (dropped) {
+	if (odp_unlikely(dropped)) {
 		/* We dropped some we need to try and
 		 * drop more to get better */
 
 		/* Put back a dummy buffer.
 		 * We will drop those next ones anyway ! */
-		rx_queue->buffer_base.dword = (unsigned long)th->drop_pkt_ptr;
-		rx_queue->buffer_size.dword = th->drop_pkt_len;
-
+		if (newpkt != ODP_PACKET_INVALID) {
+			rx_queue->buffer_base.dword =
+				(unsigned long)rx_thread_hdl.drop_pkt_ptr;
+			rx_queue->buffer_size.dword = rx_thread_hdl.drop_pkt_len;
+			/* Value was still in rx_pool. No need to store it again */
+			rx_pool->n_spares++;
+		}
 		/* Really force those values.
 		 * Item counter must be 2 in this case. */
 		int j;
@@ -203,95 +218,39 @@ static int _reload_rx(rx_thread_t *th, int th_id, int rx_id,
 
 		/* We didn't actually used the spare one */
 		if_data->pkts[rank] = ODP_PACKET_INVALID;
-		ret = 0;
 
 		if (pkt != ODP_PACKET_INVALID) {
 			/* If we pulled a packet, it has to be destroyed.
 			 * Mark it as parsed with frame_len error */
-			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
-
-			_odp_packet_reset_parse(pkt);
-			pkt_hdr->error_flags.frame_len = 1;
-			pkt_hdr->input_flags.unparsed = 0;
+			rx_pool->spares[rx_pool->n_spares++] = pkt;
+			pkt = ODP_PACKET_INVALID;
 		}
 
 	} else {
 		if_data->broken[rank] = false;
 
-		if_data->pkts[rank] = new_pkt;
-		if (pkt != ODP_PACKET_INVALID) {
-			/* Mark the new packet as unparsed and configure
-			 * its length from the LB header */
+		if_data->pkts[rank] = newpkt;
 
-			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
-			uint8_t * const base_addr =
-				((uint8_t *)pkt_hdr->buf_hdr.addr) +
-				pkt_hdr->headroom;
-
-			_odp_packet_reset_parse(pkt);
-
-			switch (rx_config->if_type) {
-			case RX_IF_TYPE_ETH: {
-				uint8_t * const hdr_addr = base_addr -
-					sizeof(mppa_ethernet_header_t);
-				mppa_ethernet_header_t * const header =
-					(mppa_ethernet_header_t *)hdr_addr;
-
-				INVALIDATE(header);
-
-				const unsigned len = header->info._.pkt_size -
-					1 * sizeof(mppa_ethernet_header_t);
-				packet_set_len(pkt, len);
-			}
-				break;
-			case RX_IF_TYPE_PCI:
-				assert(0);
-			}
-		}
 	}
-	return ret;
+	return pkt;
 }
 
-static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
+static void _poll_mask(int th_id, int rx_id)
 {
-	const int pktio_id = th->tag2id[rx_id];
-	const rx_thread_if_data_t *if_data = &th->if_data[pktio_id];
-	uint16_t ev_counter =
-		mppa_noc_dnoc_rx_lac_event_counter(th->dma_if, rx_id);
+	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
+	const rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 
-	rx_pool_t * rx_pool = &th->th_data[th_id].pools[if_data->pool_id];
+	mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
-	/* Weird... No data ! */
-	if (!ev_counter)
-		return;
+	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
+	odp_packet_t pkt = _reload_rx(th_id, rx_id, rx_pool);
 
-	if (!rx_pool->n_spares) {
-		/* Alloc */
-		struct pool_entry_s *entry =
-			&((pool_entry_t *)if_data->rx_config.pool)->s;
-
-		rx_pool->n_spares =
-			get_buf_multi(entry,
-				      (odp_buffer_hdr_t **)rx_pool->spares,
-				      MIN(rx_pool->n_rx, PKT_BURST_SZ));
-	}
-	odp_packet_t pkt;
-
-	if (rx_pool->n_spares) {
-		rx_pool->n_spares -=
-			_reload_rx(th, th_id, rx_id,
-				   rx_pool->spares[rx_pool->n_spares - 1],
-				   &pkt);
-	} else {
-		_reload_rx(th, th_id, rx_id,
-			   ODP_PACKET_INVALID, &pkt);
-	}
 
 	if (pkt == ODP_PACKET_INVALID)
 		/* Packet was corrupted */
 		return;
 
-	rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[pktio_id];
+	rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[pktio_id];
 	*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 	hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 	hdr_list->count++;
@@ -299,15 +258,15 @@ static void _poll_mask(rx_thread_t *th, int th_id, int rx_id)
 	return;
 }
 
-static void _poll_masks(rx_thread_t *th, int th_id)
+static void _poll_masks(int th_id)
 {
 	int i;
 	uint64_t mask = 0;
 
-	const rx_thread_data_t *th_data = &th->th_data[th_id];
+	const rx_thread_data_t *th_data = &rx_thread_hdl.th_data[th_id];
 
 	for (i = th_data->min_mask; i <= th_data->max_mask; ++i) {
-		mask = mppa_dnoc[th->dma_if]->rx_global.events[i].dword &
+		mask = mppa_dnoc[rx_thread_hdl.dma_if]->rx_global.events[i].dword &
 			th_data->ev_masks[i];
 
 		if (mask == 0ULL)
@@ -319,16 +278,16 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			_poll_mask(th, th_id, rx_id);
+			_poll_mask(th_id, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
-		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
+		rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[i];
 
 		if (!hdr_list->count)
 			continue;
-		qentry = queue_to_qentry(th->if_data[i].rx_config.queue);
+		qentry = queue_to_qentry(rx_thread_hdl.if_data[i].rx_config.queue);
 
 		odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
 			((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
@@ -343,31 +302,31 @@ static void _poll_masks(rx_thread_t *th, int th_id)
 
 static void *_rx_thread_start(void *arg)
 {
-	rx_thread_t *th = &rx_thread_hdl;
 	int th_id = (unsigned long)(arg);
 	for (int i = 0; i < MAX_RX_IF; ++i) {
-		rx_buffer_list_t * hdr_list = &th->th_data[th_id].hdr_list[i];
+		rx_buffer_list_t * hdr_list =
+			&rx_thread_hdl.th_data[th_id].hdr_list[i];
 		hdr_list->tail = &hdr_list->head;
 		hdr_list->count = 0;
 	}
 	uint64_t last_update= -1LL;
 	while (1) {
-		odp_rwlock_read_lock(&th->lock);
-		uint64_t update_id = odp_atomic_load_u64(&th->update_id);
+		odp_rwlock_read_lock(&rx_thread_hdl.lock);
+		uint64_t update_id = odp_atomic_load_u64(&rx_thread_hdl.update_id);
 		if (update_id != last_update) {
-			INVALIDATE(th);
+			INVALIDATE(&rx_thread_hdl);
 			last_update = update_id;
 		}
 		for (int i = 0; i < N_ITER_LOCKED; ++i)
-			_poll_masks(th, th_id);
-		odp_rwlock_read_unlock(&th->lock);
+			_poll_masks(th_id);
+		odp_rwlock_read_unlock(&rx_thread_hdl.lock);
 	}
 	return NULL;
 }
 
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 {
-	if (n_ports > MAX_RX_P_LINK)
+	if (n_ports > MAX_RX)
 		return -1;
 
 	rx_thread_if_data_t *if_data =

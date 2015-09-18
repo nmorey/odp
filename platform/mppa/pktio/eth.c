@@ -218,7 +218,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->rx_config.pool = pool;
 	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
 	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH);
+	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH * (port_id == 4 ? 4 : 1));
 
 	ret = eth_rpc_send_eth_open(eth);
 
@@ -296,11 +296,34 @@ static int eth_mac_addr_get(pktio_entry_t *pktio_entry,
 static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
+	int n_packet;
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	queue_entry_t *qentry;
 
 	qentry = queue_to_qentry(eth->rx_config.queue);
-	return queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+	n_packet =
+		queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+
+	for (int i = 0; i < n_packet; ++i) {
+		odp_packet_t pkt = pkt_table[i];
+		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+		uint8_t * const base_addr =
+			((uint8_t *)pkt_hdr->buf_hdr.addr) +
+			pkt_hdr->headroom;
+
+		_odp_packet_reset_parse(pkt);
+
+		union mppa_ethernet_header_info_t info;
+		uint8_t * const hdr_addr = base_addr -
+			sizeof(mppa_ethernet_header_t);
+		mppa_ethernet_header_t * const header =
+			(mppa_ethernet_header_t *)hdr_addr;
+
+		info.dword = LOAD_U64(header->info.dword);
+		packet_set_len(pkt, info._.pkt_size -
+			       sizeof(mppa_ethernet_header_t));
+	}
+	return n_packet;
 }
 
 

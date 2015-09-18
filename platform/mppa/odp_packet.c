@@ -49,7 +49,13 @@ odp_packet_t odp_packet_alloc(odp_pool_t pool_hdl, uint32_t len)
 
 void odp_packet_free(odp_packet_t pkt)
 {
-	odp_buffer_free((odp_buffer_t)pkt);
+	odp_packet_hdr_t *const pkt_hdr = (odp_packet_hdr_t *)(pkt);
+	if (pkt_hdr->input != ODP_PKTIO_INVALID){
+		ret_buf(&((pool_entry_t*)pkt_hdr->buf_hdr.pool_hdl)->s,
+			(odp_buffer_hdr_t **)&pkt_hdr, 1);
+	} else {
+		odp_buffer_free((odp_buffer_t)pkt);
+	}
 }
 
 int odp_packet_reset(odp_packet_t pkt, uint32_t len)
