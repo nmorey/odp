@@ -20,9 +20,10 @@
 #include "odp_pool_internal.h"
 #include "odp_rx_internal.h"
 
-#define MAX_RX (256)
+#define N_RX
+#define MAX_RX (30 * 4)
 #define PKT_BURST_SZ (MAX_RX / N_RX_THR)
-#define N_ITER_LOCKED 100000 /* About once per sec */
+#define N_ITER_LOCKED 1000000 /* About once per sec */
 
 /** Per If data */
 typedef struct {
@@ -127,14 +128,17 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
-static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
+static void _reload_rx(int th_id, int rx_id)
 {
-	int pktio_id = rx_thread_hdl.tag2id[rx_id];
+	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
 	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
-	int rank = rx_id - if_data->rx_config.min_port;
+	const int rank = rx_id - if_data->rx_config.min_port;
 	odp_packet_t pkt = if_data->pkts[rank];
 	odp_packet_t newpkt = ODP_PACKET_INVALID;
 	const rx_config_t *rx_config = &if_data->rx_config;
+	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
+
+	mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
 
 	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* Alloc */
@@ -149,6 +153,7 @@ static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 
 	if (odp_unlikely(pkt == ODP_PACKET_INVALID)){
 		if (if_data->broken[rank]) {
+			if_data->broken[rank] = false;
 			if_data->dropped_pkts[th_id]++;
 		} else {
 			if_data->oom[th_id]++;
@@ -227,34 +232,14 @@ static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 		}
 
 	} else {
-		if_data->broken[rank] = false;
-
 		if_data->pkts[rank] = newpkt;
 
-	}
-	return pkt;
-}
+		if (odp_likely(pkt != ODP_PACKET_INVALID)) {
+			rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[pktio_id];
 
-static void _poll_mask(int th_id, int rx_id)
-{
-	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
-	const rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
-
-	mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
-
-	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
-	odp_packet_t pkt = _reload_rx(th_id, rx_id, rx_pool);
-
-
-	if (pkt == ODP_PACKET_INVALID)
-		/* Packet was corrupted */
-		return;
-
-	rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[pktio_id];
-	*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
-	hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
-	hdr_list->count++;
-
+			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
+			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
+		}
 	return;
 }
 
@@ -278,14 +263,14 @@ static void _poll_masks(int th_id)
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			_poll_mask(th_id, rx_id);
+			_reload_rx(th_id, rx_id);
 		}
 	}
 	for (i = 0; i < MAX_RX_IF; ++i) {
 		queue_entry_t *qentry;
 		rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[i];
 
-		if (!hdr_list->count)
+		if (hdr_list->tail == &hdr_list->head)
 			continue;
 		qentry = queue_to_qentry(rx_thread_hdl.if_data[i].rx_config.queue);
 
@@ -295,7 +280,6 @@ static void _poll_masks(int th_id)
 		queue_enq_list(qentry, hdr_list->head, tail);
 
 		hdr_list->tail = &hdr_list->head;
-		hdr_list->count = 0;
 	}
 	return;
 }
