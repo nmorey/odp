@@ -220,7 +220,11 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id;
 	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(NULL);
-	rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
+	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
+	if (ret) {
+		ODP_DBG("Failed to open rx htread\n");
+		return -1;
+	}
 
 	ret = pcie_rpc_send_pcie_open(pcie);
 

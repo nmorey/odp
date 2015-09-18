@@ -191,7 +191,6 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 					       sizeof(*cmd), cmd);
 	}
 
-	mppa_noc_dnoc_rx_free(local_interface, tx_port);
 	return 0;
 
  err_tx:
