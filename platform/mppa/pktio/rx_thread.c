@@ -176,7 +176,7 @@ static odp_packet_t _reload_rx(int th_id, int rx_id, rx_pool_t * rx_pool)
 
 		rx_queue->buffer_base.dword = (unsigned long)
 			((uint8_t *)(pkt_hdr->buf_hdr.addr) +
-			 pkt_hdr->headroom - rx_config->header_sz);
+			 rx_config->pkt_offset);
 
 		/* Rearm the DMA Rx and check for droppped packets */
 		rx_queue->current_offset.reg = 0ULL;
@@ -369,7 +369,8 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 
 	rx_config->min_port = first_rx;
 	rx_config->max_port = first_rx + n_rx - 1;
-
+	rx_config->pkt_offset = rx_config->header_sz +
+		((pool_entry_t *)rx_config->pool)->s.headroom;
 	/*
 	 * Compute event mask to detect events on our own tags later
 	 */
