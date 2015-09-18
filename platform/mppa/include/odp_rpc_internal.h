@@ -85,23 +85,26 @@ _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_clos_t) == sizeof(odp_rpc_inl_data_t)
 typedef union {
 	struct {
 		uint8_t status;
+		union {
+			uint8_t foo;                    /* Dummy entry for init */
+			struct {
+				uint16_t tx_if;	/* IO Cluster id */
+				uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+				uint8_t  mac[ETH_ALEN];
+				uint16_t mtu;
+			} eth_open;
+			struct {
+				uint16_t tx_if;	/* IO Cluster id */
+				uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
+				uint8_t  mac[ETH_ALEN];
+				uint16_t mtu;
+			} pcie_open;
+		} cmd;
 	};
-	union {
-		struct {
-			uint16_t tx_if;	/* IO Cluster id */
-			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
-			uint8_t  mac[ETH_ALEN];
-			uint16_t mtu;
-		} eth_open;
-		struct {
-			uint16_t tx_if;	/* IO Cluster id */
-			uint8_t  tx_tag;	/* Tag of the IO Cluster rx */
-			uint8_t  mac[ETH_ALEN];
-			uint16_t mtu;
-		} pcie_open;
-	} cmd;
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_ack_t;
+
+#define ODP_RPC_CMD_ACK_INITIALIZER { .inl_data = { .data = { 0 }}, .cmd = { 0 }, .status = -1}
 
 /** @internal Compile time assert */
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_ack_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ACK_T__SIZE_ERROR");

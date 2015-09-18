@@ -12,6 +12,16 @@
 #include "libmppa_eth_loadbalancer.h"
 
 
+/** Set the duplexwhen using the 1G link MPPABETHMAC_MODE_1G */ 
+#define MPPABETHMAC_FULLDUPLEX 	1
+#define MPPABETHMAC_HALFDUPLEX 	0
+
+enum mppa_eth_mac_duplex_e {
+	MPPA_ETH_MAC_FULLDUPLEX  = 	MPPABETHMAC_FULLDUPLEX,
+	MPPA_ETH_MAC_HALFDUPLEX  =	MPPABETHMAC_HALFDUPLEX,
+};
+
+
 #define MAX_TABLE_IDX		 0	/*ONly true on fpga */
 #define DEFAULT_TABLE_IDX 	 8
 enum loopback_level { MAC_LOCAL_LOOPBACK = 0, MAC_BYPASS_LOOPBACK, LAST_LOOPBACK_LEVEL
@@ -119,6 +129,23 @@ int mac_poll_state(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
  * @retval 0 Success
  */
 uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode);
+
+/**
+ * @brief Complete mac initialization with speficied rate and duplex=>
+ * - synchro with the PHY
+ * - startup the lane
+ * - Disable autoneg
+ * - Set rate and duplex
+ * - Check the lane status
+ * @return Status
+ * @retval -EINVAL Invalid parameters or mode not compatible with previous init
+ * @retval -EBUSY Interface is already open and up
+ * @retval -ENOSYS Mode not supported yet
+ * @retval -EIO Issue with Phy or I2C initialization
+ * @retval -ENETDOWN Init successful but link is still down
+ * @retval 0 Success
+ */
+uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e rate_1G, enum mppa_eth_mac_duplex_e duplex_mode);
 
 void dump_reg_dev(uint8_t dev);
 
