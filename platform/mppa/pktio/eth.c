@@ -218,7 +218,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->rx_config.pool = pool;
 	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
 	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH);
+	rx_thread_link_open(&eth->rx_config, N_RX_P_ETH * (port_id == 4 ? 4 : 1));
 
 	ret = eth_rpc_send_eth_open(eth);
 
