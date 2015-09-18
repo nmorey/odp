@@ -221,7 +221,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(NULL);
 	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
-	if (ret) {
+	if (ret < 0) {
 		ODP_DBG("Failed to open rx htread\n");
 		return -1;
 	}
