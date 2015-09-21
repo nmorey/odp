@@ -128,7 +128,7 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
-static void _reload_rx(int th_id, int rx_id)
+static int _reload_rx(int th_id, int rx_id)
 {
 	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
 	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
@@ -241,46 +241,57 @@ static void _reload_rx(int th_id, int rx_id)
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 		}
 	}
-	return;
+	return pktio_id;
 }
 
 static void _poll_masks(int th_id)
 {
 	int i;
-	uint64_t mask = 0;
+	uint64_t mask;
 
-	const rx_thread_data_t *th_data = &rx_thread_hdl.th_data[th_id];
+	const int dma_if = rx_thread_hdl.dma_if;
+	const rx_thread_data_t * const th_data = &rx_thread_hdl.th_data[th_id];
+	const int min_mask =  th_data->min_mask;
+	const int max_mask =  th_data->max_mask;
+	for (int iter = 0; iter < N_ITER_LOCKED; ++iter) {
+		int if_mask = 0;
 
-	for (i = th_data->min_mask; i <= th_data->max_mask; ++i) {
-		mask = mppa_dnoc[rx_thread_hdl.dma_if]->rx_global.events[i].dword &
-			th_data->ev_masks[i];
+		for (i = min_mask; i <= max_mask; ++i) {
+			mask = mppa_dnoc[dma_if]->rx_global.events[i].dword &
+				th_data->ev_masks[i];
 
-		if (mask == 0ULL)
-			continue;
+			if (mask == 0ULL)
+				continue;
 
-		/* We have an event */
-		while (mask != 0ULL) {
-			const int mask_bit = __k1_ctzdl(mask);
-			const int rx_id = mask_bit + i * 64;
+			/* We have an event */
+			while (mask != 0ULL) {
+				const int mask_bit = __k1_ctzdl(mask);
+				const int rx_id = mask_bit + i * 64;
 
-			mask = mask ^ (1ULL << mask_bit);
-			_reload_rx(th_id, rx_id);
+				mask = mask ^ (1ULL << mask_bit);
+				if_mask |= 1 << _reload_rx(th_id, rx_id);
+			}
 		}
-	}
-	for (i = 0; i < MAX_RX_IF; ++i) {
-		queue_entry_t *qentry;
-		rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[i];
 
-		if (hdr_list->tail == &hdr_list->head)
-			continue;
-		qentry = queue_to_qentry(rx_thread_hdl.if_data[i].rx_config.queue);
+		while (if_mask) {
+			i = __builtin_k1_ctz(if_mask);
+			if_mask ^= (1 << i);
 
-		odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
-			((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
-		tail->next = NULL;
-		queue_enq_list(qentry, hdr_list->head, tail);
+			queue_entry_t *qentry;
+			rx_buffer_list_t * hdr_list = &rx_thread_hdl.th_data[th_id].hdr_list[i];
 
-		hdr_list->tail = &hdr_list->head;
+			if (hdr_list->tail == &hdr_list->head)
+				continue;
+			qentry = queue_to_qentry(rx_thread_hdl.if_data[i].rx_config.queue);
+
+			odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
+				((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
+			tail->next = NULL;
+			queue_enq_list(qentry, hdr_list->head, tail);
+
+			hdr_list->tail = &hdr_list->head;
+		}
+
 	}
 	return;
 }
@@ -302,8 +313,7 @@ static void *_rx_thread_start(void *arg)
 			INVALIDATE(&rx_thread_hdl);
 			last_update = update_id;
 		}
-		for (int i = 0; i < N_ITER_LOCKED; ++i)
-			_poll_masks(th_id);
+		_poll_masks(th_id);
 		odp_rwlock_read_unlock(&rx_thread_hdl.lock);
 	}
 	return NULL;
