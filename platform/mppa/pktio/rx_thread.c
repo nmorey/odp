@@ -332,29 +332,32 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 	/*
 	 * Allocate contiguous RX ports
 	 */
-	int first_rx = -1;
-	int n_rx;
+	int n_rx, first_rx;
 
-	for (n_rx = 0; n_rx < n_ports; ++n_rx) {
-		mppa_noc_ret_t ret;
-		unsigned rx_port;
-
-		ret = mppa_noc_dnoc_rx_alloc_auto(rx_config->dma_if,
-						  &rx_port, MPPA_NOC_BLOCKING);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			break;
-
-		if (first_rx >= 0 && (unsigned)(first_rx + n_rx) != rx_port) {
-			/* Non contiguous port... Fail */
-			mppa_noc_dnoc_rx_free(rx_config->dma_if, rx_port);
+	for (first_rx = 0; first_rx <  MPPA_DNOC_RX_QUEUES_NUMBER - n_ports;
+	     ++first_rx) {
+		for (n_rx = 0; n_rx < n_ports; ++n_rx) {
+			mppa_noc_ret_t ret;
+			ret = mppa_noc_dnoc_rx_alloc(rx_config->dma_if,
+						     first_rx + n_rx);
+			if (ret != MPPA_NOC_RET_SUCCESS)
+				break;
+		}
+		if (n_rx < n_ports) {
+			n_rx--;
+			for ( ; n_rx >= 0; --n_rx) {
+				mppa_noc_dnoc_rx_free(rx_config->dma_if,
+						      first_rx + n_rx);
+			}
+		} else {
 			break;
 		}
-		if (first_rx < 0)
-			first_rx = rx_port;
 	}
-
-	if (n_rx < n_ports)
-		goto err_free_rx;
+	if (n_rx < n_ports) {
+		ODP_ASSERT(n_rx == 0);
+		ODP_ERR("failed to allocate %d contiguous Rx ports\n", n_ports);
+		return -1;
+	}
 
 	rx_config->min_port = first_rx;
 	rx_config->max_port = first_rx + n_rx - 1;
@@ -444,16 +447,6 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 
 	odp_rwlock_write_unlock(&rx_thread_hdl.lock);
 	return first_rx;
-
- err_free_rx:
-	/* Last one was a failure or
-	 * non contiguoues (thus freed already) */
-	ODP_ERR("failed to allocate %d contiguous Rx ports\n", n_ports);
-	n_rx--;
-
-	for ( ; n_rx >= 0; --n_rx)
-		mppa_noc_dnoc_rx_free(rx_config->dma_if, first_rx + n_rx);
-	return -1;
 }
 
 int rx_thread_link_close(uint8_t pktio_id)
