@@ -240,6 +240,7 @@ static void _reload_rx(int th_id, int rx_id)
 			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 		}
+	}
 	return;
 }
 
