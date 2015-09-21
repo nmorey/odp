@@ -7,9 +7,9 @@
 #include <HAL/hal/hal.h>
 #include "mdio_88E1111.h"
 #include "top_88E1111.h"
-#include "libmppa_eth_mac.h"
-#include "libmppa_eth_phy_core.h"
-#include "libmppa_eth_loadbalancer.h"
+#include "mppa_eth_mac.h"
+#include "mppa_eth_phy_core.h"
+#include "mppa_eth_loadbalancer.h"
 
 
 /** Set the duplexwhen using the 1G link MPPABETHMAC_MODE_1G */ 

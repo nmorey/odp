@@ -26,6 +26,7 @@ typedef struct {
 	uint8_t min_port;
 	uint8_t max_port;
 	uint8_t header_sz;
+	uint8_t pkt_offset;
 	rx_if_type_e if_type;
 	odp_queue_t queue;       /**< Internal queue to store
 				  *   received packets */

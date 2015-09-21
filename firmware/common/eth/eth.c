@@ -5,10 +5,10 @@
 #include <HAL/hal/hal.h>
 
 #include <odp_rpc_internal.h>
-#include <libmppa_eth_core.h>
-#include <libmppa_eth_loadbalancer_core.h>
-#include <libmppa_eth_phy.h>
-#include <libmppa_eth_mac.h>
+#include <mppa_eth_core.h>
+#include <mppa_eth_loadbalancer_core.h>
+#include <mppa_eth_phy.h>
+#include <mppa_eth_mac.h>
 #include <mppa_routing.h>
 #include <mppa_noc.h>
 
