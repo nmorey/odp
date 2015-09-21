@@ -20,7 +20,7 @@
 #include "odp_pool_internal.h"
 #include "odp_rx_internal.h"
 
-#define N_RX
+#define N_RX 256
 #define MAX_RX (30 * 4)
 #define PKT_BURST_SZ (30)
 #define N_ITER_LOCKED 1000000 /* About once per sec */
@@ -71,8 +71,8 @@ typedef struct rx_thread {
 	uint8_t *drop_pkt_ptr;          /**< Pointer to drop_pkt buffer */
 	uint32_t drop_pkt_len;          /**< Size of drop_pkt buffer in bytes */
 
-	uint8_t tag2id[256];          /**< LUT to convert Rx Tag
-					  *   to If Id */
+	uint8_t tag2id[N_RX];           /**< LUT to convert Rx Tag
+					 *   to If Id */
 
 	rx_thread_if_data_t if_data[MAX_RX_IF];
 	rx_thread_data_t th_data[N_RX_THR];
