@@ -22,7 +22,7 @@
 
 #define N_RX
 #define MAX_RX (30 * 4)
-#define PKT_BURST_SZ (MAX_RX / N_RX_THR)
+#define PKT_BURST_SZ (30)
 #define N_ITER_LOCKED 1000000 /* About once per sec */
 
 /** Per If data */
@@ -46,7 +46,7 @@ typedef struct rx_thread_if_data {
 } rx_thread_if_data_t;
 
 typedef struct {
-	odp_packet_t spares[PKT_BURST_SZ * 2];
+	odp_packet_t spares[PKT_BURST_SZ + MAX_RX];
 	int n_spares;
 	int n_rx;
 } rx_pool_t;
