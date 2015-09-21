@@ -311,8 +311,10 @@ static void *_rx_thread_start(void *arg)
 
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 {
-	if (n_ports > MAX_RX)
+	if (n_ports > MAX_RX) {
+		ODP_ERR("asking for too many Rx port");
 		return -1;
+	}
 
 	rx_thread_if_data_t *if_data =
 		&rx_thread_hdl.if_data[rx_config->pktio_id];
@@ -322,8 +324,10 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 		 rx_config->pktio_id);
 	rx_config->queue = odp_queue_create(loopq_name, ODP_QUEUE_TYPE_POLL,
 					    NULL);
-	if (rx_config->queue == ODP_QUEUE_INVALID)
+	if (rx_config->queue == ODP_QUEUE_INVALID) {
+		ODP_ERR("ODP rx init failed to alloc a queue");
 		return -1;
+	}
 
 	/*
 	 * Allocate contiguous RX ports
@@ -444,6 +448,7 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
  err_free_rx:
 	/* Last one was a failure or
 	 * non contiguoues (thus freed already) */
+	ODP_ERR("failed to allocate %d contiguous Rx ports\n", n_ports);
 	n_rx--;
 
 	for ( ; n_rx >= 0; --n_rx)
