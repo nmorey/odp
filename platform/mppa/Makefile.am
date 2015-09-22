@@ -167,6 +167,7 @@ __LIB__libodp_la_SOURCES = \
 			   odp_rwlock.c \
 			   odp_schedule.c \
 			   odp_shared_memory.c \
+			   odp_sleep.c \
 			   odp_spinlock.c \
 			   odp_system_info.c \
 			   odp_thread.c \
