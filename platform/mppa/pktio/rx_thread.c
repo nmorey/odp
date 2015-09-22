@@ -64,7 +64,6 @@ typedef struct rx_thread_data {
 typedef struct rx_thread {
 	odp_atomic_u64_t update_id;
 	odp_rwlock_t lock;		/**< entry RW lock */
-	int dma_if;                     /**< DMA interface being watched */
 
 	odp_packet_t drop_pkt;          /**< ODP Packet used to temporary store
 					 *   dropped data */
@@ -94,6 +93,7 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 {
 	odp_packet_t pkt = _odp_packet_alloc(rx_config->pool);
 	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	const int dma_if = 0;
 
 	if (pkt == ODP_PACKET_INVALID)
 		return -1;
@@ -116,12 +116,12 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 		.counter_id = 0
 	};
 
-	ret = mppa_noc_dnoc_rx_configure(rx_config->dma_if, rx_id, conf);
+	ret = mppa_noc_dnoc_rx_configure(dma_if, rx_id, conf);
 	ODP_ASSERT(!ret);
 
-	ret = mppa_dnoc[rx_config->dma_if]->rx_queues[rx_id].
+	ret = mppa_dnoc[dma_if]->rx_queues[rx_id].
 		get_drop_pkt_nb_and_activate.reg;
-	mppa_noc_enable_event(rx_config->dma_if,
+	mppa_noc_enable_event(dma_if,
 			      MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
 			      rx_id, (1 << BSP_NB_PE_P) - 1);
 
@@ -130,6 +130,7 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 
 static int _reload_rx(int th_id, int rx_id)
 {
+	const int dma_if = 0;
 	const int pktio_id = rx_thread_hdl.tag2id[rx_id];
 	rx_thread_if_data_t *if_data = &rx_thread_hdl.if_data[pktio_id];
 	const int rank = rx_id - if_data->rx_config.min_port;
@@ -138,7 +139,7 @@ static int _reload_rx(int th_id, int rx_id)
 	const rx_config_t *rx_config = &if_data->rx_config;
 	rx_pool_t * rx_pool = &rx_thread_hdl.th_data[th_id].pools[if_data->pool_id];
 
-	mppa_noc_dnoc_rx_lac_event_counter(rx_thread_hdl.dma_if, rx_id);
+	mppa_noc_dnoc_rx_lac_event_counter(dma_if, rx_id);
 
 	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* Alloc */
@@ -160,8 +161,8 @@ static int _reload_rx(int th_id, int rx_id)
 		}
 	}
 
-	typeof(mppa_dnoc[0]->rx_queues[0]) * const rx_queue =
-		&mppa_dnoc[rx_thread_hdl.dma_if]->rx_queues[rx_id];
+	typeof(mppa_dnoc[dma_if]->rx_queues[0]) * const rx_queue =
+		&mppa_dnoc[dma_if]->rx_queues[rx_id];
 
 	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* No packets were available. Map small dirty
@@ -249,7 +250,7 @@ static void _poll_masks(int th_id)
 	int i;
 	uint64_t mask;
 
-	const int dma_if = rx_thread_hdl.dma_if;
+	const int dma_if = 0;
 	const rx_thread_data_t * const th_data = &rx_thread_hdl.th_data[th_id];
 	const int min_mask =  th_data->min_mask;
 	const int max_mask =  th_data->max_mask;
@@ -321,6 +322,7 @@ static void *_rx_thread_start(void *arg)
 
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 {
+	const int dma_if = 0;
 	if (n_ports > MAX_RX) {
 		ODP_ERR("asking for too many Rx port");
 		return -1;
@@ -348,7 +350,7 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 	     ++first_rx) {
 		for (n_rx = 0; n_rx < n_ports; ++n_rx) {
 			mppa_noc_ret_t ret;
-			ret = mppa_noc_dnoc_rx_alloc(rx_config->dma_if,
+			ret = mppa_noc_dnoc_rx_alloc(dma_if,
 						     first_rx + n_rx);
 			if (ret != MPPA_NOC_RET_SUCCESS)
 				break;
@@ -356,7 +358,7 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 		if (n_rx < n_ports) {
 			n_rx--;
 			for ( ; n_rx >= 0; --n_rx) {
-				mppa_noc_dnoc_rx_free(rx_config->dma_if,
+				mppa_noc_dnoc_rx_free(dma_if,
 						      first_rx + n_rx);
 			}
 		} else {
