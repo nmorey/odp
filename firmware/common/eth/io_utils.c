@@ -128,29 +128,50 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 {
 	if(mode == MPPA_ETH_MAC_ETHMODE_10G_XAUI ||
 	   mode == MPPA_ETH_MAC_ETHMODE_10G_RXAUI) {
+#ifdef VERBOSE
+		printf("Wrong mode for lane %d\n", lane_id);
+#endif
 		return -EINVAL;
 	}
-	if (lane_id < 0 || lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER)
+	if (lane_id < 0 || lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER) {
+#ifdef VERBOSE
+		printf("Wrong lane id %d\n", lane_id);
+#endif
 		return -EINVAL;
+	}
 
 	if ((int)mode == (-1))
 		mode = mac_get_default_mode(lane_id);
-	if ((int)mode == (-1))
+
+	if ((int)mode == (-1)) {
+#ifdef VERBOSE
+		printf("Could not find default mode for lane %d\n", lane_id);
+#endif
 		return -EINVAL;
+	}
 
 	if (phy_status < 0) {
 		if (__k1_phy_init_full(mac_mode_to_phy_mode(mode), 1,
 							   MPPA_PERIPH_CLOCK_156) != 0x01) {
+#ifdef VERBOSE
 			printf("Reset PHY failed\n");
+#endif
 			return -EIO;
 		}
 		phy_status = mode;
 	} else if(phy_status != (int)mode) {
+#ifdef VERBOSE
+		printf("Phy was already initialized with an incompatible speed for lane %d\n", lane_id);
+#endif
+
 		return -EINVAL;
 	}
 
 	if (lane_status[lane_id].configured) {
 		/* Lane is already initialized */
+#ifdef VERBOSE
+		printf("Lane %d was already configured\n", lane_id);
+#endif
 		return -EBUSY;
 	}
 
@@ -158,8 +179,12 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	case BSP_ETH_530:
 	case BSP_EXPLORER:
 		/* Only 1G is available */
-		if (mode != MPPA_ETH_MAC_ETHMODE_1G)
+		if (mode != MPPA_ETH_MAC_ETHMODE_1G) {
+#ifdef VERBOSE
+			printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 			return -EINVAL;
+		}
 
 		ifce_88E1111.mdio_master.mppa_clk_period_ps = 50000;
 		ifce_88E1111.chip_id = 0;
@@ -179,6 +204,9 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 			case MPPA_ETH_MAC_ETHMODE_1G:
 				if (lane_id < 2) {
 					/* These lane are 10G only */
+#ifdef VERBOSE
+					printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 					return -EINVAL;
 				}
 				ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
@@ -220,6 +248,9 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 				break;
 
 			default :
+#ifdef VERBOSE
+				printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 				return -ENOSYS;
 		}
 
