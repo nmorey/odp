@@ -44,7 +44,6 @@ AC_TYPE_INT32_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
-
 ##########################################################################
 # Allow valgrind suite to run against the defined tests
 ##########################################################################
@@ -53,48 +52,14 @@ AX_VALGRIND_CHECK
 ##########################################################################
 # Which architecture optimizations will we use
 ##########################################################################
-k1_core=k1a
-k1_hw=na
 OS=linux
-RUN_TARGET=NA
-
 AS_CASE([$host],
   [x86*], [ARCH=x86],
   [mips64*], [ARCH=mips64],
-  [k1a-kalray-*], [ARCH=k1a
-				   k1_core=k1a
-  				   AM_CFLAGS="-Wno-cast-qual"
-				   EXEEXT=.kelf
-				  ],
-  [k1b-kalray-*], [ARCH=k1b
-				   k1_core=k1b
- 				   AM_CFLAGS="-Wno-cast-qual"
-				   EXEEXT=.kelf
-				  ],
-  [*]
+  [ARCH=linux]
 )
-AS_CASE([$host],
-  [k1*-nodeos*], [OS=nodeos],
-  [k1*-mos*],    [OS=mos],
-  [k1*-rtems*],  [OS=rtems],
-  [*],           [OS=linux]
-)
-AS_CASE([$host],
-  [k1*simu], [k1_hw=no
-			  RUN_TARGET=k1-cluster],
-  [k1*],     [k1_hw=yes
-  			  RUN_TARGET=k1-jtag],
-  [*]
-)
-AM_CPPFLAGS="$AM_CPPFLAGS $AM_CFLAGS"
-
 AC_SUBST([ARCH])
-AC_SUBST([OS])
-AC_SUBST([RUN_TARGET])
-AM_CONDITIONAL([TARGET_IS_HW], [test "x${k1_hw}" = "xyes"])
-AM_CONDITIONAL([TARGET_IS_SIMU], [test "x${k1_hw}" = "xno"])
-AM_CONDITIONAL([TARGET_OS_MOS], [test "x${OS}" = "xmos"])
-AC_SUBST([EXEEXT])
+
 ##########################################################################
 # Set correct platform library version
 ##########################################################################
@@ -145,6 +110,7 @@ AC_ARG_ENABLE([cunit_support],
     [if test x$enableval = xyes; then
         cunit_support=yes
     fi])
+
 
 ##########################################################################
 # Setup doxygen documentation
@@ -360,8 +326,13 @@ AC_CONFIG_FILES([Makefile
 
 AC_SEARCH_LIBS([timer_create],[rt posix4])
 
+AM_CONDITIONAL([TARGET_IS_HW], [test "x${k1_hw}" = "xyes"])
+AM_CONDITIONAL([TARGET_IS_SIMU], [test "x${k1_hw}" = "xno"])
+AM_CONDITIONAL([TARGET_OS_MOS], [test "x${OS}" = "xmos"])
+
 ##########################################################################
 # distribute the changed variables among the Makefiles
+AC_SUBST([OS])
 AC_SUBST([host])
 AC_SUBST([LIBS])
 AC_SUBST([AM_CPPFLAGS])
