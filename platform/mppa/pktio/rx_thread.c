@@ -96,12 +96,12 @@ static inline int MAX(int a, int b)
 static int _configure_rx(rx_config_t *rx_config, int rx_id)
 {
 	odp_packet_t pkt = _odp_packet_alloc(rx_config->pool);
-	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
 	const int dma_if = 0;
 
 	if (pkt == ODP_PACKET_INVALID)
 		return -1;
 
+	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
 	rx_hdl.tag[rx_id].pkt = pkt;
 
 	int ret;
@@ -438,6 +438,14 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 		odp_packet_hdr_t *hdr;
 
 		rx_hdl.drop_pkt = _odp_packet_alloc(rx_config->pool);
+		if (rx_hdl.drop_pkt == ODP_PACKET_INVALID) {
+			ODP_ERR("failed to allocate a packet\n");
+			for ( ; n_rx >= 0; --n_rx) {
+				mppa_noc_dnoc_rx_free(dma_if,
+						      first_rx + n_rx);
+			}
+			return -1;
+		}
 		hdr = odp_packet_hdr(rx_hdl.drop_pkt);
 		rx_hdl.drop_pkt_ptr = hdr->buf_hdr.addr;
 		rx_hdl.drop_pkt_len = hdr->frame_len;
