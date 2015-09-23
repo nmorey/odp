@@ -52,7 +52,7 @@ typedef struct eth_uc_ctx {
 	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } eth_uc_ctx_t;
 
-static eth_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
+static eth_uc_ctx_t g_eth_uc_ctx[NOC_UC_COUNT] = {{0}};
 
 typedef struct eth_status {
 	odp_pool_t pool;                      /**< pool to alloc packets from */
@@ -96,13 +96,13 @@ static int eth_init_dnoc_tx(void)
 
 		/* DNoC */
 		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_tx_id,
+						  &g_eth_uc_ctx[i].dnoc_tx_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
 		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_uc_id,
+						  &g_eth_uc_ctx[i].dnoc_uc_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
@@ -110,12 +110,12 @@ static int eth_init_dnoc_tx(void)
 		/* We will only use events */
 		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
 						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_uc_ctx[i].dnoc_uc_id);
+						   g_eth_uc_ctx[i].dnoc_uc_id);
 
 
 		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
-					    g_uc_ctx[i].dnoc_uc_id,
-					    g_uc_ctx[i].dnoc_tx_id, uc_conf);
+					    g_eth_uc_ctx[i].dnoc_uc_id,
+					    g_eth_uc_ctx[i].dnoc_tx_id, uc_conf);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 	}
@@ -359,9 +359,10 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 	}
 
 	odp_spinlock_lock(&eth->wlock);
-	INVALIDATE(g_uc_ctx);
+
+	INVALIDATE(g_eth_uc_ctx);
 	{
-		eth_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
+		eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
 		unsigned job_id = ctx->job_id++;
 		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
 
