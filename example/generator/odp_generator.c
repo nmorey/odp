@@ -1023,10 +1023,6 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 
 		case 'i':
 			appl_args->interval = atoi(optarg);
-			if (appl_args->interval <= 200) {
-				EXAMPLE_ERR("should be root user\n");
-				exit(EXIT_FAILURE);
-			}
 			break;
 
 		case 'h':
