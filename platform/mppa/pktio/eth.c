@@ -29,7 +29,7 @@
 #define NOC_UC_COUNT		2
 #define MAX_PKT_PER_UC		4
 /* must be > greater than max_threads */
-#define MAX_JOB_PER_UC          32
+#define MAX_JOB_PER_UC          MOS_NB_UC_TRS
 #define DNOC_CLUS_IFACE_ID	0
 
 #include <mppa_noc.h>
@@ -38,7 +38,6 @@
 extern char _heap_end;
 
 typedef struct eth_uc_job_ctx {
-	bool is_running;
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
 } eth_uc_job_ctx_t;
@@ -48,7 +47,8 @@ typedef struct eth_uc_ctx {
 	unsigned int dnoc_uc_id;
 
 	unsigned joined_jobs;
-	unsigned int job_id;
+	odp_atomic_u64_t prepar_head;
+	odp_atomic_u64_t commit_head;
 	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } eth_uc_ctx_t;
 
@@ -332,71 +332,74 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static inline int
 eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
-	mppa_noc_dnoc_uc_configuration_t uc_conf =
-		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-	mppa_noc_uc_program_run_t program_run = {{1, 1}};
-	mppa_noc_ret_t nret;
-	odp_packet_hdr_t * pkt_hdr;
-	unsigned int i;
-	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
+	const uint64_t prepar_id = odp_atomic_fetch_inc_u64(&g_eth_uc_ctx[tx_index].prepar_head);
+	unsigned  ev_counter, diff;
 
-	for (i = 0; i < pkt_count; i++) {
+	/* Wait for slot */
+	ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+	diff = ((uint32_t)prepar_id) - ev_counter;
+	while (diff > 0x80000000 || ev_counter + MAX_JOB_PER_UC <= ((uint32_t)prepar_id)) {
+		odp_spin();
+		ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+		diff = ((uint32_t)prepar_id) - ev_counter;
+	}
+
+	const unsigned slot_id = prepar_id % MAX_JOB_PER_UC;
+	eth_uc_job_ctx_t * job = &g_eth_uc_ctx[tx_index].job_ctxs[slot_id];
+
+	if(prepar_id > MAX_JOB_PER_UC){
+		/* Free previous packets */
+		/* ret_buf(&((pool_entry_t *)eth->pool)->s, */
+		/* 	(odp_buffer_hdr_t**)job->pkt_table, job->pkt_count); */
+	}
+
+	mOS_uc_transaction_t * const trs =  &_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+	const odp_packet_hdr_t * pkt_hdr;
+
+	for (unsigned i = 0; i < pkt_count; ++i ){
+		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
-		/* Setup parameters and pointers */
-		uc_conf.parameters[i * 2] = pkt_hdr->frame_len /
-			sizeof(uint64_t);
-		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len %
-			sizeof(uint64_t);
-		uc_pointers.thread_pointers[i] =
-			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
-			(uintptr_t) &_data_start;
+
+		trs->parameter.array[2 * i + 0] =
+			pkt_hdr->frame_len / sizeof(uint64_t);
+		trs->parameter.array[2 * i + 1] =
+			pkt_hdr->frame_len % sizeof(uint64_t);
+
+#if 0
+		// FIXME: remove if 0 when mOS pointer support is integrated.
+		trs->pointer.array[i] = (unsigned long)
+			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
+			 - (uint8_t*)&_data_start);
+#endif
 	}
-	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
-		uc_conf.parameters[i * 2] = 0;
-		uc_conf.parameters[i * 2 + 1] = 0;
-		uc_pointers.thread_pointers[i] = 0;
+	for (unsigned i = pkt_count; i < 4; ++i) {
+		trs->parameter.array[2 * i + 0] = 0;
+		trs->parameter.array[2 * i + 1] = 0;
 	}
 
-	odp_spinlock_lock(&eth->wlock);
+	trs->path.array[ctx->dnoc_tx_id].header = eth->header;
+	trs->path.array[ctx->dnoc_tx_id].config = eth->config;
+	trs->notify._word = 0;
+	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
+	trs->desc.param_set = 0xff;
+#if 0
+	// FIXME: remove if 0 when mOS pointer support is integrated.
+	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
+#endif
 
-	INVALIDATE(g_eth_uc_ctx);
-	{
-		eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
-		unsigned job_id = ctx->job_id++;
-		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
+	job->pkt_count = pkt_count;
 
-		/* Wait for previous run(s) to complete */
-		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
-			int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
-								   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-								   ctx->dnoc_tx_id);
-			for(i = ctx->joined_jobs; i < ctx->joined_jobs + ev_counter; ++i) {
-				eth_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
-				joined_job->is_running = 0;
-				/* Free previous packets */
-				ret_buf(&((pool_entry_t *)eth->pool)->s,
-					(odp_buffer_hdr_t**)joined_job->pkt_table, joined_job->pkt_count);
-			}
-			ctx->joined_jobs += ev_counter;
-		}
-		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
 
-		uc_conf.pointers = &uc_pointers;
-		uc_conf.event_counter = 0;
+	while (odp_atomic_load_u64(&g_eth_uc_ctx[tx_index].commit_head) != prepar_id)
+		odp_spin();
 
-		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						  uc_conf, eth->header, eth->config);
-		if (nret != MPPA_NOC_RET_SUCCESS)
-			return 1;
 
-		job->pkt_count = pkt_count;
-		job->is_running = 1;
-
-		mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						 program_run);
-	}
-	odp_spinlock_unlock(&eth->wlock);
+	__builtin_k1_wpurge();
+	__builtin_k1_fence ();
+	mOS_ucore_commit(ctx->dnoc_tx_id);
+	odp_atomic_inc_u64(&g_eth_uc_ctx[tx_index].commit_head);
 
 	return 0;
 }
