@@ -99,7 +99,7 @@ static void queue_init(queue_entry_t *queue, const char *name,
 	}
 
 	queue->s.head = NULL;
-	queue->s.tail = NULL;
+	queue->s.tail = &queue->s.head;
 
 	queue->s.reorder_head = NULL;
 	queue->s.reorder_tail = NULL;
@@ -345,15 +345,12 @@ odp_queue_t odp_queue_lookup(const char *name)
  */
 static int _queue_enq_update(queue_entry_t *queue, odp_buffer_hdr_t *head,
 			     odp_buffer_hdr_t *tail, int status){
-	if (LOAD_PTR(queue->s.head) == NULL) {
-		/* Empty queue */
-		STORE_PTR(queue->s.head, head);
-		STORE_PTR(queue->s.tail, tail);
-	} else {
-		STORE_PTR(((typeof(queue->s.tail))LOAD_PTR(queue->s.tail))->next, head);
-		STORE_PTR(queue->s.tail, tail);
-	}
+
+	odp_buffer_hdr_t ** q_tail = LOAD_PTR(queue->s.tail);
+
 	STORE_PTR(tail->next, NULL);
+	STORE_PTR(queue->s.tail, &tail->next);
+	STORE_PTR_IMM(q_tail, head);
 
 	if (status == QUEUE_STATUS_NOTSCHED) {
 		STORE_S32(queue->s.status, QUEUE_STATUS_SCHED);
@@ -456,10 +453,11 @@ static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 
 	/* Add released buffers to the queue as well */
 	if (deq_count > 0) {
-		queue->s.tail->next       = origin_qe->s.reorder_head;
-		queue->s.tail             = reorder_prev;
+
+		STORE_PTR_IMM(LOAD_PTR(queue->s.tail), origin_qe->s.reorder_head);
+		STORE_PTR(queue->s.tail, &reorder_prev->next);
 		origin_qe->s.reorder_head = reorder_prev->next;
-		reorder_prev->next        = NULL;
+		STORE_PTR(reorder_prev->next, NULL);
 	}
 
 	/* Reflect resolved orders in the output sequence */
@@ -612,7 +610,6 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	}
 
 	INVALIDATE(buf_hdr);
-	STORE_PTR(queue->s.head, buf_hdr->next);
 
 	/* Note that order should really be assigned on enq to an
 	 * ordered queue rather than deq, however the logic is simpler
@@ -626,9 +623,11 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	} else {
 		buf_hdr->origin_qe = NULL;
 	}
+
+	STORE_PTR(queue->s.head, buf_hdr->next);
 	if (buf_hdr->next == NULL) {
 		/* Queue is now empty */
-		STORE_PTR(queue->s.tail, NULL);
+		STORE_PTR(queue->s.tail, &queue->s.head);
 	}
 	buf_hdr->next = NULL;
 
@@ -683,7 +682,7 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 
 	if (hdr == NULL) {
 		/* Queue is now empty */
-		STORE_PTR(queue->s.tail, NULL);
+		STORE_PTR(queue->s.tail, &queue->s.head);
 	}
 
 	UNLOCK(queue);
