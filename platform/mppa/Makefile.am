@@ -185,6 +185,6 @@ __LIB__libodp_la_SOURCES = \
 
 
 if crypto
-__LIB__libodp_la_SOURCES += ../linux-generic/odp_crypto.c
+__LIB__libodp_la_SOURCES += odp_crypto.c
 endif
 
