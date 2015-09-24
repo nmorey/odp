@@ -354,8 +354,6 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	enter_entry(pktio_entry);
-
 	if (pktio_entry->s.state == STATE_STOP) {
 		exit_entry(pktio_entry);
 		__odp_errno = EPERM;
@@ -363,7 +361,6 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	}
 
 	pkts = pktio_entry->s.ops->recv(pktio_entry, pkt_table, len);
-	exit_entry(pktio_entry);
 
 	if (pkts < 0)
 		return pkts;
@@ -382,8 +379,6 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	enter_entry(pktio_entry);
-
 	if (pktio_entry->s.state == STATE_STOP) {
 		exit_entry(pktio_entry);
 		__odp_errno = EPERM;
@@ -391,7 +386,6 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	}
 
 	pkts = pktio_entry->s.ops->send(pktio_entry, pkt_table, len);
-	exit_entry(pktio_entry);
 
 	return pkts;
 }
@@ -659,16 +653,12 @@ int odp_pktio_mtu(odp_pktio_t id)
 		return -1;
 	}
 
-	enter_entry(entry);
-
 	if (odp_unlikely(is_free(entry))) {
 		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
 		return -1;
 	}
 	ret = entry->s.ops->mtu_get(entry);
-
-	exit_entry(entry);
 
 	return ret;
 }
@@ -709,8 +699,6 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 		return -1;
 	}
 
-	enter_entry(entry);
-
 	if (odp_unlikely(is_free(entry))) {
 		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
@@ -719,7 +707,6 @@ int odp_pktio_promisc_mode(odp_pktio_t id)
 
 	ret = entry->s.ops->promisc_mode_get(entry);
 
-	exit_entry(entry);
 	return ret;
 }
 
@@ -739,8 +726,6 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 		return -1;
 	}
 
-	enter_entry(entry);
-
 	if (odp_unlikely(is_free(entry))) {
 		exit_entry(entry);
 		ODP_DBG("already freed pktio\n");
@@ -748,8 +733,6 @@ int odp_pktio_mac_addr(odp_pktio_t id, void *mac_addr, int addr_size)
 	}
 
 	ret = entry->s.ops->mac_get(entry, mac_addr);
-
-	exit_entry(entry);
 
 	return ret;
 }
