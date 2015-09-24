@@ -494,14 +494,8 @@ odp_buffer_hdr_t *pktout_dequeue(queue_entry_t *qentry ODP_UNUSED)
 int pktout_enq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[],
 		     int num)
 {
-	odp_packet_t pkt_tbl[QUEUE_MULTI_MAX];
 	int nbr;
-	int i;
-
-	for (i = 0; i < num; ++i)
-		pkt_tbl[i] = (odp_packet_t)(buf_hdr[i]);
-
-	nbr = odp_pktio_send(qentry->s.pktout, pkt_tbl, num);
+	nbr = odp_pktio_send(qentry->s.pktout, (odp_packet_t*)buf_hdr, num);
 	return nbr;
 }
 
