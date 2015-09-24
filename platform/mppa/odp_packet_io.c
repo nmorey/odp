@@ -512,37 +512,6 @@ int pktin_enqueue(queue_entry_t *qentry ODP_UNUSED,
 	return -1;
 }
 
-odp_buffer_hdr_t *pktin_dequeue(queue_entry_t *qentry)
-{
-	odp_buffer_hdr_t *buf_hdr;
-	odp_buffer_t buf;
-	odp_packet_t pkt_tbl[QUEUE_MULTI_MAX];
-	odp_buffer_hdr_t *tmp_hdr_tbl[QUEUE_MULTI_MAX];
-	int pkts, i, j;
-
-	buf_hdr = queue_deq(qentry);
-	if (buf_hdr != NULL)
-		return buf_hdr;
-
-	pkts = odp_pktio_recv(qentry->s.pktin, pkt_tbl, QUEUE_MULTI_MAX);
-	if (pkts <= 0)
-		return NULL;
-
-	for (i = 0, j = 0; i < pkts; ++i) {
-		buf = (odp_buffer_t)pkt_tbl[i];
-		buf_hdr = odp_buf_to_hdr(buf);
-		if (0 > packet_classifier(qentry->s.pktin, pkt_tbl[i]))
-			tmp_hdr_tbl[j++] = buf_hdr;
-	}
-
-	if (0 == j)
-		return NULL;
-
-	if (j > 1)
-		queue_enq_multi(qentry, &tmp_hdr_tbl[1], j - 1, 0);
-	buf_hdr = tmp_hdr_tbl[0];
-	return buf_hdr;
-}
 
 int pktin_enq_multi(queue_entry_t *qentry ODP_UNUSED,
 		    odp_buffer_hdr_t *buf_hdr[] ODP_UNUSED,
@@ -586,6 +555,13 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 	if (j)
 		queue_enq_multi(qentry, tmp_hdr_tbl, j, 0);
 	return nbr;
+}
+odp_buffer_hdr_t *pktin_dequeue(queue_entry_t *qentry)
+{
+	odp_buffer_hdr_t * hdr = NULL;
+
+	pktin_deq_multi(qentry, &hdr, 1);
+	return hdr;
 }
 
 int pktin_poll(pktio_entry_t *entry)
