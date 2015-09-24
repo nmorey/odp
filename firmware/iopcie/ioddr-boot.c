@@ -9,6 +9,7 @@
 
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
+#include "rnd_generator.h"
 
 #include "mppa_pcie_noc.h"
 #include "boot.h"
@@ -24,7 +25,6 @@ int main (int argc, char *argv[])
 		printf("Missing arguments\n");
 		exit(1);
 	}
-
 
 	mppa_pcie_eth_noc_init();
 

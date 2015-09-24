@@ -67,6 +67,7 @@ static const char * rpc_cmd_names[ODP_RPC_CMD_N_CMD] = {
 	[ODP_RPC_CMD_ETH_PROMISC] = "ETH PROMISC",
 	[ODP_RPC_CMD_PCIE_OPEN] = "PCIE OPEN",
 	[ODP_RPC_CMD_PCIE_CLOS] = "PCIE CLOSE",
+	[ODP_RPC_CMD_RND_GET] =   "RANDOM GET",
 };
 void odp_rpc_print_msg(const odp_rpc_t * cmd)
 {
@@ -87,7 +88,6 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 	if (cmd->ack) {
 		odp_rpc_cmd_ack_t ack = { .inl_data = cmd->inl_data };
 		printf("\t\tstatus: %d\n", ack.status);
-		return;
 	}
 	switch (cmd->pkt_type){
 	case ODP_RPC_CMD_ETH_OPEN:
@@ -128,6 +128,15 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 		{
 			odp_rpc_cmd_eth_clos_t clos = { .inl_data = cmd->inl_data };
 			printf("\t\tifId: %d\n", clos.ifId);
+		}
+		break;
+	case ODP_RPC_CMD_RND_GET:
+		{
+			int i;
+			for ( i = 0; i < 4; ++i ) {
+				printf("%llx ", ((uint64_t*)cmd->inl_data.data)[i]);
+			}
+			printf("\n");
 		}
 		break;
 	case ODP_RPC_CMD_BAS_INVL:

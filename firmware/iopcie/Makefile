@@ -6,4 +6,5 @@ _LDFLAGS = -lmppapower -lmppanoc -lmpparouting
 include $(SRCDIR)/../common/rpc/include.mk
 include $(SRCDIR)/../common/pcie/include.mk
 include $(SRCDIR)/../common/boot/include.mk
+include $(SRCDIR)/../common/rnd/include.mk
 include $(SRCDIR)/../Makefile.firmware

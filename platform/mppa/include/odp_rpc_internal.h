@@ -39,6 +39,7 @@ typedef enum {
 	ODP_RPC_CMD_ETH_PROMISC  /**< ETH: KSet/Clear promisc mode */,
 	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */,
+	ODP_RPC_CMD_RND_GET      /**< RND: Get a buffer with random data generated on IO cluster */,
 	ODP_RPC_CMD_N_CMD        /**< Number of commands */
 } odp_rpc_cmd_e;
 
@@ -94,6 +95,14 @@ typedef odp_rpc_cmd_eth_clos_t odp_rpc_cmd_pcie_clos_t;
 /** @internal Compile time assert */
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_PCIE_CLOS_T__SIZE_ERROR");
 
+typedef union {
+	struct {
+		uint8_t rnd_len;  /* lenght of random data to send back */
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_rnd_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_rnd_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_RND_T__SIZE_ERROR");
 
 typedef union {
 	struct {
