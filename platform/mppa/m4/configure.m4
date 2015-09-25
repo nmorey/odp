@@ -37,4 +37,7 @@ AC_CONFIG_FILES([platform/mppa/Makefile
 				 platform/mppa/test/Makefile
 				 platform/mppa/test/pktio/Makefile])
 
+AM_CFLAGS="$AM_CFLAGS -ffunction-sections -fdata-sections"
+AM_LDFLAGS="$AM_LDFLAGS -Wl,--gc-sections"
+
 m4_include([platform/mppa/m4/odp_openssl.m4])

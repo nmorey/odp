@@ -133,7 +133,23 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 	mppa_noc_ret_t ret;
 	mppa_routing_ret_t rret;
 	unsigned tx_port;
-	mppa_dnoc_channel_config_t config;
+	mppa_dnoc_channel_config_t config = {
+		._ = {
+			.loopback_multicast = 0,
+			.cfg_pe_en = 1,
+			.cfg_user_en = 1,
+			.write_pe_en = 1,
+			.write_user_en = 1,
+			.decounter_id = 0,
+			.decounted = 0,
+			.payload_min = 1,
+			.payload_max = 32,
+			.bw_current_credit = 0xff,
+			.bw_max_credit     = 0xff,
+			.bw_fast_delay     = 0x00,
+			.bw_slow_delay     = 0x00,
+		}
+	};
 	mppa_dnoc_header_t header;
 
  	if (!g_rpc_init)
@@ -146,20 +162,6 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 		return 1;
 
 	/* Get and configure route */
-	config._.loopback_multicast = 0;
-	config._.cfg_pe_en = 1;
-	config._.cfg_user_en = 1;
-	config._.write_pe_en = 1;
-	config._.write_user_en = 1;
-	config._.decounter_id = 0;
-	config._.decounted = 0;
-	config._.payload_min = 1;
-	config._.payload_max = 32;
-	config._.bw_current_credit = 0xff;
-	config._.bw_max_credit     = 0xff;
-	config._.bw_fast_delay     = 0x00;
-	config._.bw_slow_delay     = 0x00;
-
 	header._.tag = dest_tag;
 	header._.valid = 1;
 
