@@ -254,15 +254,12 @@ static void _poll_masks(int th_id)
 {
 	int i;
 	uint64_t mask;
-		uint32_t start, end;
 
 	const int dma_if = 0;
 	const rx_th_t * const th = &rx_hdl.th[th_id];
 	const int min_mask =  th->min_mask;
 	const int max_mask =  th->max_mask;
 	for (int iter = 0; iter < N_ITER_LOCKED; ++iter) {
-		start = __k1_counter_num(0);
-		int count = 0;
 		int if_mask = 0;
 
 		for (i = min_mask; i <= max_mask; ++i) {
