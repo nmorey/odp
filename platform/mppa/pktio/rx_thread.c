@@ -235,7 +235,7 @@ static int _reload_rx(int th_id, int rx_id)
 			rx_pool->spares[rx_pool->n_spares++] = pkt;
 			pkt = ODP_PACKET_INVALID;
 		}
-
+		return 0;
 	} else {
 		rx_hdl.tag[rx_id].pkt = newpkt;
 
@@ -244,21 +244,25 @@ static int _reload_rx(int th_id, int rx_id)
 
 			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
+			return 1 << pktio_id;
 		}
+		return 0;
 	}
-	return pktio_id;
 }
 
 static void _poll_masks(int th_id)
 {
 	int i;
 	uint64_t mask;
+		uint32_t start, end;
 
 	const int dma_if = 0;
 	const rx_th_t * const th = &rx_hdl.th[th_id];
 	const int min_mask =  th->min_mask;
 	const int max_mask =  th->max_mask;
 	for (int iter = 0; iter < N_ITER_LOCKED; ++iter) {
+		start = __k1_counter_num(0);
+		int count = 0;
 		int if_mask = 0;
 
 		for (i = min_mask; i <= max_mask; ++i) {
@@ -274,7 +278,7 @@ static void _poll_masks(int th_id)
 				const int rx_id = mask_bit + i * 64;
 
 				mask = mask ^ (1ULL << mask_bit);
-				if_mask |= 1 << _reload_rx(th_id, rx_id);
+				if_mask |=  _reload_rx(th_id, rx_id);
 			}
 		}
 
