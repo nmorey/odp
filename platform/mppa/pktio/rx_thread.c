@@ -140,7 +140,7 @@ static int _reload_rx(int th_id, int rx_id)
 	rx_pool_t * rx_pool = &rx_hdl.th[th_id].
 		pools[rx_hdl.ifce[pktio_id].pool_id];
 
-	mppa_noc_dnoc_rx_lac_event_counter(dma_if, rx_id);
+	mppa_dnoc[dma_if]->rx_queues[rx_id].event_lac.hword;
 
 	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* Alloc */
