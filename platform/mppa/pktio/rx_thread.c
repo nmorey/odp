@@ -24,6 +24,7 @@
 #define MAX_RX (30 * 4)
 #define PKT_BURST_SZ (30)
 #define N_ITER_LOCKED 1000000 /* About once per sec */
+#define FLUSH_PERIOD 7 /* Must pe a (power of 2) - 1*/
 
 typedef struct {
 	odp_packet_t pkt;
@@ -259,8 +260,8 @@ static void _poll_masks(int th_id)
 	const rx_th_t * const th = &rx_hdl.th[th_id];
 	const int min_mask =  th->min_mask;
 	const int max_mask =  th->max_mask;
+	int if_mask = 0;
 	for (int iter = 0; iter < N_ITER_LOCKED; ++iter) {
-		int if_mask = 0;
 
 		for (i = min_mask; i <= max_mask; ++i) {
 			mask = mppa_dnoc[dma_if]->rx_global.events[i].dword &
@@ -279,23 +280,30 @@ static void _poll_masks(int th_id)
 			}
 		}
 
-		while (if_mask) {
-			i = __builtin_k1_ctz(if_mask);
-			if_mask ^= (1 << i);
+		if ((iter & FLUSH_PERIOD) == FLUSH_PERIOD) {
+			while (if_mask) {
+				i = __builtin_k1_ctz(if_mask);
+				if_mask ^= (1 << i);
 
-			queue_entry_t *qentry;
-			rx_buffer_list_t * hdr_list = &rx_hdl.th[th_id].ifce[i].hdr_list;
+				queue_entry_t *qentry;
+				rx_buffer_list_t * hdr_list =
+					&rx_hdl.th[th_id].ifce[i].hdr_list;
 
-			if (hdr_list->tail == &hdr_list->head)
-				continue;
-			qentry = queue_to_qentry(rx_hdl.ifce[i].rx_config.queue);
+				if (hdr_list->tail == &hdr_list->head)
+					continue;
+				qentry = queue_to_qentry(rx_hdl.ifce[i].
+							 rx_config.queue);
 
-			odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
-				((uint8_t*)hdr_list->tail - ODP_OFFSETOF(odp_buffer_hdr_t, next));
-			tail->next = NULL;
-			queue_enq_list(qentry, hdr_list->head, tail);
+				odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
+					((uint8_t*)hdr_list->tail -
+					 ODP_OFFSETOF(odp_buffer_hdr_t, next));
+				tail->next = NULL;
+				queue_enq_list(qentry, hdr_list->head, tail);
 
-			hdr_list->tail = &hdr_list->head;
+				hdr_list->tail = &hdr_list->head;
+
+			}
+			if_mask = 0;
 		}
 
 	}
