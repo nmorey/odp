@@ -213,7 +213,7 @@ static void *pktio_ifburst_thread(void *arg)
 	stats_t *stats = calloc(1, sizeof(stats_t));
 	*thr_args->stats = stats;
 
-	src_idx = 0;
+	src_idx = thr_args->src_idx;
 	dst_idx = (src_idx % 2 == 0) ? src_idx+1 : src_idx-1;
 	pktio_src = gbl_args->pktios[src_idx];
 	pktio_dst = gbl_args->pktios[dst_idx];
