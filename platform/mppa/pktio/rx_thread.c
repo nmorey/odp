@@ -526,9 +526,13 @@ int rx_thread_link_close(uint8_t pktio_id)
 
 	return 0;
 }
+static int g_rx_thread_init = 0;
 
 int rx_thread_init(void)
 {
+	if (g_rx_thread_init)
+		return 0;
+
 	odp_rwlock_init(&rx_hdl.lock);
 	odp_atomic_init_u64(&rx_hdl.update_id, 0ULL);
 
@@ -560,5 +564,8 @@ int rx_thread_init(void)
 			ODP_ABORT("Thread failed");
 #endif
 	}
+
+	g_rx_thread_init = 1;
+
 	return 0;
 }
