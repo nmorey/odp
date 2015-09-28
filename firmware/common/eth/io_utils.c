@@ -2,6 +2,7 @@
 #include <errno.h>
 #include "io_utils.h"
 #include "qsfp_utils.h"
+#include "sfp_init.h"
 
 static mppa_88E1111_interface_t ifce_88E1111;
 static int phy_status = -1;
@@ -49,9 +50,9 @@ void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 		serdes_lane_valid = 0xf;
 	}
 	else
-	{
-		serdes_lane_valid = 1 << lane_id;
-	}
+		{
+			serdes_lane_valid = 1 << lane_id;
+		}
 
 	for(i = 0; i < 4 ; i++){
 		// Cut the clock
@@ -65,15 +66,15 @@ void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	mppabeth_mac_enable_reset((void *) &mppa_ethernet[0]->mac);
 	__builtin_k1_fence();
 
-    mppa_eth_pcie_csr_lane_param_t lane_param;
+	mppa_eth_pcie_csr_lane_param_t lane_param;
 	lane_param.word = mppa_eth_pcie_csr[0]->lane_param.word;
   	lane_param._.lane_pwr_off = ~serdes_lane_valid;
-    mppa_eth_pcie_csr[0]->lane_param.word = lane_param.word;
+	mppa_eth_pcie_csr[0]->lane_param.word = lane_param.word;
 
 	mppabeth_phy_cfg_rx_pstate((void *) mppa_eth_pcie_csr[0], 0, PHY_SERDES_PSTATE_P0);
 	mppabeth_phy_cfg_tx_pstate((void *) mppa_eth_pcie_csr[0], 0, PHY_SERDES_PSTATE_P0);
 	for(i = 1; i < 4 ; i++){
-      	if(((serdes_lane_valid >> i) & 1) == 1) {
+		if(((serdes_lane_valid >> i) & 1) == 1) {
 			mppabeth_phy_cfg_rx_pstate((void *) mppa_eth_pcie_csr[0], i, PHY_SERDES_PSTATE_P0);
 			mppabeth_phy_cfg_tx_pstate((void *) mppa_eth_pcie_csr[0], i, PHY_SERDES_PSTATE_P0);
 		}
@@ -92,7 +93,7 @@ void start_lane(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
   	// Clean MAC stat before activating it
 	for(i=0;i<4;i++) {
 		mppa_ethernet[0]->mac.lane_stat[i].config.word = 0xfffffffc;
-	 }
+	}
 	mppa_ethernet[0]->mac.pcs_lane_common_status._.stat_clear_it = 1;
 	mppabeth_mac_disable_reset((void *) &(mppa_ethernet[0]->mac));
 	for(i = 0; i < 4 ; i++){
@@ -110,16 +111,16 @@ int mac_poll_state(unsigned int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 		return -EIO;
 
 	if(mode == MPPA_ETH_MAC_ETHMODE_40G)
-	{
+		{
 			if(mppa_ethernet[0]->mac.pcs_lane_common_status._.stat_rx_40G_aligned == 1)
 				return 0;
-	}
+		}
 	else
-	{
-		if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
-	   		mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1)
-			return 0;
-	}
+		{
+			if(mppabeth_mac_get_stat_rx_status((void *) &(mppa_ethernet[0]->mac), lane_id) == 1 &&
+			   mppabeth_mac_get_stat_rx_block_lock((void *) &(mppa_ethernet[0]->mac), lane_id) == 1)
+				return 0;
+		}
 
 	return -ENETDOWN;
 }
@@ -128,29 +129,50 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 {
 	if(mode == MPPA_ETH_MAC_ETHMODE_10G_XAUI ||
 	   mode == MPPA_ETH_MAC_ETHMODE_10G_RXAUI) {
+#ifdef VERBOSE
+		printf("Wrong mode for lane %d\n", lane_id);
+#endif
 		return -EINVAL;
 	}
-	if (lane_id < 0 || lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER)
+	if (lane_id < 0 || lane_id >= MPPA_ETHERNET_FIFO_IF_LANE_NUMBER) {
+#ifdef VERBOSE
+		printf("Wrong lane id %d\n", lane_id);
+#endif
 		return -EINVAL;
+	}
 
 	if ((int)mode == (-1))
 		mode = mac_get_default_mode(lane_id);
-	if ((int)mode == (-1))
+
+	if ((int)mode == (-1)) {
+#ifdef VERBOSE
+		printf("Could not find default mode for lane %d\n", lane_id);
+#endif
 		return -EINVAL;
+	}
 
 	if (phy_status < 0) {
 		if (__k1_phy_init_full(mac_mode_to_phy_mode(mode), 1,
-							   MPPA_PERIPH_CLOCK_156) != 0x01) {
+				       MPPA_PERIPH_CLOCK_156) != 0x01) {
+#ifdef VERBOSE
 			printf("Reset PHY failed\n");
+#endif
 			return -EIO;
 		}
 		phy_status = mode;
 	} else if(phy_status != (int)mode) {
+#ifdef VERBOSE
+		printf("Phy was already initialized with an incompatible speed for lane %d\n", lane_id);
+#endif
+
 		return -EINVAL;
 	}
 
 	if (lane_status[lane_id].configured) {
 		/* Lane is already initialized */
+#ifdef VERBOSE
+		printf("Lane %d was already configured\n", lane_id);
+#endif
 		return -EBUSY;
 	}
 
@@ -158,8 +180,12 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	case BSP_ETH_530:
 	case BSP_EXPLORER:
 		/* Only 1G is available */
-		if (mode != MPPA_ETH_MAC_ETHMODE_1G)
+		if (mode != MPPA_ETH_MAC_ETHMODE_1G) {
+#ifdef VERBOSE
+			printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 			return -EINVAL;
+		}
 
 		ifce_88E1111.mdio_master.mppa_clk_period_ps = 50000;
 		ifce_88E1111.chip_id = 0;
@@ -175,10 +201,13 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 	case BSP_DEVELOPER:
 		/* Only 1G is working for the moment */
 		switch(mode)
-		{
+			{
 			case MPPA_ETH_MAC_ETHMODE_1G:
 				if (lane_id < 2) {
 					/* These lane are 10G only */
+#ifdef VERBOSE
+					printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 					return -EINVAL;
 				}
 				ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
@@ -191,9 +220,9 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 				ifce_88E1111.chip_id = 0x40 + lane_id % 2; /* Lane 2 is chip 0x40, Lane 3 0x41 */
 
 				mppa_i2c_init(ifce_88E1111.i2c_master,
-						  ifce_88E1111.i2c_bus,
-						  ifce_88E1111.i2c_coma_pin,
-						  ifce_88E1111.i2c_reset_n_pin, ifce_88E1111.i2c_int_n_pin, ifce_88E1111.i2c_gic);
+					      ifce_88E1111.i2c_bus,
+					      ifce_88E1111.i2c_coma_pin,
+					      ifce_88E1111.i2c_reset_n_pin, ifce_88E1111.i2c_int_n_pin, ifce_88E1111.i2c_gic);
 				ifce_88E1111.context = ifce_88E1111.i2c_master;
 				ifce_88E1111.mppa_88E1111_read = mppa_i2c_register_read;
 				ifce_88E1111.mppa_88E1111_write = mppa_i2c_register_write;
@@ -204,6 +233,19 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 				}
 				break;
 
+			case MPPA_ETH_MAC_ETHMODE_10G_BASE_R:
+				if (lane_id >= 2) {
+					/* These lane are 1G only */
+#ifdef VERBOSE
+					printf("Unsupported mode for lane %d\n", lane_id);
+#endif
+					return -EINVAL;
+				}
+#ifdef VERBOSE
+				printf("Opening lane %d @ 10G\n", lane_id);
+#endif
+				sfp_init();
+				break;
 			case MPPA_ETH_MAC_ETHMODE_40G:
 #ifdef VERBOSE
 				printf("Opening lane %d @ 40G\n", lane_id);
@@ -220,8 +262,11 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 				break;
 
 			default :
+#ifdef VERBOSE
+				printf("Unsupported mode for lane %d\n", lane_id);
+#endif
 				return -ENOSYS;
-		}
+			}
 
 		break;
 
@@ -243,9 +288,9 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 		uint8_t duplex;
 		mppa_88E1111_copper_get_duplex_mode(&ifce_88E1111, &duplex);
 		printf("Link at %s with %s-duplex\n", 
-				  rate == MPPA_ETH_MAC_SGMIIRATE_10MB ? "10mbit/s" 
-				: rate == MPPA_ETH_MAC_SGMIIRATE_100MB ? "100mbit/s"
-			    : "1Gbit/s", duplex == 1 ? "Full" : "Half" );
+		       rate == MPPA_ETH_MAC_SGMIIRATE_10MB ? "10mbit/s" 
+		       : rate == MPPA_ETH_MAC_SGMIIRATE_100MB ? "100mbit/s"
+		       : "1Gbit/s", duplex == 1 ? "Full" : "Half" );
 #endif
 		mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), rate);
 	}
@@ -289,7 +334,7 @@ uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e ra
 
 	if (phy_status < 0) {
 		if (__k1_phy_init_full(mac_mode_to_phy_mode(MPPA_ETH_MAC_ETHMODE_1G), 1,
-							   MPPA_PERIPH_CLOCK_156) != 0x01) {
+				       MPPA_PERIPH_CLOCK_156) != 0x01) {
 			printf("Reset PHY failed\n");
 			return -EIO;
 		}
@@ -303,8 +348,8 @@ uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e ra
 		return -EBUSY;
 	}
 
-	 if (__bsp_flavour ==  BSP_DEVELOPER)
-	 {
+	if (__bsp_flavour ==  BSP_DEVELOPER)
+		{
 			if (lane_id < 2) {
 				/* These lane are 10G only */
 				return -EINVAL;
@@ -319,9 +364,9 @@ uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e ra
 			ifce_88E1111.chip_id = 0x40 + lane_id % 2; /* Lane 2 is chip 0x40, Lane 3 0x41 */
 
 			mppa_i2c_init(ifce_88E1111.i2c_master,
-					ifce_88E1111.i2c_bus,
-					ifce_88E1111.i2c_coma_pin,
-					ifce_88E1111.i2c_reset_n_pin, ifce_88E1111.i2c_int_n_pin, ifce_88E1111.i2c_gic);
+				      ifce_88E1111.i2c_bus,
+				      ifce_88E1111.i2c_coma_pin,
+				      ifce_88E1111.i2c_reset_n_pin, ifce_88E1111.i2c_int_n_pin, ifce_88E1111.i2c_gic);
 			ifce_88E1111.context = ifce_88E1111.i2c_master;
 			ifce_88E1111.mppa_88E1111_read = mppa_i2c_register_read;
 			ifce_88E1111.mppa_88E1111_write = mppa_i2c_register_write;
@@ -348,11 +393,11 @@ uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e ra
 			if (mppa_88E1111_synchronize(&ifce_88E1111)) {
 				return -EIO;
 			}
+		}
+	else {
+		printf("Only Developer is supported for non autoneg\n");
+		return -EINVAL;
 	}
-	 else {
-		 printf("Only Developer is supported for non autoneg\n");
-		 return -EINVAL;
-	 }
 
 
 	mppabeth_mac_cfg_mode((void *) &(mppa_ethernet[0]->mac), MPPA_ETH_MAC_ETHMODE_1G);
@@ -367,9 +412,9 @@ uint32_t init_mac_1G_without_autoneg(int lane_id, enum mppa_eth_mac_1G_mode_e ra
 	uint8_t duplex;
 	mppa_88E1111_copper_get_duplex_mode(&ifce_88E1111, &duplex);
 	printf("Link at %s with %s-duplex\n", 
-			  rate == MPPA_ETH_MAC_SGMIIRATE_10MB ? "10mbit/s" 
-			: rate == MPPA_ETH_MAC_SGMIIRATE_100MB ? "100mbit/s"
-		    : "1Gbit/s", duplex == MPPA_ETH_MAC_FULLDUPLEX ? "Full" : "Half" );
+	       rate == MPPA_ETH_MAC_SGMIIRATE_10MB ? "10mbit/s" 
+	       : rate == MPPA_ETH_MAC_SGMIIRATE_100MB ? "100mbit/s"
+	       : "1Gbit/s", duplex == MPPA_ETH_MAC_FULLDUPLEX ? "Full" : "Half" );
 #endif
 	mppabeth_mac_cfg_sgmii_rate((void *) &(mppa_ethernet[0]->mac), rate);
 	//Basic mac settings
@@ -460,13 +505,13 @@ void configure_dnoc_ethernet_lb(uint32_t ethernet_dnoc_interface,
 	__k1_dnoc_configure_tx(dnoc_interface, tx_id_for_mac,
 			       first_dir_for_rx_packets, header.dword, 0);
 	mppa_dnoc[dnoc_interface]->tx_chan_route[tx_id_for_mac].min_max_task_id[context]._.
-	    current_task_id = min_tag_for_rx_packets;
+		current_task_id = min_tag_for_rx_packets;
 	mppa_dnoc[dnoc_interface]->tx_chan_route[tx_id_for_mac].min_max_task_id[context]._.
-	    min_task_id = min_tag_for_rx_packets;
+		min_task_id = min_tag_for_rx_packets;
 	mppa_dnoc[dnoc_interface]->tx_chan_route[tx_id_for_mac].min_max_task_id[context]._.
-	    max_task_id = max_tag_for_rx_packets;
+		max_task_id = max_tag_for_rx_packets;
 	mppa_dnoc[dnoc_interface]->tx_chan_route[tx_id_for_mac].min_max_task_id[context]._.
-	    min_max_task_id_en = 1;
+		min_max_task_id_en = 1;
 }
 
 void configure_dnoc_ethernet_tx(uint32_t dnoc_interface,

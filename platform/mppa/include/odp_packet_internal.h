@@ -252,6 +252,25 @@ static inline void _odp_packet_reset_parse(odp_packet_t pkt)
 	pkt_hdr->input_flags.all = ODP_PACKET_UNPARSED;
 }
 
+static inline void _odp_free_packets(odp_packet_t pkt_tbl[], unsigned len)
+{
+	unsigned first = 0;
+	while (first < len) {
+		odp_pool_t base_pool =
+			((odp_packet_hdr_t*)pkt_tbl[first])->buf_hdr.pool_hdl;
+		unsigned cur = first +1;
+		while(cur < len &&
+		      ((odp_packet_hdr_t*)pkt_tbl[cur])->buf_hdr.pool_hdl ==
+		      base_pool) {
+			cur++;
+		}
+		ret_buf(&((pool_entry_t *)base_pool)->s,
+			(odp_buffer_hdr_t **)&pkt_tbl[first],
+			cur - first);
+		first = cur;
+	}
+}
+
 /* Forward declarations */
 int _odp_packet_copy_to_packet(odp_packet_t srcpkt, uint32_t srcoffset,
 			       odp_packet_t dstpkt, uint32_t dstoffset,

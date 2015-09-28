@@ -63,7 +63,7 @@ struct queue_entry_s {
 #endif
 
 	odp_buffer_hdr_t *head;
-	odp_buffer_hdr_t *tail;
+	odp_buffer_hdr_t **tail;
 	int               status;
 
 	enq_func_t       enqueue ODP_ALIGNED_CACHE;

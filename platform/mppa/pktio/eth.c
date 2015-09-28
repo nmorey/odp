@@ -29,7 +29,7 @@
 #define NOC_UC_COUNT		2
 #define MAX_PKT_PER_UC		4
 /* must be > greater than max_threads */
-#define MAX_JOB_PER_UC          32
+#define MAX_JOB_PER_UC          MOS_NB_UC_TRS
 #define DNOC_CLUS_IFACE_ID	0
 
 #include <mppa_noc.h>
@@ -38,7 +38,6 @@
 extern char _heap_end;
 
 typedef struct eth_uc_job_ctx {
-	bool is_running;
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
 } eth_uc_job_ctx_t;
@@ -48,11 +47,12 @@ typedef struct eth_uc_ctx {
 	unsigned int dnoc_uc_id;
 
 	unsigned joined_jobs;
-	unsigned int job_id;
+	odp_atomic_u64_t prepar_head;
+	odp_atomic_u64_t commit_head;
 	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } eth_uc_ctx_t;
 
-static eth_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
+static eth_uc_ctx_t g_eth_uc_ctx[NOC_UC_COUNT] = {{0}};
 
 typedef struct eth_status {
 	odp_pool_t pool;                      /**< pool to alloc packets from */
@@ -96,13 +96,13 @@ static int eth_init_dnoc_tx(void)
 
 		/* DNoC */
 		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_tx_id,
+						  &g_eth_uc_ctx[i].dnoc_tx_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
 		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_uc_id,
+						  &g_eth_uc_ctx[i].dnoc_uc_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
@@ -110,12 +110,12 @@ static int eth_init_dnoc_tx(void)
 		/* We will only use events */
 		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
 						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_uc_ctx[i].dnoc_uc_id);
+						   g_eth_uc_ctx[i].dnoc_uc_id);
 
 
 		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
-					    g_uc_ctx[i].dnoc_uc_id,
-					    g_uc_ctx[i].dnoc_tx_id, uc_conf);
+					    g_eth_uc_ctx[i].dnoc_uc_id,
+					    g_eth_uc_ctx[i].dnoc_tx_id, uc_conf);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 	}
@@ -181,27 +181,61 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
 	int ret = 0;
+	int nRx = N_RX_P_ETH;
+	int port_id, slot_id;
+
 	/*
 	 * Check device name and extract slot/port
 	 */
-	if (devname[0] != 'e')
+	const char* pptr = devname;
+	char * eptr;
+
+	if (*(pptr++) != 'e')
 		return -1;
 
-	int slot_id = devname[1] - '0';
-	if (slot_id < 0 || slot_id >= MAX_ETH_SLOTS)
+	slot_id = strtoul(pptr, &eptr, 10);
+	if (eptr == pptr || slot_id < 0 || slot_id >= MAX_ETH_SLOTS) {
+		ODP_ERR("Invalid Ethernet name %s\n", devname);
 		return -1;
+	}
 
-	int port_id = 4;
-	if (devname[2] != 0) {
-		if(devname[2] != 'p')
-			return -1;
-		port_id = devname[3] - '0';
+	pptr = eptr;
+	if (*pptr == 'p') {
+		/* Found a port */
+		pptr++;
+		port_id = strtoul(pptr, &eptr, 10);
 
-		if (port_id < 0 || port_id >= MAX_ETH_PORTS)
+		if (eptr == pptr || port_id < 0 || port_id >= MAX_ETH_PORTS) {
+			ODP_ERR("Invalid Ethernet name %s\n", devname);
 			return -1;
+		}
+		pptr = eptr;
+	} else {
+		/* Default port is 4 (40G), but physically lane 0 */
+		port_id = 4;
+	}
 
-		if(devname[4] != 0)
+	while (*pptr == ':') {
+		/* Parse arguments */
+		pptr++;
+		if (!strncmp(pptr, "tags=", strlen("tags="))){
+			pptr += strlen("tags=");
+			nRx = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid tag count %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
+		} else {
+			/* Unknown parameter */
+			ODP_ERR("Invalid option %s\n", pptr);
 			return -1;
+		}
+	}
+	if (*pptr != 0) {
+		/* Garbage at the end of the name... */
+		ODP_ERR("Invalid option %s\n", pptr);
+		return -1;
 	}
 
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
@@ -218,7 +252,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->rx_config.pool = pool;
 	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
 	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	ret = rx_thread_link_open(&eth->rx_config, N_RX_P_ETH * (port_id == 4 ? 4 : 1));
+	ret = rx_thread_link_open(&eth->rx_config, nRx);
 	if(ret < 0)
 		return -1;
 
@@ -332,70 +366,74 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static inline int
 eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
-	mppa_noc_dnoc_uc_configuration_t uc_conf =
-		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-	mppa_noc_uc_program_run_t program_run = {{1, 1}};
-	mppa_noc_ret_t nret;
-	odp_packet_hdr_t * pkt_hdr;
-	unsigned int i;
-	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
+	const uint64_t prepar_id = odp_atomic_fetch_inc_u64(&g_eth_uc_ctx[tx_index].prepar_head);
+	unsigned  ev_counter, diff;
 
-	for (i = 0; i < pkt_count; i++) {
+	/* Wait for slot */
+	ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+	diff = ((uint32_t)prepar_id) - ev_counter;
+	while (diff > 0x80000000 || ev_counter + MAX_JOB_PER_UC <= ((uint32_t)prepar_id)) {
+		odp_spin();
+		ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+		diff = ((uint32_t)prepar_id) - ev_counter;
+	}
+
+	const unsigned slot_id = prepar_id % MAX_JOB_PER_UC;
+	eth_uc_job_ctx_t * job = &g_eth_uc_ctx[tx_index].job_ctxs[slot_id];
+
+	if(prepar_id > MAX_JOB_PER_UC){
+		/* Free previous packets */
+		/* ret_buf(&((pool_entry_t *)eth->pool)->s, */
+		/* 	(odp_buffer_hdr_t**)job->pkt_table, job->pkt_count); */
+	}
+
+	mOS_uc_transaction_t * const trs =  &_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+	const odp_packet_hdr_t * pkt_hdr;
+
+	for (unsigned i = 0; i < pkt_count; ++i ){
+		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
-		/* Setup parameters and pointers */
-		uc_conf.parameters[i * 2] = pkt_hdr->frame_len /
-			sizeof(uint64_t);
-		uc_conf.parameters[i * 2 + 1] = pkt_hdr->frame_len %
-			sizeof(uint64_t);
-		uc_pointers.thread_pointers[i] =
-			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
-			(uintptr_t) &_data_start;
+
+		trs->parameter.array[2 * i + 0] =
+			pkt_hdr->frame_len / sizeof(uint64_t);
+		trs->parameter.array[2 * i + 1] =
+			pkt_hdr->frame_len % sizeof(uint64_t);
+
+#if 0
+		// FIXME: remove if 0 when mOS pointer support is integrated.
+		trs->pointer.array[i] = (unsigned long)
+			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
+			 - (uint8_t*)&_data_start);
+#endif
 	}
-	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
-		uc_conf.parameters[i * 2] = 0;
-		uc_conf.parameters[i * 2 + 1] = 0;
-		uc_pointers.thread_pointers[i] = 0;
+	for (unsigned i = pkt_count; i < 4; ++i) {
+		trs->parameter.array[2 * i + 0] = 0;
+		trs->parameter.array[2 * i + 1] = 0;
 	}
 
-	odp_spinlock_lock(&eth->wlock);
-	INVALIDATE(g_uc_ctx);
-	{
-		eth_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
-		unsigned job_id = ctx->job_id++;
-		eth_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
+	trs->path.array[ctx->dnoc_tx_id].header = eth->header;
+	trs->path.array[ctx->dnoc_tx_id].config = eth->config;
+	trs->notify._word = 0;
+	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
+	trs->desc.param_set = 0xff;
+#if 0
+	// FIXME: remove if 0 when mOS pointer support is integrated.
+	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
+#endif
 
-		/* Wait for previous run(s) to complete */
-		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
-			int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
-								   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-								   ctx->dnoc_tx_id);
-			for(i = ctx->joined_jobs; i < ctx->joined_jobs + ev_counter; ++i) {
-				eth_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
-				joined_job->is_running = 0;
-				/* Free previous packets */
-				ret_buf(&((pool_entry_t *)eth->pool)->s,
-					(odp_buffer_hdr_t**)joined_job->pkt_table, joined_job->pkt_count);
-			}
-			ctx->joined_jobs += ev_counter;
-		}
-		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
+	job->pkt_count = pkt_count;
 
-		uc_conf.pointers = &uc_pointers;
-		uc_conf.event_counter = 0;
 
-		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						  uc_conf, eth->header, eth->config);
-		if (nret != MPPA_NOC_RET_SUCCESS)
-			return 1;
+	while (odp_atomic_load_u64(&g_eth_uc_ctx[tx_index].commit_head) != prepar_id)
+		odp_spin();
 
-		job->pkt_count = pkt_count;
-		job->is_running = 1;
 
-		mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						 program_run);
-	}
-	odp_spinlock_unlock(&eth->wlock);
+	__builtin_k1_wpurge();
+	__builtin_k1_fence ();
+	mOS_ucore_commit(ctx->dnoc_tx_id);
+	odp_atomic_inc_u64(&g_eth_uc_ctx[tx_index].commit_head);
 
 	return 0;
 }

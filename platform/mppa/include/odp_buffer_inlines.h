@@ -63,6 +63,9 @@ static inline uint32_t odp_buffer_decr_refcount(odp_buffer_hdr_t *buf,
 
 static inline odp_buffer_hdr_t *validate_buf(odp_buffer_t buf)
 {
+	if (buf == ODP_BUFFER_INVALID)
+		return NULL;
+
 	odp_buffer_hdr_t *buf_hdr = (odp_buffer_hdr_t *)buf;
 	pool_entry_t *pool = odp_pool_to_entry(buf_hdr->pool_hdl);
 

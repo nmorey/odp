@@ -13,7 +13,8 @@ INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
 CUNIT_INST_DIR:= $(TOP_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/
 MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
-MAKE_DEPS:= $(MAKE_AMS) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
+MAKE_M4S:= $(shell find $(TOP_DIR) -name "*.m4")
+MAKE_DEPS:= $(MAKE_AMS) $(MAKE_M4S) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
 FIRMWARES := iopcie ioeth iounified
 RULE_LIST_SERIAL   :=  install valid long

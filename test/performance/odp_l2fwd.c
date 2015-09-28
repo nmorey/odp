@@ -85,6 +85,7 @@ static int exit_threads;	/**< Break workers loop if set to 1 */
 typedef struct {
 	uint64_t packets;	/**< Number of forwarded packets. */
 	uint64_t drops;		/**< Number of dropped packets. */
+	uint64_t errs;		/**< Number of bad packets received. */
 } stats_t;
 
 /**
@@ -148,7 +149,7 @@ static void *pktio_queue_thread(void *arg)
 
 		/* Drop packets with errors */
 		if (odp_unlikely(drop_err_pkts(&pkt, 1) == 0)) {
-			stats->drops += 1;
+			stats->errs += 1;
 			continue;
 		}
 
@@ -157,6 +158,7 @@ static void *pktio_queue_thread(void *arg)
 		/* Enqueue the packet for output */
 		if (odp_queue_enq(outq_def, ev)) {
 			printf("  [%i] Queue enqueue failed.\n", thr);
+			stats->drops += 1;
 			odp_packet_free(pkt);
 			continue;
 		}
@@ -245,7 +247,7 @@ static void *pktio_ifburst_thread(void *arg)
 		}
 
 		if (odp_unlikely(pkts_ok != pkts))
-			stats->drops += pkts - pkts_ok;
+			stats->errs += pkts - pkts_ok;
 
 		if (pkts_ok == 0)
 			continue;
@@ -332,7 +334,7 @@ static odp_pktio_t create_pktio(const char *dev, odp_pool_t pool,
 static int print_speed_stats(int num_workers, stats_t **thr_stats,
 			      int duration, int timeout)
 {
-	uint64_t pkts, pkts_prev = 0, pps, drops, maximum_pps = 0;
+	uint64_t pkts, pkts_prev = 0, pps, drops, errs, maximum_pps = 0;
 	int i, elapsed = 0;
 	int loop_forever = (duration == 0);
 
@@ -342,12 +344,14 @@ static int print_speed_stats(int num_workers, stats_t **thr_stats,
 	do {
 		pkts = 0;
 		drops = 0;
+		errs = 0;
 
 		sleep(timeout);
 
 		for (i = 0; i < num_workers; i++) {
 			pkts += LOAD_U64(thr_stats[i]->packets);
 			drops += LOAD_U64(thr_stats[i]->drops);
+			errs += LOAD_U64(thr_stats[i]->errs);
 		}
 		pps = (pkts - pkts_prev) / timeout;
 		if (pps > maximum_pps)
@@ -355,7 +359,8 @@ static int print_speed_stats(int num_workers, stats_t **thr_stats,
 		printf("%" PRIu64 " pps, %" PRIu64 " max pps, ",  pps,
 		       maximum_pps);
 
-		printf(" %" PRIu64 " total drops\n", drops);
+		printf(" %" PRIu64 " total drops, %" PRIu64 " total errors\n",
+		       drops, errs);
 
 		elapsed += timeout;
 		pkts_prev = pkts;

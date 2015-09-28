@@ -76,14 +76,14 @@ $(eval $(1)-$(2)-ENV := CC="$($(1)_CC)" CFLAGS="$($(1)_CFLAGS)" \
 $(1)-$(2)-configure: firmware/$(2)/Makefile
 $(1)-$(2)-build: firmware/$(2)/Makefile
 	mkdir -p $(ARCH_DIR)/$(2)/$(1)
-	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile all $($(1)-$(2)-ENV)
+	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile all $($(1)-$(2)-ENV)
 
 $(1)-$(2)-install: $(1)-$(2)-build
-	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
+	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
 $(1)-$(2)-valid: $(1)-$(2)-build
-	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
+	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
 $(1)-$(2)-long: $(1)-$(2)-build
-	cd $(ARCH_DIR)/$(2)/$(1) && make -f $(TOP_DIR)/firmware/$(2)/Makefile long $($(1)-$(2)-ENV)
+	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile long $($(1)-$(2)-ENV)
 $(1)-$(2)-clean:
 	rm -Rf $(ARCH_DIR)/$(2)/$(1)
 endef
