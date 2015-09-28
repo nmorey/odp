@@ -182,6 +182,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 {
 	int ret = 0;
 	int nRx = N_RX_P_ETH;
+	int rr_policy = -1;
 	int port_id, slot_id;
 
 	/*
@@ -226,6 +227,14 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 				return -1;
 			}
 			pptr = eptr;
+		} else if (!strncmp(pptr, "rrpolicy=", strlen("rrpolicy="))){
+			pptr += strlen("rrpolicy=");
+			rr_policy = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid rr_policy %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
 		} else {
 			/* Unknown parameter */
 			ODP_ERR("Invalid option %s\n", pptr);
@@ -252,7 +261,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->rx_config.pool = pool;
 	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
 	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	ret = rx_thread_link_open(&eth->rx_config, nRx);
+	ret = rx_thread_link_open(&eth->rx_config, nRx, rr_policy);
 	if(ret < 0)
 		return -1;
 
