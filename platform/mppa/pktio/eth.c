@@ -394,8 +394,8 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 
 	if(prepar_id > MAX_JOB_PER_UC){
 		/* Free previous packets */
-		/* ret_buf(&((pool_entry_t *)eth->pool)->s, */
-		/* 	(odp_buffer_hdr_t**)job->pkt_table, job->pkt_count); */
+		ret_buf(&((pool_entry_t *)eth->pool)->s,
+			(odp_buffer_hdr_t**)job->pkt_table, job->pkt_count);
 	}
 
 	mOS_uc_transaction_t * const trs =  &_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
