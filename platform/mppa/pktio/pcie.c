@@ -175,8 +175,6 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	memcpy(pcie->mac_addr, ack.cmd.pcie_open.mac, ETH_ALEN);
 	pcie->mtu = ack.cmd.pcie_open.mtu;
 
-	printf("PCIe open ok on tx_if %d, tx_tag %d, mtu %d\n", pcie->tx_if, pcie->tx_tag, pcie->mtu);
-
 	return 0;
 }
 
@@ -219,7 +217,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->rx_config.pool = pool;
 	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id;
 	pcie->rx_config.header_sz = sizeof(uint32_t);
-	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE);
+	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE, -1);
 	if (ret < 0) {
 		ODP_DBG("Failed to open rx htread\n");
 		return -1;
@@ -351,7 +349,6 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
 			(uintptr_t) &_data_start;
 	}
-
 	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
 		uc_conf.parameters[i] = 0;
 		uc_pointers.thread_pointers[i] = 0;
@@ -383,7 +380,6 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 		uc_conf.pointers = &uc_pointers;
 		uc_conf.event_counter = 0;
 
-		printf("Configuring ");
 		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
 						  uc_conf, pcie->header, pcie->config);
 		if (nret != MPPA_NOC_RET_SUCCESS)
@@ -406,6 +402,7 @@ static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	unsigned int sent = 0;
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	unsigned int pkt_count;
+
 
 	while(sent < len) {
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :

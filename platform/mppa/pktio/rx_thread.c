@@ -333,7 +333,7 @@ static void *_rx_thread_start(void *arg)
 	return NULL;
 }
 
-int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
+int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 {
 	const int dma_if = 0;
 	if (n_ports > MAX_RX) {
@@ -391,40 +391,61 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports)
 	/*
 	 * Compute event mask to detect events on our own tags later
 	 */
-	const uint64_t full_mask = 0xffffffffffffffffULL;
 	const unsigned nrx_per_th = n_ports / N_RX_THR;
 	uint64_t ev_masks[N_RX_THR][N_EV_MASKS];
 	int i;
 
-	for (i = 0; i < 4; ++i)
-		ifce->ev_masks[i] = 0ULL;
+	for (i = 0; i < 4; ++i) {
+		for (int th_id = 0; th_id < N_RX_THR; ++th_id) {
+			ifce->ev_masks[i] = 0ULL;
+			ev_masks[th_id][i] = 0ULL;
+		}
+	}
 
-	for (int th_id = 0; th_id < N_RX_THR; ++th_id) {
-		int min_port = th_id * nrx_per_th + rx_config->min_port;
-		int max_port = (th_id + 1) * nrx_per_th +
-			rx_config->min_port - 1;
+	if(rr_policy < 0) {
+		const uint64_t full_mask = 0xffffffffffffffffULL;
+		/* Each thread has a contiguous 1 / N_RX_THR nth of the thread pool */
+		for (int th_id = 0; th_id < N_RX_THR; ++th_id) {
+			int min_port = th_id * nrx_per_th + rx_config->min_port;
+			int max_port = (th_id + 1) * nrx_per_th +
+				rx_config->min_port - 1;
 
-		for (i = 0; i < 4; ++i) {
-			if (min_port >= (i + 1) * 64 || max_port < i * 64) {
-				ev_masks[th_id][i] = 0ULL;
-				continue;
+			for (i = 0; i < 4; ++i) {
+				if (min_port >= (i + 1) * 64 || max_port < i * 64) {
+					ev_masks[th_id][i] = 0ULL;
+					continue;
+				}
+				uint8_t local_min = MAX(i * 64, min_port) - (i * 64);
+				uint8_t local_max =
+					MIN((i + 1) * 64 - 1, max_port) - (i * 64);
+
+				ev_masks[th_id][i] =
+					(/* Trim the upper bits */
+					 (
+					  /* Trim the lower bits */
+					  full_mask >> (local_min)
+					  )
+					 /* Realign back + trim the top */
+					 << (local_min + 63 - local_max)
+					 ) /* Realign again */ >> (63 - local_max);
+
+				if (ev_masks[th_id][i] != 0)
+					ifce->ev_masks[i] |= ev_masks[th_id][i];
 			}
-			uint8_t local_min = MAX(i * 64, min_port) - (i * 64);
-			uint8_t local_max =
-				MIN((i + 1) * 64 - 1, max_port) - (i * 64);
+		}
+	} else {
+		/* Each thread picks rr_policy Rx every N_RX_THR */
+		for (int port = rx_config->min_port, th_id = 0; port <= rx_config->max_port; ++port, ++th_id){
+			int th = (th_id / rr_policy) % N_RX_THR;
 
-			ev_masks[th_id][i] =
-				(/* Trim the upper bits */
-				 (
-				  /* Trim the lower bits */
-				  full_mask >> (local_min)
-				  )
-				 /* Realign back + trim the top */
-				 << (local_min + 63 - local_max)
-				 ) /* Realign again */ >> (63 - local_max);
-
-			if (ev_masks[th_id][i] != 0)
+			const unsigned word = port / (8 * sizeof(ev_masks[0][0]));
+			const unsigned offset = port % ( 8 * sizeof(ev_masks[0][0]));
+			ev_masks[th][word] |= 0x1ULL << offset;
+		}
+		for (i = 0; i < 4; ++i) {
+			for (int th_id = 0; th_id < N_RX_THR; ++th_id) {
 				ifce->ev_masks[i] |= ev_masks[th_id][i];
+			}
 		}
 	}
 
