@@ -139,6 +139,13 @@ int main (int argc, char *argv[])
 
 	mppa_pcie_eth_noc_init();
 
+	printf("Init RPC server\n");
+	ret = odp_rpc_server_start(NULL);
+	if (ret) {
+		fprintf(stderr, "[RPC] Error: Failed to start server\n");
+		exit(EXIT_FAILURE);
+	}
+
 	printf("Initializing pcie eth interface\n");
 	ret = mppa_pcie_eth_init(16);
 	if (ret != 0) {
@@ -146,11 +153,6 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = odp_rpc_server_start(NULL);
-	if (ret) {
-		fprintf(stderr, "[RPC] Error: Failed to start server\n");
-		exit(EXIT_FAILURE);
-	}
 
 	printf("Spawning %d clusters\n", clus_count);
 
