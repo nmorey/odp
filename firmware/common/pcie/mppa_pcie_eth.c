@@ -154,7 +154,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	return 0;
 }
 
-int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int size)
+int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint32_t flags)
 {
 	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
 	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if), next_tx_head;
@@ -172,6 +172,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
+	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);
 
 	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, next_tx_head);
 	mppa_pcie_send_it_to_host();
@@ -193,7 +194,7 @@ static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
 		tx_cfg = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_id];
 
 		/* Try to enqueue a fifo descriptor */
-		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu);
+		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu, MPPA_PCIE_ETH_NEED_PKT_HDR);
 		if (ret != 0) {
 			dnoc_tx_id++;
 			dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
