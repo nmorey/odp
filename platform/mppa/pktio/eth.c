@@ -410,12 +410,9 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 		trs->parameter.array[2 * i + 1] =
 			pkt_hdr->frame_len % sizeof(uint64_t);
 
-#if 0
-		// FIXME: remove if 0 when mOS pointer support is integrated.
 		trs->pointer.array[i] = (unsigned long)
 			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
 			 - (uint8_t*)&_data_start);
-#endif
 	}
 	for (unsigned i = pkt_count; i < 4; ++i) {
 		trs->parameter.array[2 * i + 0] = 0;
@@ -427,10 +424,7 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 	trs->notify._word = 0;
 	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
 	trs->desc.param_set = 0xff;
-#if 0
-	// FIXME: remove if 0 when mOS pointer support is integrated.
 	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
-#endif
 
 	job->pkt_count = pkt_count;
 
