@@ -15,7 +15,7 @@
 
 #define MAX_DNOC_TX_PER_PCIE_ETH_IF	16	
 
-#define RING_BUFFER_ENTRIES	32
+#define RING_BUFFER_ENTRIES	16
 
 #define MPPA_PCIE_GET_ETH_VALUE(__mode, __member, __if) __builtin_k1_lwu(&g_eth_if_cfg[__if].__mode->__member)
 #define MPPA_PCIE_ETH_GET_RX_TAIL(__if) MPPA_PCIE_GET_ETH_VALUE(rx, tail, __if)
