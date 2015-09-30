@@ -15,6 +15,8 @@
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
+#define PCIE_ETH_INTERFACE_COUNT	8
+
 enum state {
 	STATE_BOOT = 0,
 	STATE_RUN,
@@ -147,7 +149,7 @@ int main (int argc, char *argv[])
 	}
 
 	printf("Initializing pcie eth interface\n");
-	ret = mppa_pcie_eth_init(16);
+	ret = mppa_pcie_eth_init(PCIE_ETH_INTERFACE_COUNT);
 	if (ret != 0) {
 		printf("Failed to initialize PCIe eth interface\n");
 		exit(1);
