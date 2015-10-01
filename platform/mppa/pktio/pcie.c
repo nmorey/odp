@@ -56,27 +56,6 @@ typedef struct pcie_uc_ctx {
 
 static pcie_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
 
-typedef struct pcie_status {
-	odp_pool_t pool;                      /**< pool to alloc packets from */
-	odp_spinlock_t wlock;        /**< Tx lock */
-
-	/* Rx Data */
-	rx_config_t rx_config;
-
-	uint8_t slot_id;             /**< IO Eth Id */
-	uint8_t port_id;             /**< Eth Port id. 4 for 40G */
-
-	/* Tx data */
-	uint16_t tx_if;              /**< Remote DMA interface to forward
-				      *   to Eth Egress */
-	uint16_t tx_tag;             /**< Remote DMA tag to forward to
-				      *   Eth Egress */
-
-	mppa_dnoc_header_t header;
-	mppa_dnoc_channel_config_t config;
-
-} pcie_status_t;
-
 /**
  * #############################
  * PKTIO Interface
