@@ -161,9 +161,8 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	struct mppa_pcie_eth_tx_ring_buff_entry *entry, **entries;
 	uint64_t daddr = (uintptr_t) addr;
 
-	/* Check if there is room to add a rx */
-	next_tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-	if (next_tx_head == tx_tail)
+	/* Do not add an entry if the ring is full */
+	if (tx_head == tx_tail)
 		return -1;
 
 	printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %d\n", pcie_eth_if, addr, size, tx_head);
@@ -174,6 +173,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);
 
+	next_tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
 	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, next_tx_head);
 	mppa_pcie_send_it_to_host();
 
