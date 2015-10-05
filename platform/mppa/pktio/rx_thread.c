@@ -50,6 +50,7 @@ typedef struct {
 					   * belong to us */
 	uint8_t pool_id;
 	rx_config_t rx_config;
+	odp_buffer_ring_t ring;
 } rx_ifce_t;
 
 typedef struct {
@@ -245,6 +246,7 @@ static int _reload_rx(int th_id, int rx_id)
 
 			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
+			hdr_list->count++;
 			return 1 << pktio_id;
 		}
 		return 0;
@@ -285,22 +287,22 @@ static void _poll_masks(int th_id)
 				i = __builtin_k1_ctz(if_mask);
 				if_mask ^= (1 << i);
 
-				queue_entry_t *qentry;
 				rx_buffer_list_t * hdr_list =
 					&rx_hdl.th[th_id].ifce[i].hdr_list;
 
 				if (hdr_list->tail == &hdr_list->head)
 					continue;
-				qentry = queue_to_qentry(rx_hdl.ifce[i].
-							 rx_config.queue);
 
+				odp_buffer_ring_push_list(&rx_hdl.ifce[i].ring,
+							  hdr_list->head,
+							  hdr_list->count);
 				odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
 					((uint8_t*)hdr_list->tail -
 					 ODP_OFFSETOF(odp_buffer_hdr_t, next));
 				tail->next = NULL;
-				queue_enq_list(qentry, hdr_list->head, tail);
 
 				hdr_list->tail = &hdr_list->head;
+				hdr_list->count = 0;
 
 			}
 			if_mask = 0;
@@ -347,12 +349,6 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 
 	snprintf(loopq_name, sizeof(loopq_name), "%d-pktio_rx",
 		 rx_config->pktio_id);
-	rx_config->queue = odp_queue_create(loopq_name, ODP_QUEUE_TYPE_POLL,
-					    NULL);
-	if (rx_config->queue == ODP_QUEUE_INVALID) {
-		ODP_ERR("ODP rx init failed to alloc a queue");
-		return -1;
-	}
 
 	/*
 	 * Allocate contiguous RX ports
@@ -449,6 +445,15 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 		}
 	}
 
+	/* Setup buffer ring */
+	void * addr = malloc(2 * n_rx * sizeof(odp_buffer_hdr_t*));
+	if (!addr) {
+		ODP_ERR("Failed to allocate Ring buffer");
+		return -1;
+	}
+	odp_buffer_ring_init(&ifce->ring, addr, 2 * n_rx);
+	rx_config->ring = &ifce->ring;
+
 	/* Copy config to Thread data */
 	memcpy(&ifce->rx_config, rx_config, sizeof(*rx_config));
 	ifce->pool_id = pool_to_id(rx_config->pool);
@@ -511,7 +516,6 @@ int rx_thread_link_close(uint8_t pktio_id)
 
 	odp_rwlock_write_lock(&rx_hdl.lock);
 	INVALIDATE(ifce);
-	odp_queue_destroy(ifce->rx_config.queue);
 
 	for (i = ifce->rx_config.min_port;
 	     i <= ifce->rx_config.max_port; ++i)
@@ -520,6 +524,7 @@ int rx_thread_link_close(uint8_t pktio_id)
 	int n_ports = ifce->rx_config.max_port -
 		ifce->rx_config.min_port + 1;
 	const unsigned nrx_per_th = n_ports / N_RX_THR;
+	odp_pool_t pool = ifce->rx_config.pool;
 
 	ifce->rx_config.pool = ODP_POOL_INVALID;
 	ifce->rx_config.min_port = -1;
@@ -543,7 +548,22 @@ int rx_thread_link_close(uint8_t pktio_id)
 
 	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
 
+	{
+		/** free all the buffers */
+		odp_buffer_hdr_t * buffers[10];
+		int nbufs;
+		while ((nbufs = odp_buffer_ring_get_multi(&ifce->ring,
+							  buffers, 10,
+							  NULL)) > 0) {
+			ret_buf(&((pool_entry_t *)pool)->s,
+				buffers, nbufs);
+		}
+		free(ifce->ring.buf_ptrs);
+
+	}
 	odp_rwlock_write_unlock(&rx_hdl.lock);
+
+
 
 	return 0;
 }

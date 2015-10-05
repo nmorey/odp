@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+#include <odp_buffer_ring_internal.h>
+
 #define N_EV_MASKS 4
 #define MAX_RX_ETH_IF 8
 #define MAX_RX_PCIE_IF 8
@@ -30,9 +32,7 @@ typedef struct {
 	uint8_t header_sz;
 	uint8_t pkt_offset;
 	rx_if_type_e if_type;
-	odp_queue_t queue;       /**< Internal queue to store
-				  *   received packets */
-
+	odp_buffer_ring_t *ring;
 } rx_config_t;
 
 union mppa_ethernet_header_info_t {

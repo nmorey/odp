@@ -340,11 +340,13 @@ static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
+	int n_packet;
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
-	queue_entry_t *qentry;
 
-	qentry = queue_to_qentry(pcie->rx_config.queue);
-	return queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+	n_packet = odp_buffer_ring_get_multi(pcie->rx_config.ring,
+					     (odp_buffer_hdr_t **)pkt_table,
+					     len, NULL);
+	return n_packet;
 }
 
 static inline int
