@@ -261,7 +261,8 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	/* Setup Rx threads */
 	pcie->rx_config.dma_if = 0;
 	pcie->rx_config.pool = pool;
-	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id;
+	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id +
+		MAX_RX_ETH_IF;
 	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(NULL);
 	rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
