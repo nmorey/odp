@@ -67,6 +67,7 @@ int odp_buffer_ring_get_multi(odp_buffer_ring_t *ring,
 
 	return n_bufs;
 }
+
 void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 				odp_buffer_hdr_t *buffers[],
 				unsigned n_buffers, uint32_t *left)
@@ -107,4 +108,39 @@ void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 			bufcount += ring->buf_num + 1;
 		*left = bufcount;
 	}
+}
+
+void odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
+			       odp_buffer_hdr_t *buffers,
+				unsigned n_buffers)
+{
+	uint32_t prod_head, prod_next;
+
+	do {
+		prod_head =  odp_atomic_load_u32(&ring->prod_head);
+
+		prod_next = prod_head + n_buffers;
+		if(prod_next > ring->buf_num)
+			prod_next = prod_next - (ring->buf_num + 1);
+
+		if(_odp_atomic_u32_cmp_xchg_strong_mm(&ring->prod_head, &prod_head,
+						      prod_next,
+						      _ODP_MEMMODEL_ACQ,
+						      _ODP_MEMMODEL_RLX)){
+			break;
+
+		}
+	} while(1);
+
+	for (unsigned i = 0, idx = prod_head; i < n_buffers && buffers; ++i, ++idx, buffers = buffers->next) {
+		if(odp_unlikely(idx > ring->buf_num))
+			idx = idx - (ring->buf_num + 1);
+
+		STORE_PTR(ring->buf_ptrs[idx], buffers);
+	}
+	while (odp_atomic_load_u32(&ring->prod_tail) != prod_head)
+		odp_spin();
+
+	odp_atomic_store_u32(&ring->prod_tail, prod_next);
+
 }
