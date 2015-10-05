@@ -185,27 +185,70 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
 	int ret = 0;
+	int nRx = N_RX_P_PCIE;
+	int rr_policy = -1;
+	int port_id, slot_id;
+
 	/*
 	 * Check device name and extract slot/port
 	 */
-	if (devname[0] != 'p')
+	const char* pptr = devname;
+	char * eptr;
+
+	if (*(pptr++) != 'p')
 		return -1;
 
-	int slot_id = devname[1] - '0';
-	if (slot_id < 0 || slot_id >= MAX_PCIE_SLOTS)
+	slot_id = strtoul(pptr, &eptr, 10);
+	if (eptr == pptr || slot_id < 0 || slot_id >= MAX_PCIE_SLOTS) {
+		ODP_ERR("Invalid PCIE name %s\n", devname);
 		return -1;
+	}
 
-	int port_id = 4;
-	if (devname[2] != 0) {
-		if(devname[2] != 'p')
-			return -1;
-		port_id = devname[3] - '0';
+	pptr = eptr;
+	if (*pptr == 'p') {
+		/* Found a port */
+		pptr++;
+		port_id = strtoul(pptr, &eptr, 10);
 
-		if (port_id < 0 || port_id >= MAX_PCIE_INTERFACES)
+		if (eptr == pptr || port_id < 0 || port_id >= MAX_PCIE_INTERFACES) {
+			ODP_ERR("Invalid PCIE name %s\n", devname);
 			return -1;
+		}
+		pptr = eptr;
+	} else {
+		ODP_ERR("Invalid PCIE name %s. Missing port number\n", devname);
+		return -1;
+	}
 
-		if(devname[4] != 0)
+	while (*pptr == ':') {
+		/* Parse arguments */
+		pptr++;
+		if (!strncmp(pptr, "tags=", strlen("tags="))){
+			pptr += strlen("tags=");
+			nRx = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid tag count %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
+		} else if (!strncmp(pptr, "rrpolicy=", strlen("rrpolicy="))){
+			pptr += strlen("rrpolicy=");
+			rr_policy = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid rr_policy %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
+		} else {
+			/* Unknown parameter */
+			ODP_ERR("Invalid option %s\n", pptr);
 			return -1;
+		}
+	}
+	if (*pptr != 0) {
+		/* Garbage at the end of the name... */
+		ODP_ERR("Invalid option %s\n", pptr);
+		return -1;
 	}
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
@@ -221,7 +264,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id;
 	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(NULL);
-	rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE, -1);
+	rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
 
 	ret = pcie_rpc_send_pcie_open(pcie);
 
