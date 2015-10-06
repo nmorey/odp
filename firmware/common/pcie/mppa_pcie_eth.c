@@ -81,7 +81,7 @@ static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 	 * We will fill the dexcriptor later */
 	tx->head = 0;
 	tx->tail = RING_BUFFER_ENTRIES - 1;
-
+	printf("TX entries addr: %p\n", entries);
 	tx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
 }
@@ -133,7 +133,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 {
 	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if);
 	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
-	struct mppa_pcie_eth_rx_ring_buff_entry *entry, **entries;
+	struct mppa_pcie_eth_rx_ring_buff_entry *entry, *entries;
 	uint64_t daddr = (uintptr_t) addr;
 
 	/* Check if there is room to send a packet to host */
@@ -143,7 +143,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 
 	printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].rx->ring_buffer_entries_addr;
-	entry = entries[rx_tail];
+	entry = &entries[rx_tail];
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
@@ -158,17 +158,24 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 {
 	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
 	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if), next_tx_head;
-	struct mppa_pcie_eth_tx_ring_buff_entry *entry, **entries;
+	struct mppa_pcie_eth_tx_ring_buff_entry *entry, *entries;
 	uint64_t daddr = (uintptr_t) addr;
+	uint32_t prev_head;
 
 	/* Do not add an entry if the ring is full */
 	if (tx_head == tx_tail)
 		return -1;
+	
+	if (tx_head == 0)
+		prev_head = RING_BUFFER_ENTRIES - 1;
+	else
+		prev_head = tx_head - 1;
 
-	printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %d\n", pcie_eth_if, addr, size, tx_head);
+	printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
-	entry = entries[tx_head];
+	entry = &entries[prev_head];
 
+	printf("Entries: %p, Entry addr: %p\n", entries, entry);
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);

@@ -15,7 +15,7 @@
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
-#define PCIE_ETH_INTERFACE_COUNT	8
+#define PCIE_ETH_INTERFACE_COUNT	1
 
 enum state {
 	STATE_BOOT = 0,
