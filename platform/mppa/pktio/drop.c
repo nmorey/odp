@@ -11,6 +11,7 @@
 
 #include <odp.h>
 #include <odp_packet_io_internal.h>
+#include <odp/helper/eth.h>
 
 static int drop_open(odp_pktio_t id ODP_UNUSED,
 		     pktio_entry_t *pktio_entry ODP_UNUSED,
@@ -51,7 +52,10 @@ static int drop_mtu_get(pktio_entry_t *pktio_entry ODP_UNUSED)
 static int drop_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 			     void *mac_addr ODP_UNUSED)
 {
-	return -1;
+	static const char drop_mac[ODPH_ETHADDR_LEN] =
+		{ 0x2, 0xb, 0x0, 0x0, 0xb, 0x5 };
+	memcpy(mac_addr, drop_mac, ODPH_ETHADDR_LEN);
+	return ODPH_ETHADDR_LEN;
 }
 
 static int drop_promisc_mode_set(pktio_entry_t *pktio_entry ODP_UNUSED,
