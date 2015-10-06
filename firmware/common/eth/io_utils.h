@@ -11,17 +11,6 @@
 #include "mppa_eth_phy_core.h"
 #include "mppa_eth_loadbalancer.h"
 
-
-/** Set the duplexwhen using the 1G link MPPABETHMAC_MODE_1G */ 
-#define MPPABETHMAC_FULLDUPLEX 	1
-#define MPPABETHMAC_HALFDUPLEX 	0
-
-enum mppa_eth_mac_duplex_e {
-	MPPA_ETH_MAC_FULLDUPLEX  = 	MPPABETHMAC_FULLDUPLEX,
-	MPPA_ETH_MAC_HALFDUPLEX  =	MPPABETHMAC_HALFDUPLEX,
-};
-
-
 #define MAX_TABLE_IDX		 0	/*ONly true on fpga */
 #define DEFAULT_TABLE_IDX 	 8
 enum loopback_level { MAC_LOCAL_LOOPBACK = 0, MAC_BYPASS_LOOPBACK, LAST_LOOPBACK_LEVEL
