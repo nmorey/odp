@@ -30,13 +30,13 @@ int odp_buffer_ring_get_multi(odp_buffer_ring_t *ring,
 				n_bufs = prod_tail - cons_head;
 		} else {
 			/* Go to the end of the buffer and look for more */
-			unsigned avail = prod_tail + (ring->buf_num + 1) - cons_head;
+			unsigned avail = prod_tail + ring->buf_num - cons_head;
 			if(avail < n_bufs)
 				n_bufs = avail;
 		}
 		cons_next = cons_head + n_bufs;
 		if(cons_next > ring->buf_num)
-			cons_next = cons_next - (ring->buf_num + 1);
+			cons_next = cons_next - ring->buf_num;
 
 		if(_odp_atomic_u32_cmp_xchg_strong_mm(&ring->cons_head, &cons_head,
 						      cons_next,
@@ -47,8 +47,8 @@ int odp_buffer_ring_get_multi(odp_buffer_ring_t *ring,
 	} while(1);
 
 	for (unsigned i = 0, idx = cons_head; i < n_bufs; ++i, ++idx){
-		if(odp_unlikely(idx > ring->buf_num))
-			idx = idx - (ring->buf_num + 1);
+		if(odp_unlikely(idx == ring->buf_num))
+			idx = 0;
 		buffers[i] = LOAD_PTR(ring->buf_ptrs[idx]);
 	}
 
@@ -61,7 +61,7 @@ int odp_buffer_ring_get_multi(odp_buffer_ring_t *ring,
 		/* Check for low watermark condition */
 		uint32_t bufcount = prod_tail - cons_next;
 		if(bufcount > ring->buf_num)
-			bufcount += ring->buf_num + 1;
+			bufcount += ring->buf_num;
 		*left = bufcount;
 	}
 
@@ -79,7 +79,7 @@ void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 
 		prod_next = prod_head + n_buffers;
 		if(prod_next > ring->buf_num)
-			prod_next = prod_next - (ring->buf_num + 1);
+			prod_next = prod_next - ring->buf_num;
 
 		if(_odp_atomic_u32_cmp_xchg_strong_mm(&ring->prod_head, &prod_head,
 						      prod_next,
@@ -92,8 +92,8 @@ void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 	} while(1);
 
 	for (unsigned i = 0, idx = prod_head; i < n_buffers; ++i, ++idx) {
-		if(odp_unlikely(idx > ring->buf_num))
-			idx = idx - (ring->buf_num + 1);
+		if(odp_unlikely(idx == ring->buf_num))
+			idx = 0;
 
 		STORE_PTR(ring->buf_ptrs[idx], buffers[i]);
 	}
@@ -105,7 +105,7 @@ void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 	if (left) {
 		uint32_t bufcount = (prod_next - cons_tail);
 		if(bufcount > ring->buf_num)
-			bufcount += ring->buf_num + 1;
+			bufcount += ring->buf_num;
 		*left = bufcount;
 	}
 }
@@ -121,7 +121,7 @@ void odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
 
 		prod_next = prod_head + n_buffers;
 		if(prod_next > ring->buf_num)
-			prod_next = prod_next - (ring->buf_num + 1);
+			prod_next = prod_next - ring->buf_num;
 
 		if(_odp_atomic_u32_cmp_xchg_strong_mm(&ring->prod_head, &prod_head,
 						      prod_next,
@@ -133,11 +133,14 @@ void odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
 	} while(1);
 
 	for (unsigned i = 0, idx = prod_head; i < n_buffers && buffers; ++i, ++idx, buffers = buffers->next) {
-		if(odp_unlikely(idx > ring->buf_num))
-			idx = idx - (ring->buf_num + 1);
+		if(odp_unlikely(idx == ring->buf_num))
+			idx = 0;
 
-		STORE_PTR(ring->buf_ptrs[idx], buffers);
+		ring->buf_ptrs[idx] = buffers;
 	}
+
+	__builtin_k1_wpurge();
+
 	while (odp_atomic_load_u32(&ring->prod_tail) != prod_head)
 		odp_spin();
 
