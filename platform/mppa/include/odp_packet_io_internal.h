@@ -165,6 +165,15 @@ static inline int pktio_to_id(odp_pktio_t pktio)
 	return entry - pktio_table.entries;
 }
 
+static inline int pktio_cls_enabled(pktio_entry_t *entry)
+{
+	return entry->s.cls_enabled;
+}
+
+static inline void pktio_cls_enabled_set(pktio_entry_t *entry, int ena)
+{
+	entry->s.cls_enabled = ena;
+}
 
 int pktin_poll(pktio_entry_t *entry);
 
