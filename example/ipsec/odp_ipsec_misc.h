@@ -143,7 +143,7 @@ int match_ip_range(uint32_t addr, ip_addr_range_t *range)
 static inline
 char *ipv4_addr_str(char *b, uint32_t addr)
 {
-	sprintf(b, "%03d.%03d.%03d.%03d",
+	sprintf(b, "%03" PRIu32 ".%03" PRIu32 ".%03" PRIu32 ".%03" PRIu32,
 		0xFF & ((addr) >> 24),
 		0xFF & ((addr) >> 16),
 		0xFF & ((addr) >>  8),
@@ -215,7 +215,7 @@ char *ipv4_subnet_str(char *b, ip_addr_range_t *range)
 			break;
 	len = 32 - idx;
 
-	sprintf(b, "%03d.%03d.%03d.%03d/%d",
+	sprintf(b, "%03" PRIu32 ".%03" PRIu32 ".%03" PRIu32 ".%03" PRIu32 "/%d",
 		0xFF & ((range->addr) >> 24),
 		0xFF & ((range->addr) >> 16),
 		0xFF & ((range->addr) >>  8),

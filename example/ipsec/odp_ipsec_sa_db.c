@@ -258,10 +258,10 @@ void dump_sa_db(void)
 		       entry->alg.cipher ? "esp" : "ah ",
 		       ipv4_addr_str(src_ip_str, entry->src_ip),
 		       ipv4_addr_str(dst_ip_str, entry->dst_ip),
-		       entry->spi,
+		       (unsigned)entry->spi,
 		       entry->alg.cipher ?
-		       (int)entry->alg.u.cipher :
-		       (int)entry->alg.u.auth);
+		       entry->alg.u.cipher :
+		       entry->alg.u.auth);
 
 		/* Brute force key display */
 		for (idx = 0; idx < entry->key.length; idx++)

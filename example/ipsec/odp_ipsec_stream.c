@@ -626,7 +626,8 @@ odp_bool_t verify_stream_db_outputs(void)
 			}
 		}
 
-		printf("Stream %d %d\n", stream->created, stream->verified);
+		printf("Stream %" PRIu32 " %" PRIu32 "\n",
+		       stream->created, stream->verified);
 
 		if (stream->created != stream->verified)
 			done = FALSE;
