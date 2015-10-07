@@ -14,6 +14,9 @@
 
 #define RPC_PKT_SIZE (sizeof(odp_rpc_t) + RPC_MAX_PAYLOAD)
 
+odp_rpc_handler_t __rpc_handlers[MAX_RPC_HANDLERS];
+int __n_rpc_handlers;
+
 static struct {
 	void    *recv_buf;
 } g_clus_priv[BSP_NB_CLUSTER_MAX];
@@ -48,26 +51,9 @@ static inline int rxToMsg(unsigned ifId, unsigned tag,
 	return remoteClus;
 }
 
-static void dnoc_callback(unsigned interface_id,
-			  mppa_noc_interrupt_line_t line,
-			  unsigned resource_id, void *args)
-{
-	odp_rpc_handler_t handler = (odp_rpc_handler_t)(args);
-	odp_rpc_t * msg;
-	uint8_t * payload = NULL;
-	unsigned remoteClus;
-
-	mppa_noc_dnoc_rx_lac_event_counter(interface_id, resource_id);
-	(void)line;
-
-	remoteClus = rxToMsg(interface_id, resource_id, &msg, &payload);
-	handler(remoteClus, msg, payload);
-}
-
-static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
+static int cluster_init_dnoc_rx(int clus_id)
 {
 	mppa_noc_ret_t ret;
-	(void)handler;
 	g_clus_priv[clus_id].recv_buf = malloc(RPC_PKT_SIZE);
 	if (!g_clus_priv[clus_id].recv_buf)
 		return 1;
@@ -98,18 +84,15 @@ static int cluster_init_dnoc_rx(int clus_id, odp_rpc_handler_t handler)
 	if (ret != MPPA_NOC_RET_SUCCESS)
 		return 1;
 
-	if (handler)
-		mppa_noc_register_interrupt_handler(ifId, MPPA_NOC_INTERRUPT_LINE_DNOC_RX,
-						    rxId, dnoc_callback, handler);
 	return 0;
 }
 
-int odp_rpc_server_start(odp_rpc_handler_t handler)
+int odp_rpc_server_start(void)
 {
 	int i;
 
 	for (i = 0; i < BSP_NB_CLUSTER_MAX; ++i) {
-		int ret = cluster_init_dnoc_rx(i, handler);
+		int ret = cluster_init_dnoc_rx(i);
 		if (ret)
 			return ret;
 	}
@@ -137,7 +120,7 @@ int odp_rpc_server_poll_msg(odp_rpc_t **msg, uint8_t **payload)
 {
 	const int base_if = (__bsp_flavour == BSP_ETH_530) ? 4 : 0;
 	int idx;
-	
+
 	for (idx = 0; idx < BSP_NB_DMA_IO; ++idx) {
 		int if_id = idx + base_if;
 		int tag = get_if_rx_id(if_id);
@@ -159,4 +142,48 @@ int odp_rpc_server_ack(odp_rpc_t * msg, odp_rpc_cmd_ack_t ack)
 	unsigned interface = get_rpc_dma_id(msg->dma_id);
 
 	return odp_rpc_send_msg(interface, msg->dma_id, msg->dnoc_tag, msg, NULL);
+}
+
+int odp_rpc_server_handle(odp_rpc_t ** unhandled_msg)
+{
+	int remoteClus;
+	odp_rpc_t *msg;
+	uint8_t *payload;
+	remoteClus = odp_rpc_server_poll_msg(&msg, &payload);
+	if(remoteClus >= 0) {
+		for (int i = 0; i < __n_rpc_handlers; ++i) {
+			if (!__rpc_handlers[i](remoteClus, msg, payload))
+				return 1;
+		}
+		*unhandled_msg = msg;
+		return -1;
+	}
+	return 0;
+}
+
+static int bas_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload)
+{
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
+
+	(void)remoteClus;
+	(void)payload;
+	switch (msg->pkt_type){
+	case ODP_RPC_CMD_BAS_PING:
+		ack.status = 0;
+		break;
+	default:
+		return -1;
+	}
+	odp_rpc_server_ack(msg, ack);
+	return 0;
+}
+
+void  __attribute__ ((constructor)) __bas_rpc_constructor()
+{
+	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
+		__rpc_handlers[__n_rpc_handlers++] = bas_rpc_handler;
+	} else {
+		fprintf(stderr, "Failed to register BAS RPC handlers\n");
+		exit(EXIT_FAILURE);
+	}
 }

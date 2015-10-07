@@ -138,7 +138,7 @@ int main (int argc, char *argv[])
 	}
 
 	mppa_pcie_eth_noc_init();
-	ret = odp_rpc_server_start(NULL);
+	ret = odp_rpc_server_start();
 	if (ret) {
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");
 		exit(EXIT_FAILURE);
