@@ -277,6 +277,8 @@ ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-
 ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
 ODP_CFLAGS="$ODP_CFLAGS -std=gnu99"
+# Extra flags for example to suppress certain warning types
+ODP_CFLAGS="$ODP_CFLAGS $ODP_CFLAGS_EXTRA"
 
 ##########################################################################
 # Default include setup
