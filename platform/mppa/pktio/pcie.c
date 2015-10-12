@@ -297,8 +297,8 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		uint8_t * const hdr_addr = base_addr -
 			sizeof(uint32_t);
 
-		size = LOAD_U32(hdr_addr);
-		packet_set_len(pkt, size - sizeof(uint32_t));
+		size = __builtin_k1_lwu(hdr_addr);
+		packet_set_len(pkt, size);
 	}
 	return n_packet;
 }
