@@ -23,6 +23,7 @@ extern "C" {
 #include <odp_align_internal.h>
 #include <odp/pool.h>
 #include <odp_buffer_internal.h>
+#include <odp_buffer_ring_internal.h>
 #include <odp/hints.h>
 #include <odp/config.h>
 #include <odp/debug.h>
@@ -112,11 +113,7 @@ struct pool_entry_s {
 	uint32_t                buf_stride;
 	odp_buffer_hdr_t       *buf_freelist;
 
-	odp_buffer_hdr_t      **buf_ptrs;
-	odp_atomic_u32_t        prod_head;
-	odp_atomic_u32_t        prod_tail;
-	odp_atomic_u32_t        cons_head;
-	odp_atomic_u32_t        cons_tail;
+	odp_buffer_ring_t       ring;
 
 	void                   *blk_freelist;
 	odp_atomic_u32_t        blkcount;

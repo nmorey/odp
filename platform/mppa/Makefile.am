@@ -118,6 +118,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_atomic_internal.h \
 		  $(srcdir)/include/odp_buffer_inlines.h \
 		  $(srcdir)/include/odp_buffer_internal.h \
+		  $(srcdir)/include/odp_buffer_ring_internal.h \
 		  $(srcdir)/include/odp_classification_datamodel.h \
 		  $(srcdir)/include/odp_classification_inlines.h \
 		  $(srcdir)/include/odp_classification_internal.h \
@@ -144,6 +145,7 @@ __LIB__libodp_la_LIBADD = -lmppanoc -lmpparouting
 __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_barrier.c \
 			   odp_buffer.c \
+			   odp_buffer_ring.c \
 			   ../linux-generic/odp_classification.c \
 			   odp_cpumask.c \
 			   ../linux-generic/odp_errno.c \

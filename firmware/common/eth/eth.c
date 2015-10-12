@@ -16,25 +16,6 @@
 #include "rpc-server.h"
 #include "eth.h"
 
-#ifdef K1B_EXPLORER
-#define N_ETH_LANE 1
-#else
-#define N_ETH_LANE 4
-#endif
-
-typedef struct {
-	int txId;
-	int min_rx;
-	int max_rx;
-
-	int rx_tag;
-} eth_cluster_status_t;
-typedef struct {
-	int initialized;
-	int laneStatus;
-	eth_cluster_status_t cluster[BSP_NB_CLUSTER_MAX];
-} eth_status_t;
-
 eth_status_t status[N_ETH_LANE];
 
 static inline int get_eth_dma_id(unsigned cluster_id){
@@ -57,33 +38,11 @@ static inline int get_eth_dma_id(unsigned cluster_id){
 	}
 }
 
-static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
-{
-	cluster->txId = -1;
-	cluster->min_rx = 0;
-	cluster->max_rx = -1;
-	cluster->rx_tag = -1;
-}
-
-static inline void _eth_status_init(eth_status_t * status)
-{
-	status->initialized = 0;
-	status->laneStatus = -1;
-
-	for (int i = 0; i < BSP_NB_CLUSTER_MAX; ++i)
-		_eth_cluster_status_init(&status->cluster[i]);
-}
-
 odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0};
 	odp_rpc_cmd_eth_open_t data = { .inl_data = msg->inl_data };
 	const int nocIf = get_eth_dma_id(remoteClus);
-	volatile mppa_dnoc_min_max_task_id_t *context;
-	mppa_dnoc_header_t header = { 0 };
-	mppa_dnoc_channel_config_t config = { 0 };
-	unsigned nocTx;
-	int ret;
 	const unsigned int eth_if = data.ifId % 4; /* 4 is actually 0 in 40G mode */
 
 	if(nocIf < 0) {
@@ -96,122 +55,34 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		goto err;
 	}
 
-	if(status[eth_if].initialized == 0){
-		ret = init_mac(eth_if, eth_if == 4 ? MPPABETHMAC_ETHMODE_40G : -1);
-		if(ret) {
-			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", eth_if, ret);
-			goto err;
-		}
-		status[eth_if].initialized = 1;
-	}
-
 	if(status[eth_if].cluster[remoteClus].txId >= 0) {
 		fprintf(stderr, "[ETH] Error: Lane %d is already opened for cluster %d\n",
 			eth_if, remoteClus);
 		goto err;
 	}
 
-	/* Configure Tx */
 	int externalAddress = __k1_get_cluster_id() + nocIf;
 #ifdef K1B_EXPLORER
 	externalAddress = __k1_get_cluster_id() + (nocIf % 4);
 #endif
-	ret = mppa_routing_get_dnoc_unicast_route(externalAddress,
-						  remoteClus, &config, &header);
-	if (ret != MPPA_ROUTING_RET_SUCCESS) {
-		fprintf(stderr, "[ETH] Error: Failed to route to cluster %d\n", remoteClus);
+
+	if (ethtool_setup_eth2clus(remoteClus, eth_if, nocIf, externalAddress,
+				   data.min_rx, data.max_rx))
 		goto err;
-	}
-
-	ret = mppa_noc_dnoc_tx_alloc_auto(nocIf, &nocTx, MPPA_NOC_BLOCKING);
-	if (ret != MPPA_NOC_RET_SUCCESS) {
-		fprintf(stderr, "[ETH] Error: Failed to find an available Tx on DMA %d\n", nocIf);
+	if (ethtool_setup_clus2eth(remoteClus, eth_if, nocIf))
 		goto err;
-	}
-
-	config._.loopback_multicast = 0;
-	config._.cfg_pe_en = 1;
-	config._.cfg_user_en = 1;
-	config._.write_pe_en = 1;
-	config._.write_user_en = 1;
-	config._.decounter_id = 0;
-	config._.decounted = 0;
-	config._.payload_min = 1;
-	config._.payload_max = 32;
-	config._.bw_current_credit = 0xff;
-	config._.bw_max_credit     = 0xff;
-	config._.bw_fast_delay     = 0x00;
-	config._.bw_slow_delay     = 0x00;
-
-	header._.tag = data.min_rx;
-	header._.valid = 1;
-
-	ret = mppa_noc_dnoc_tx_configure(nocIf, nocTx, header, config);
-	if (ret != MPPA_NOC_RET_SUCCESS) {
-		fprintf(stderr, "[ETH] Error: Failed to configure Tx\n");
-		goto open_err;
-	}
-
-	status[eth_if].cluster[remoteClus].txId = nocTx;
-	status[eth_if].cluster[remoteClus].min_rx = data.min_rx;
-	status[eth_if].cluster[remoteClus].max_rx = data.max_rx;
-
-	context =  &mppa_dnoc[nocIf]->tx_chan_route[nocTx].
-		min_max_task_id[ETH_DEFAULT_CTX];
-
-	context->_.current_task_id = data.min_rx;
-	context->_.min_task_id = data.min_rx;
-	context->_.max_task_id = data.max_rx;
-	context->_.min_max_task_id_en = 1;
-
-	/* Configure dispatcher so that the defaulat "MATCH ALL" also
-	 * sends packet to our cluster */
-	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
-						  ETH_MATCHALL_TABLE_ID,
-						  eth_if, nocIf - 4, nocTx,
-						  (1 << ETH_DEFAULT_CTX));
-
-	/* Now deal with Rx */
-	unsigned rx_port;
-	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
-	if(ret) {
-		fprintf(stderr, "[ETH] Error: Failed to find an available Rx on DMA %d\n", nocIf);
-		goto open_err;
-	}
-
-	mppa_dnoc_queue_event_it_target_t it_targets = {
-		.reg = 0
-	};
-	mppa_noc_dnoc_rx_configuration_t conf = {
-		.buffer_base = (unsigned long)(void*)
-		&mppa_ethernet[0]->tx.fifo_if[0].lane[eth_if].eth_fifo[remoteClus].push_data,
-		.buffer_size = 8,
-		.current_offset = 0,
-		.event_counter = 0,
-		.item_counter = 1,
-		.item_reload = 1,
-		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF,
-		.activation = MPPA_NOC_ACTIVATED | MPPA_NOC_FIFO_MODE,
-		.counter_id = 0,
-		.event_it_targets = &it_targets,
-	};
-	ret = mppa_noc_dnoc_rx_configure(nocIf, rx_port, conf);
-	if(ret) {
-		fprintf(stderr, "[ETH] Error: Failed to configure Rx\n");
-		goto open_err;
-	}
-
-	status[eth_if].cluster[remoteClus].rx_tag = rx_port;
+	if (ethtool_init_lane(eth_if))
+		goto err;
+	if (ethtool_enable_cluster(remoteClus, eth_if))
+		goto err;
 
 	ack.cmd.eth_open.tx_if = externalAddress;
-	ack.cmd.eth_open.tx_tag = rx_port;
+	ack.cmd.eth_open.tx_tag = status[eth_if].cluster[remoteClus].rx_tag;
 
 	return ack;
 
- open_err:
-	mppa_noc_dnoc_tx_free(nocIf, nocTx);
-	status[eth_if].cluster[remoteClus].txId = -1;
  err:
+	ethtool_cleanup_cluster(remoteClus, eth_if);
 	ack.status = 1;
 	return ack;
 }
@@ -220,7 +91,6 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 {
 	odp_rpc_cmd_ack_t ack = { .status = 0 };
 	odp_rpc_cmd_eth_clos_t data = { .inl_data = msg->inl_data };
-	const uint32_t nocIf = get_eth_dma_id(remoteClus);
 	const int nocTx = status[data.ifId].cluster[remoteClus].txId;
 	const unsigned int eth_if = data.ifId % 4; /* 4 is actually 0 in 40G mode */
 
@@ -229,16 +99,8 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 		return ack;
 	}
 
-	/* Deconfigure DMA/Tx in the RR bitmask */
-	mppabeth_lb_cfg_table_rr_dispatch_channel((void *)&(mppa_ethernet[0]->lb),
-						  ETH_MATCHALL_TABLE_ID,
-						  eth_if, nocIf - 4, nocTx,
-						  (1 << ETH_DEFAULT_CTX));
-	/* Close the Tx */
-	mppa_noc_dnoc_tx_free(nocIf, nocTx);
-	/* Close the Rx */
-	mppa_noc_dnoc_tx_free(nocIf, status[eth_if].cluster[remoteClus].rx_tag);
-	status[eth_if].cluster[remoteClus].txId = -1;
+	ethtool_disable_cluster(remoteClus, eth_if);
+	ethtool_cleanup_cluster(remoteClus, eth_if);
 
 	return ack;
 }
@@ -250,16 +112,17 @@ void eth_init(void)
 			     /* offset */ 0, /* Cmp Mask */0,
 			     /* Espected Value */ 0, /* Hash. Unused */0);
 
-	for (int ifId = 0; ifId < N_ETH_LANE; ++ifId) {
-		_eth_status_init(&status[ifId]);
+	for (int eth_if = 0; eth_if < N_ETH_LANE; ++eth_if) {
+		_eth_status_init(&status[eth_if]);
 
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
-					    ifId, MPPABETHLB_ADD_HEADER);
+					    eth_if, MPPABETHLB_ADD_HEADER);
+
 		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
-						   0, 0, MPPABETHLB_DISPATCH_POLICY_RR);
+						   ETH_MATCHALL_TABLE_ID, 0, MPPABETHLB_DISPATCH_POLICY_RR);
 		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
 							  ETH_MATCHALL_TABLE_ID,
-							  ifId, 1);
+							  eth_if, 1);
 
 	}
 }
@@ -291,5 +154,34 @@ void eth_send_pkts(void){
 				buf.inl_data.data[0] = data_counter++;
 			}
 		}
+	}
+}
+
+static int eth_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload)
+{
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
+
+	(void)payload;
+	switch (msg->pkt_type){
+	case ODP_RPC_CMD_ETH_OPEN:
+		ack = eth_open(remoteClus, msg);
+		break;
+	case ODP_RPC_CMD_ETH_CLOS:
+		ack = eth_close(remoteClus, msg);
+		break;
+	default:
+		return -1;
+	}
+	odp_rpc_server_ack(msg, ack);
+	return 0;
+}
+
+void  __attribute__ ((constructor)) __eth_rpc_constructor()
+{
+	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
+		__rpc_handlers[__n_rpc_handlers++] = eth_rpc_handler;
+	} else {
+		fprintf(stderr, "Failed to register ETH RPC handlers\n");
+		exit(EXIT_FAILURE);
 	}
 }

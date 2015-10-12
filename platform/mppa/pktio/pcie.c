@@ -24,6 +24,9 @@
 
 #define MAX_PCIE_SLOTS 2
 #define MAX_PCIE_INTERFACES 4
+_ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
+		   "MAX_RX_PCIE_IF__ERROR");
+
 #define N_RX_P_PCIE 12
 
 #define NOC_UC_COUNT		2
@@ -161,46 +164,87 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		    const char *devname, odp_pool_t pool)
 {
 	int ret = 0;
+	int nRx = N_RX_P_PCIE;
+	int rr_policy = -1;
+	int port_id, slot_id;
+
 	/*
 	 * Check device name and extract slot/port
 	 */
-	if (devname[0] != 'p')
+	const char* pptr = devname;
+	char * eptr;
+
+	if (*(pptr++) != 'p')
 		return -1;
 
-	int slot_id = devname[1] - '0';
-	if (slot_id < 0 || slot_id >= MAX_PCIE_SLOTS)
+	slot_id = strtoul(pptr, &eptr, 10);
+	if (eptr == pptr || slot_id < 0 || slot_id >= MAX_PCIE_SLOTS) {
+		ODP_ERR("Invalid PCIE name %s\n", devname);
 		return -1;
+	}
 
-	int pcie_eth_if_id = 4;
-	if (devname[2] != 0) {
-		if(devname[2] != 'p')
-			return -1;
-		pcie_eth_if_id = devname[3] - '0';
+	pptr = eptr;
+	if (*pptr == 'p') {
+		/* Found a port */
+		pptr++;
+		port_id = strtoul(pptr, &eptr, 10);
 
-		if (pcie_eth_if_id < 0 || pcie_eth_if_id >= MAX_PCIE_INTERFACES)
+		if (eptr == pptr || port_id < 0 || port_id >= MAX_PCIE_INTERFACES) {
+			ODP_ERR("Invalid PCIE name %s\n", devname);
 			return -1;
+		}
+		pptr = eptr;
+	} else {
+		ODP_ERR("Invalid PCIE name %s. Missing port number\n", devname);
+		return -1;
+	}
 
-		if(devname[4] != 0)
+	while (*pptr == ':') {
+		/* Parse arguments */
+		pptr++;
+		if (!strncmp(pptr, "tags=", strlen("tags="))){
+			pptr += strlen("tags=");
+			nRx = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid tag count %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
+		} else if (!strncmp(pptr, "rrpolicy=", strlen("rrpolicy="))){
+			pptr += strlen("rrpolicy=");
+			rr_policy = strtoul(pptr, &eptr, 10);
+			if(pptr == eptr){
+				ODP_ERR("Invalid rr_policy %s\n", pptr);
+				return -1;
+			}
+			pptr = eptr;
+		} else {
+			/* Unknown parameter */
+			ODP_ERR("Invalid option %s\n", pptr);
 			return -1;
+		}
+	}
+	if (*pptr != 0) {
+		/* Garbage at the end of the name... */
+		ODP_ERR("Invalid option %s\n", pptr);
+		return -1;
 	}
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
 	pcie->slot_id = slot_id;
-	pcie->pcie_eth_if_id = pcie_eth_if_id;
+	pcie->pcie_eth_if_id = port_id;
 	pcie->pool = pool;
 	odp_spinlock_init(&pcie->wlock);
 
 	/* Setup Rx threads */
 	pcie->rx_config.dma_if = 0;
 	pcie->rx_config.pool = pool;
-	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id;
+	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id +
+		MAX_RX_ETH_IF;
+	/* FIXME */
 	pcie->rx_config.header_sz = sizeof(uint32_t);
-	ret = rx_thread_link_open(&pcie->rx_config, N_RX_P_PCIE, -1);
-	if (ret < 0) {
-		ODP_DBG("Failed to open rx htread\n");
-		return -1;
-	}
+	rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
 
 	ret = pcie_rpc_send_pcie_open(pcie);
 
@@ -276,12 +320,11 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
 	int n_packet;
-	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
-	queue_entry_t *qentry;
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
-	qentry = queue_to_qentry(eth->rx_config.queue);
-	n_packet =
-		queue_deq_multi(qentry, (odp_buffer_hdr_t **)pkt_table, len);
+	n_packet = odp_buffer_ring_get_multi(pcie->rx_config.ring,
+					     (odp_buffer_hdr_t **)pkt_table,
+					     len, NULL);
 
 	for (int i = 0; i < n_packet; ++i) {
 		odp_packet_t pkt = pkt_table[i];

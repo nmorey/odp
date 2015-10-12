@@ -143,9 +143,7 @@ static void unlock_entry_classifier(pktio_entry_t *entry)
 static void init_pktio_entry(pktio_entry_t *entry)
 {
 	set_taken(entry);
-	/* Currently classifier is enabled by default. It should be enabled
-	   only when used. */
-	entry->s.cls_enabled = 1;
+	pktio_cls_enabled_set(entry, 0);
 	entry->s.inq_default = ODP_QUEUE_INVALID;
 
 	pktio_classifier_init(entry);
@@ -525,10 +523,10 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 {
 	int nbr;
 	odp_packet_t pkt_tbl[QUEUE_MULTI_MAX];
-	odp_buffer_hdr_t *tmp_hdr_tbl[QUEUE_MULTI_MAX];
+	odp_buffer_hdr_t *hdr_tbl[QUEUE_MULTI_MAX];
 	odp_buffer_hdr_t *tmp_hdr;
-	odp_buffer_t buf;
 	int pkts, i, j;
+	odp_pktio_t pktio;
 
 	nbr = queue_deq_multi(qentry, buf_hdr, num);
 	if (odp_unlikely(nbr > num))
@@ -541,13 +539,27 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 	if (nbr == num)
 		return nbr;
 
-	pkts = odp_pktio_recv(qentry->s.pktin, pkt_tbl, QUEUE_MULTI_MAX);
+	pktio = qentry->s.pktin;
+
+	pkts = odp_pktio_recv(pktio, pkt_tbl, QUEUE_MULTI_MAX);
 	if (pkts <= 0)
 		return nbr;
 
-	pktio_entry_t * entry = get_pktio_entry(qentry->s.pktin);
+	pktio_entry_t * entry = get_pktio_entry(pktio);
 
-	if (!entry->s.cls_enabled) {
+	if (pktio_cls_enabled(entry)) {
+		for (i = 0, j = 0; i < pkts; i++) {
+			if (0 > packet_classifier(pktio, pkt_tbl[i])) {
+				tmp_hdr = (odp_buffer_hdr_t *)pkt_tbl[i];
+				if(nbr < num)
+					buf_hdr[nbr++] = tmp_hdr;
+				else
+					hdr_tbl[j++] = tmp_hdr;
+			}
+		}
+		if (j)
+			queue_enq_multi(qentry, hdr_tbl, j, 0);
+	} else {
 		if(nbr + pkts <= num) {
 			j = 0;
 		} else {
@@ -556,19 +568,6 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 		}
 		memcpy(&buf_hdr[nbr], &pkt_tbl[j], (pkts - j) * sizeof(*pkt_tbl));
 		nbr += pkts - j;
-	} else {
-		for (i = 0, j = 0; i < pkts; ++i) {
-			buf = (odp_buffer_t)pkt_tbl[i];
-			tmp_hdr = odp_buf_to_hdr(buf);
-			if (packet_classifier(qentry->s.pktin, pkt_tbl[i]) < 0) {
-				if(nbr < num)
-					buf_hdr[nbr++] = tmp_hdr;
-				else
-					tmp_hdr_tbl[j++] = tmp_hdr;
-			}
-		}
-		if (j)
-			queue_enq_multi(qentry, tmp_hdr_tbl, j, 0);
 	}
 
 	return nbr;
@@ -597,6 +596,9 @@ int pktin_poll(pktio_entry_t *entry)
 		return 0;
 
 	num = odp_pktio_recv(entry->s.handle, pkt_tbl, QUEUE_MULTI_MAX);
+
+	if (num == 0)
+		return 0;
 
 	if (num < 0) {
 		ODP_ERR("Packet recv error\n");
