@@ -17,6 +17,7 @@ int mppa_pcie_eth_init(int if_count);
 int mppa_pcie_eth_noc_init();
 odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg);
 
+int mppa_pcie_eth_handler();
 int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg);
 extern struct mppa_pcie_eth_control g_pcie_eth_control;
 

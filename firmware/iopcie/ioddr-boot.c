@@ -84,27 +84,37 @@ static odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 	return ack;
 }
 
-static void iopcie_rpc_poll()
+static int iopcie_rpc_poll()
 {
-	while (1) {
-		int remoteClus;
-		odp_rpc_t *msg;
+	int remoteClus;
+	odp_rpc_t *msg;
 
-		remoteClus = odp_rpc_server_poll_msg(&msg, NULL);
-		if(remoteClus < 0)
-			continue;
+	remoteClus = odp_rpc_server_poll_msg(&msg, NULL);
+	if(remoteClus < 0)
+		return 0;
 
-		odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
-		/* If the command is a sync one, then wait for every clusters to be synced */
-		if (msg->pkt_type == ODP_RPC_CMD_BAS_SYNC) {
-			io_check_cluster_sync_status();
-			if (current_state == STATE_STOP)
-				return;
-		} else {
-			odp_rpc_server_ack(msg, ack);
-		}
+	odp_rpc_cmd_ack_t ack = rpcHandle(remoteClus, msg);
+	/* If the command is a sync one, then wait for every clusters to be synced */
+	if (msg->pkt_type == ODP_RPC_CMD_BAS_SYNC) {
+		io_check_cluster_sync_status();
+	} else {
+		odp_rpc_server_ack(msg, ack);
+	}
+
+	return 0;
+}
+
+static void iopcie_poll_loop()
+{
+	while(1) {
+		iopcie_rpc_poll();
+		if (current_state == STATE_STOP)
+			return;
+
+		mppa_pcie_eth_handler();
 	}
 }
+
 
 
 int main (int argc, char *argv[])
@@ -172,7 +182,7 @@ int main (int argc, char *argv[])
 	}
 
 	/* Poll rpc and eth */
-	iopcie_rpc_poll();
+	iopcie_poll_loop();
 
 	for (i = 0; i < clus_count; i++) {
 		if (mppa_power_base_waitpid(clus_pid[i], &clus_status, 0) != clus_pid[i]) {

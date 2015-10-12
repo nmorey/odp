@@ -81,7 +81,6 @@ static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 	 * We will fill the dexcriptor later */
 	tx->head = 0;
 	tx->tail = RING_BUFFER_ENTRIES - 1;
-	printf("TX entries addr: %p\n", entries);
 	tx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
 }
@@ -141,7 +140,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	if (rx_tail == rx_head)
 		return -1;
 
-	printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
+	//printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].rx->ring_buffer_entries_addr;
 	entry = &entries[rx_tail];
 
@@ -196,6 +195,9 @@ static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
 	unsigned int dnoc_tx_id = g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx;
 	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
 
+	if (g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count == 0)
+		return 0;
+
 	/* Fill RX descriptors by adding pcie fifo tx addr in a round robbin way */
 	do {
 		tx_cfg = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_id];
@@ -209,6 +211,17 @@ static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
 	} while(ret == 0);
 
 	g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx = dnoc_tx_id;
+
+	return 0;
+}
+
+int mppa_pcie_eth_handler()
+{
+	unsigned int i;
+
+	for (i = 0; i < g_if_count; i++) {
+		mppa_pcie_eth_fill_rx(i);
+	}
 
 	return 0;
 }
