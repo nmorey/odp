@@ -170,11 +170,11 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	else
 		prev_head = tx_head - 1;
 
-	printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
+	//printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
 	entry = &entries[prev_head];
 
-	printf("Entries: %p, Entry addr: %p\n", entries, entry);
+	//printf("Entries: %p, Entry addr: %p\n", entries, entry);
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);
