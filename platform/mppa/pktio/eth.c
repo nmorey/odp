@@ -39,6 +39,7 @@ _ODP_STATIC_ASSERT(MAX_ETH_PORTS * MAX_ETH_SLOTS <= MAX_RX_ETH_IF,
 #include <mppa_routing.h>
 
 extern char _heap_end;
+static int tx_init = 0;
 
 typedef struct eth_uc_job_ctx {
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
@@ -108,9 +109,6 @@ static int eth_init_dnoc_tx(void)
 static int eth_init(void)
 {
 	if (rx_thread_init())
-		return 1;
-
-	if(eth_init_dnoc_tx())
 		return 1;
 
 	return 0;
@@ -227,6 +225,14 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		/* Garbage at the end of the name... */
 		ODP_ERR("Invalid option %s\n", pptr);
 		return -1;
+	}
+
+	if (!tx_init) {
+		if(eth_init_dnoc_tx()) {
+			ODP_ERR("Not enough DMA Tx for ETH send setup\n");
+			return 1;
+		}
+		tx_init = 1;
 	}
 
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;

@@ -81,6 +81,14 @@ AC_SUBST([with_platform])
 AC_SUBST([platform_with_platform], ["platform/${with_platform}"])
 AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 
+##########################################################################
+# Prepare default values for platform specific optional features
+##########################################################################
+netmap_support=no
+
+##########################################################################
+# Run platform specific checks and settings
+##########################################################################
 if test "${with_platform}" == "linux-generic";
 then
     m4_include([./platform/linux-generic/m4/configure.m4])
@@ -91,6 +99,12 @@ else
     echo "UNSUPPORTED PLATFORM: ${with_platform}"
     exit 1
 fi
+
+##########################################################################
+# Set conditionals as computed within platform specific files
+##########################################################################
+AM_CONDITIONAL([netmap_support], [test x$netmap_support = xyes ])
+
 
 AC_ARG_WITH([sdk-install-path],
 AC_HELP_STRING([--with-sdk-install-path=DIR path to external libs and headers],
@@ -277,6 +291,8 @@ ODP_CFLAGS="$ODP_CFLAGS -Wmissing-declarations -Wold-style-definition -Wpointer-
 ODP_CFLAGS="$ODP_CFLAGS -Wcast-align -Wnested-externs -Wformat-nonliteral"
 ODP_CFLAGS="$ODP_CFLAGS -Wformat-security -Wundef -Wwrite-strings"
 ODP_CFLAGS="$ODP_CFLAGS -std=gnu99"
+# Extra flags for example to suppress certain warning types
+ODP_CFLAGS="$ODP_CFLAGS $ODP_CFLAGS_EXTRA"
 
 ##########################################################################
 # Default include setup
