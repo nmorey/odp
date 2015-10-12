@@ -144,9 +144,9 @@ SECTIONS
   /* TLS support */
   INCLUDE tls.ld 
 
-  .eth_control 0x1c200:
+  .g_pcie_eth_control 0x1c200:
   {
-	eth_control = ABSOLUTE(.);
+	g_pcie_eth_control = ABSOLUTE(.);
   }> internal_mem
  
   .heap_start ALIGN(8):

@@ -33,6 +33,12 @@
 
 #define MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC	0xCAFEBABE
 
+
+/**
+ * Flags for tx flags
+ */
+#define MPPA_PCIE_ETH_NEED_PKT_HDR	(1 << 0)
+
 /**
  * Per interface configuration (Read from host)
  */
@@ -99,5 +105,11 @@ struct mppa_pcie_eth_ring_buff_desc {
 	uint64_t ring_buffer_entries_addr;	/*< Pointer to ring buffer entries depending on RX or TX*/
 } __attribute__ ((packed));
 
+/**
+ * Header added to packet when needed (fifo mode for instance)
+ */
+struct mppa_pcie_eth_pkt_hdr {
+	uint32_t length;	/*< Packet length */
+} __attribute__ ((packed));
 
 #endif

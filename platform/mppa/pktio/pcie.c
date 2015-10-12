@@ -60,27 +60,6 @@ typedef struct pcie_uc_ctx {
 
 static pcie_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
 
-typedef struct pcie_status {
-	odp_pool_t pool;                      /**< pool to alloc packets from */
-	odp_spinlock_t wlock;        /**< Tx lock */
-
-	/* Rx Data */
-	rx_config_t rx_config;
-
-	uint8_t slot_id;             /**< IO Eth Id */
-	uint8_t port_id;             /**< Eth Port id. 4 for 40G */
-
-	/* Tx data */
-	uint16_t tx_if;              /**< Remote DMA interface to forward
-				      *   to Eth Egress */
-	uint16_t tx_tag;             /**< Remote DMA tag to forward to
-				      *   Eth Egress */
-
-	mppa_dnoc_header_t header;
-	mppa_dnoc_channel_config_t config;
-
-} pcie_status_t;
-
 /**
  * #############################
  * PKTIO Interface
@@ -147,7 +126,7 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	 */
 	odp_rpc_cmd_pcie_open_t open_cmd = {
 		{
-			.pcie_eth_if_id = pcie->port_id,
+			.pcie_eth_if_id = pcie->pcie_eth_if_id,
 			.pkt_size = PKTIO_PKT_MTU,
 			.min_rx = pcie->rx_config.min_port,
 			.max_rx = pcie->rx_config.max_port,
@@ -260,7 +239,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
 	pcie->slot_id = slot_id;
-	pcie->port_id = port_id;
+	pcie->pcie_eth_if_id = port_id;
 	pcie->pool = pool;
 	odp_spinlock_init(&pcie->wlock);
 
@@ -270,7 +249,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id +
 		MAX_RX_ETH_IF;
 	/* FIXME */
-	pcie->rx_config.header_sz = sizeof(NULL);
+	pcie->rx_config.header_sz = sizeof(uint32_t);
 	rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
 
 	ret = pcie_rpc_send_pcie_open(pcie);
@@ -303,13 +282,13 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 	int slot_id = pcie->slot_id;
-	int port_id = pcie->port_id;
+	int pcie_eth_if_id = pcie->pcie_eth_if_id;
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
 
 	odp_rpc_cmd_pcie_clos_t close_cmd = {
 		{
-			.ifId = pcie->port_id = port_id
+			.ifId = pcie->pcie_eth_if_id = pcie_eth_if_id
 
 		}
 	};
@@ -329,7 +308,7 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 	ack.inl_data = ack_msg->inl_data;
 
 	/* Push Context to handling threads */
-	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + port_id);
+	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id);
 
 	free(pcie);
 	return ack.status;
@@ -352,6 +331,24 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	n_packet = odp_buffer_ring_get_multi(pcie->rx_config.ring,
 					     (odp_buffer_hdr_t **)pkt_table,
 					     len, NULL);
+
+	for (int i = 0; i < n_packet; ++i) {
+		odp_packet_t pkt = pkt_table[i];
+		odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+
+		uint8_t * const base_addr =
+			((uint8_t *)pkt_hdr->buf_hdr.addr) +
+			pkt_hdr->headroom;
+
+		_odp_packet_reset_parse(pkt);
+
+		uint32_t size;
+		uint8_t * const hdr_addr = base_addr -
+			sizeof(uint32_t);
+
+		size = __builtin_k1_lwu(hdr_addr);
+		packet_set_len(pkt, size);
+	}
 	return n_packet;
 }
 
@@ -365,7 +362,7 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 	odp_packet_hdr_t * pkt_hdr;
 	unsigned int i;
 	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = pcie->port_id % NOC_UC_COUNT;
+	unsigned int tx_index = pcie->pcie_eth_if_id % NOC_UC_COUNT;
 	unsigned int size;
 
 	for (i = 0; i < pkt_count; i++) {

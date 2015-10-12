@@ -92,7 +92,27 @@ typedef struct {
 	mppa_dnoc_channel_config_t config;
 } pkt_eth_t;
 
-typedef pkt_eth_t pkt_pcie_t;
+typedef struct {
+	odp_pool_t pool;                /**< pool to alloc packets from */
+	odp_spinlock_t wlock;           /**< Tx lock */
+	uint8_t mac_addr[ETH_ALEN];     /**< Interface Mac address */
+	uint16_t mtu;                   /**< Interface MTU */
+
+	/* Rx Data */
+	rx_config_t rx_config;
+
+	uint8_t slot_id;                /**< IO Eth Id */
+	uint8_t pcie_eth_if_id;         /**< PCIe ethernet interface */
+
+	/* Tx data */
+	uint16_t tx_if;                 /**< Remote DMA interface to forward
+					 *   to Eth Egress */
+	uint16_t tx_tag;                /**< Remote DMA tag to forward to
+					 *   Eth Egress */
+
+	mppa_dnoc_header_t header;
+	mppa_dnoc_channel_config_t config;
+} pkt_pcie_t;
 
 struct pktio_entry {
 	const struct pktio_if_ops *ops; /**< Implementation specific methods */
@@ -181,6 +201,7 @@ extern const pktio_if_ops_t loopback_pktio_ops;
 extern const pktio_if_ops_t magic_pktio_ops;
 extern const pktio_if_ops_t cluster_pktio_ops;
 extern const pktio_if_ops_t eth_pktio_ops;
+extern const pktio_if_ops_t pcie_pktio_ops;
 extern const pktio_if_ops_t drop_pktio_ops;
 extern const pktio_if_ops_t * const pktio_if_ops[];
 

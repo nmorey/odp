@@ -15,6 +15,8 @@
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
+#define PCIE_ETH_INTERFACE_COUNT	1
+
 enum state {
 	STATE_BOOT = 0,
 	STATE_RUN,
@@ -138,11 +140,21 @@ int main (int argc, char *argv[])
 	}
 
 	mppa_pcie_eth_noc_init();
+
+	printf("Init RPC server\n");
 	ret = odp_rpc_server_start();
 	if (ret) {
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");
 		exit(EXIT_FAILURE);
 	}
+
+	printf("Initializing pcie eth interface\n");
+	ret = mppa_pcie_eth_init(PCIE_ETH_INTERFACE_COUNT);
+	if (ret != 0) {
+		printf("Failed to initialize PCIe eth interface\n");
+		exit(1);
+	}
+
 
 	printf("Spawning %d clusters\n", clus_count);
 
