@@ -17,12 +17,12 @@
 #include <mppa_power.h>
 #include <mppa_bsp.h>
 
-#define PKT_BUF_NUM            32
+#define PKT_BUF_NUM            256
 #define PKT_BUF_SIZE           (2 * 1024)
 
 #define PKT_SIZE		64
 
-#define TEST_RUN_COUNT		64
+#define TEST_RUN_COUNT		102048
 
 #define PCIE_INTERFACE_COUNT	16
 
@@ -33,7 +33,7 @@ odp_queue_t inq;
 static int setup_test()
 {
 	odp_pool_param_t params;
-	char pktio_name[] = "p0p0";
+	char pktio_name[] = "p0p0:tags=120";
 	char pktio_invalid_name[] = "p0p16";
 	odp_pktio_param_t pktio_param = {0};
 	odp_pktio_t tmp;
@@ -75,8 +75,8 @@ static int term_test()
 
 static int run_pcie_simple()
 {
-	int ret, i;
-	uint8_t *buf;
+	int ret;//, i;
+	//uint8_t *buf;
 	odp_packet_t packet;
 
 	while (1) {
@@ -89,10 +89,9 @@ static int run_pcie_simple()
 	}
 
 	test_assert_ret(odp_packet_is_valid(packet) == 1);
+	printf("Packet received\n");
 
-//	buf = odp_packet_data(packet);
-
-
+	odp_packet_free(packet);
 	return 0;
 }
 
