@@ -41,6 +41,7 @@ _ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
 #include <mppa_routing.h>
 
 extern char _heap_end;
+static int tx_init = 0;
 
 typedef struct pcie_uc_job_ctx {
 	bool is_running;
@@ -130,9 +131,6 @@ static int pcie_init_dnoc_tx(void)
 static int pcie_init(void)
 {
 	if (rx_thread_init())
-		return 1;
-
-	if(pcie_init_dnoc_tx())
 		return 1;
 
 	return 0;
@@ -249,6 +247,14 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		/* Garbage at the end of the name... */
 		ODP_ERR("Invalid option %s\n", pptr);
 		return -1;
+	}
+
+	if (!tx_init) {
+		if(pcie_init_dnoc_tx()) {
+			ODP_ERR("Not enough DMA Tx for PCIE send setup\n");
+			return 1;
+		}
+		tx_init = 1;
 	}
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
