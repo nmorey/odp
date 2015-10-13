@@ -204,7 +204,7 @@ static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
 
 		/* Try to enqueue a fifo descriptor */
 		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu, MPPA_PCIE_ETH_NEED_PKT_HDR);
-		if (ret != 0) {
+		if (ret == 0) {
 			dnoc_tx_id++;
 			dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
 		}
