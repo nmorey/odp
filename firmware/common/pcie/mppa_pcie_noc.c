@@ -124,3 +124,32 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 
 	return ack;
 }
+
+static int pcie_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload)
+{
+	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
+
+	(void)payload;
+	switch (msg->pkt_type){
+	case ODP_RPC_CMD_PCIE_OPEN:
+		ack = mppa_pcie_eth_open(remoteClus, msg);
+		break;
+	case ODP_RPC_CMD_PCIE_CLOS:
+		/* FIXME */
+		break;
+	default:
+		return -1;
+	}
+	odp_rpc_server_ack(msg, ack);
+	return 0;
+}
+
+void  __attribute__ ((constructor)) __pcie_rpc_constructor()
+{
+	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
+		__rpc_handlers[__n_rpc_handlers++] = pcie_rpc_handler;
+	} else {
+		fprintf(stderr, "Failed to register PCIE RPC handlers\n");
+		exit(EXIT_FAILURE);
+	}
+}
