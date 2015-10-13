@@ -115,6 +115,11 @@ static int pcie_init(void)
 	return 0;
 }
 
+static int pcie_destroy(void)
+{
+	return 0;
+}
+
 static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
@@ -458,7 +463,7 @@ static int pcie_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
 }
 const pktio_if_ops_t pcie_pktio_ops = {
 	.init = pcie_init,
-	.term = NULL,
+	.term = pcie_destroy,
 	.open = pcie_open,
 	.close = pcie_close,
 	.start = NULL,
