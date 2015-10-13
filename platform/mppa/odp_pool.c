@@ -414,8 +414,8 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	return 0;
 }
 
-static int _buffer_alloc(odp_pool_t pool_hdl, size_t size,
-			 odp_buffer_t buf[], int num)
+int buffer_alloc(odp_pool_t pool_hdl, size_t size,
+		 odp_buffer_hdr_t *buf[], int num)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
@@ -435,40 +435,31 @@ static int _buffer_alloc(odp_pool_t pool_hdl, size_t size,
 				break;
 		}
 
-	if (count)
-		return count;
 
-	/* If cache is empty, satisfy request from the pool */
-	count = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)buf, num);
+	if (!count) {
+		/* If cache is empty, satisfy request from the pool */
+		count = get_buf_multi(&pool->s, buf, num);
+	}
 
 	for (int i = 0; i < count; ++i) {
 		/* By default, buffers inherit their pool's zeroization setting */
-		((odp_buffer_hdr_t*)buf[i])->flags.zeroized = pool->s.flags.zeroized;
+		buf[i]->flags.zeroized = pool->s.flags.zeroized;
 
 		/* By default, buffers are not associated with an ordered queue */
-		((odp_buffer_hdr_t*)buf[i])->origin_qe = NULL;
+		buf[i]->origin_qe = NULL;
+
+		if (pool->s.params.type == ODP_POOL_PACKET) {
+			packet_init(pool, (odp_packet_hdr_t *)buf[i], size);
+		}
 	}
 	return count;
 }
 
-odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
-{
-	odp_buffer_t buf;
-	if (_buffer_alloc(pool_hdl, size, &buf, 1) != 1)
-		return ODP_BUFFER_INVALID;
-
-	packet_init(odp_pool_to_entry(pool_hdl), (odp_packet_hdr_t*)buf, size);
-
-	return buf;
-}
-
 odp_buffer_t odp_buffer_alloc(odp_pool_t pool_hdl)
 {
-	odp_buffer_t buf;
-	if (_buffer_alloc(pool_hdl,
-			  odp_pool_to_entry(pool_hdl)->s.params.buf.size,
-			  &buf, 1) != 1)
-	    return ODP_BUFFER_INVALID;
+	odp_buffer_t buf = ODP_BUFFER_INVALID;
+	buffer_alloc(pool_hdl, odp_pool_to_entry(pool_hdl)->s.params.buf.size,
+		     (odp_buffer_hdr_t **)&buf, 1);
 
 	return buf;
 }
