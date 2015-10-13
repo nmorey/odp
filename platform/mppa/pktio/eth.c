@@ -116,6 +116,8 @@ static int eth_init(void)
 
 static int eth_destroy(void)
 {
+	/* Last pktio to close should work. Expect an err code for others */
+	rx_thread_destroy();
 	return 0;
 }
 
