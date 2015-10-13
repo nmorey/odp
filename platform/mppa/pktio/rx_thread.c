@@ -72,6 +72,12 @@ typedef struct {
 					 *   to us */
 	rx_ifce_th_t ifce[MAX_RX_IF];
 	rx_pool_t pools[ODP_CONFIG_POOLS];
+
+#ifdef K1_NODEOS
+	pthread_t thr;
+#else
+	utask_t task;
+#endif
 } rx_th_t;
 
 typedef struct rx_thread {
@@ -594,7 +600,6 @@ int rx_thread_init(void)
 #ifdef K1_NODEOS
 		odp_cpumask_t thd_mask;
 		pthread_attr_t attr;
-		pthread_t thr;
 
 		odp_cpumask_zero(&thd_mask);
 		odp_cpumask_set(&thd_mask, BSP_NB_PE_P - i - 1);
@@ -603,14 +608,12 @@ int rx_thread_init(void)
 		pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t),
 					    &thd_mask.set);
 
-		if (pthread_create(&thr, &attr,
+		if (pthread_create(&rx_hdl.th[i].thr, &attr,
 				   _rx_thread_start,
 				   (void *)(unsigned long)(i)))
 			ODP_ABORT("Thread failed");
 #else
-		utask_t task;
-
-		if (utask_start_pe(&task, _rx_thread_start,
+		if (utask_start_pe(&rx_hdl.th[i].task, _rx_thread_start,
 				   (void *)(unsigned long)(i),
 				   BSP_NB_PE_P - i - 1))
 			ODP_ABORT("Thread failed");
