@@ -98,6 +98,8 @@ typedef struct rx_thread {
 	rx_tag_t tag[N_RX];        /**<  */
 	rx_ifce_t ifce[MAX_RX_IF];
 	rx_th_t th[N_RX_THR];
+
+	int destroy;
 } rx_thread_t;
 
 static rx_thread_t rx_hdl;
@@ -349,6 +351,10 @@ static void *_rx_thread_start(void *arg)
 			INVALIDATE(&rx_hdl);
 			last_update = update_id;
 		}
+
+		if (rx_hdl.destroy)
+			break;
+
 		_poll_masks(th_id);
 		odp_rwlock_read_unlock(&rx_hdl.lock);
 	}
@@ -603,9 +609,12 @@ int rx_thread_init(void)
 	if (g_rx_thread_init)
 		return 0;
 
+	INVALIDATE(&rx_hdl);
+
 	odp_rwlock_init(&rx_hdl.lock);
 	odp_atomic_init_u64(&rx_hdl.update_id, 0ULL);
-
+	rx_hdl.destroy = 0;
+	__k1_wmb();
 	for (int i = 0; i < N_RX_THR; ++i) {
 		/* Start threads */
 
