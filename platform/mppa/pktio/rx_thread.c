@@ -78,6 +78,12 @@ typedef struct {
 #else
 	utask_t task;
 #endif
+
+	enum {
+		RX_TH_RESET,
+		RX_TH_ON,
+		RX_TH_OFF
+	} status;
 } rx_th_t;
 
 typedef struct rx_thread {
@@ -333,6 +339,9 @@ static void *_rx_thread_start(void *arg)
 		hdr_list->count = 0;
 	}
 	uint64_t last_update= -1LL;
+
+	rx_hdl.th[th_id].status = RX_TH_ON;
+
 	while (1) {
 		odp_rwlock_read_lock(&rx_hdl.lock);
 		uint64_t update_id = odp_atomic_load_u64(&rx_hdl.update_id);
@@ -343,6 +352,9 @@ static void *_rx_thread_start(void *arg)
 		_poll_masks(th_id);
 		odp_rwlock_read_unlock(&rx_hdl.lock);
 	}
+
+	rx_hdl.th[th_id].status = RX_TH_OFF;
+	__k1_wmb();
 	return NULL;
 }
 
