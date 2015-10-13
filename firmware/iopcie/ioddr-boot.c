@@ -69,6 +69,9 @@ static odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 	case ODP_RPC_CMD_PCIE_OPEN:
 		return mppa_pcie_eth_open(remoteClus, msg);
 		break;
+	case ODP_RPC_CMD_PCIE_CLOS:
+		return mppa_pcie_eth_close(remoteClus, msg);
+		break;
 	case ODP_RPC_CMD_BAS_SYNC:
 		printf("received sync req from clus %d\n", remoteClus);
 		clus_bin_boots[remoteClus].msg = *msg;
@@ -77,7 +80,7 @@ static odp_rpc_cmd_ack_t rpcHandle(unsigned remoteClus, odp_rpc_t * msg)
 		break;
 	case ODP_RPC_CMD_BAS_INVL:
 	default:
-		fprintf(stderr, "[RPC] Error: Invalid MSG\n");
+		fprintf(stderr, "[RPC] Error: Invalid message from cluster %d\n", remoteClus);
 		exit(EXIT_FAILURE);
 	}
 
