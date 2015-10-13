@@ -152,6 +152,22 @@ static int _configure_rx(rx_config_t *rx_config, int rx_id)
 	return 0;
 }
 
+static int _close_rx(rx_config_t *rx_config ODP_UNUSED, int rx_id)
+{
+	const int dma_if = 0;
+	typeof(mppa_dnoc[dma_if]->rx_queues[0]) * const rx_queue =
+		&mppa_dnoc[dma_if]->rx_queues[rx_id];
+
+	for (int j = 0; j < 16; ++j)
+		rx_queue->activation.reg = 0x0;
+
+	if (rx_hdl.tag[rx_id].pkt != ODP_PACKET_INVALID)
+		odp_packet_free(rx_hdl.tag[rx_id].pkt);
+	rx_hdl.tag[rx_id].pkt = ODP_PACKET_INVALID;
+
+	return 0;
+}
+
 static int _reload_rx(int th_id, int rx_id)
 {
 	const int dma_if = 0;
@@ -559,6 +575,10 @@ int rx_thread_link_close(uint8_t pktio_id)
 		ifce->rx_config.min_port + 1;
 	const unsigned nrx_per_th = n_ports / N_RX_THR;
 	odp_pool_t pool = ifce->rx_config.pool;
+
+	for (int i = ifce->rx_config.min_port;
+	     i <= ifce->rx_config.max_port; ++i)
+		_close_rx(&ifce->rx_config, i);
 
 	ifce->rx_config.pool = ODP_POOL_INVALID;
 	ifce->rx_config.min_port = -1;
