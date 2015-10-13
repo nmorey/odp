@@ -114,6 +114,11 @@ static int eth_init(void)
 	return 0;
 }
 
+static int eth_destroy(void)
+{
+	return 0;
+}
+
 static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
@@ -462,7 +467,7 @@ static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
 }
 const pktio_if_ops_t eth_pktio_ops = {
 	.init = eth_init,
-	.term = NULL,
+	.term = eth_destroy,
 	.open = eth_open,
 	.close = eth_close,
 	.start = NULL,
