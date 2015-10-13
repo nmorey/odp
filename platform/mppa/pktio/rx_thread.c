@@ -51,6 +51,11 @@ typedef struct {
 	uint8_t pool_id;
 	rx_config_t rx_config;
 	odp_buffer_ring_t ring;
+
+	enum {
+		RX_IFCE_DOWN,
+		RX_IFCE_UP
+	} status;
 } rx_ifce_t;
 
 typedef struct {
@@ -502,8 +507,9 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 		}
 	}
 
-	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
+	ifce->status = RX_IFCE_UP;
 
+	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
 	odp_rwlock_write_unlock(&rx_hdl.lock);
 	return first_rx;
 }
@@ -517,6 +523,10 @@ int rx_thread_link_close(uint8_t pktio_id)
 	odp_rwlock_write_lock(&rx_hdl.lock);
 	INVALIDATE(ifce);
 
+	if (ifce->status == RX_IFCE_DOWN) {
+		odp_rwlock_write_unlock(&rx_hdl.lock);
+		return 0;
+	}
 	for (i = ifce->rx_config.min_port;
 	     i <= ifce->rx_config.max_port; ++i)
 		rx_hdl.tag[i].pktio_id = -1;
@@ -561,6 +571,7 @@ int rx_thread_link_close(uint8_t pktio_id)
 		free(ifce->ring.buf_ptrs);
 
 	}
+	ifce->status = RX_IFCE_DOWN;
 	odp_rwlock_write_unlock(&rx_hdl.lock);
 
 
