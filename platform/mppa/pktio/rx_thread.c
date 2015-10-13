@@ -375,6 +375,17 @@ static void *_rx_thread_start(void *arg)
 		odp_rwlock_read_unlock(&rx_hdl.lock);
 	}
 
+	/* Cleanup and exit */
+
+	for (int i = 0; i < ODP_CONFIG_POOLS; ++i) {
+		if (!rx_hdl.th[th_id].pools[i].n_spares)
+			continue;
+		/* Free all the spares pre allocated */
+		ret_buf(&pool_tbl.pool[i].s,
+			(odp_buffer_hdr_t **)rx_hdl.th[i].pools[i].spares,
+			rx_hdl.th[i].pools[i].n_spares);
+		rx_hdl.th[i].pools[i].n_spares = 0;
+	}
 	rx_hdl.th[th_id].status = RX_TH_OFF;
 	__k1_wmb();
 	return NULL;
