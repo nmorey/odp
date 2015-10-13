@@ -481,7 +481,7 @@ void odp_buffer_free(odp_buffer_t buf)
 	if (!POOL_HAS_LOCAL_CACHE || odp_unlikely(LOAD_U32(pool->s.low_wm_assert)))
 		ret_buf(&pool->s, &buf_hdr, 1);
 	else
-		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr);
+		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr, buf_hdr);
 }
 
 void _odp_flush_caches(void)

@@ -172,10 +172,10 @@ static inline void *get_local_buf(local_cache_t *buf_cache,
 }
 
 static inline void ret_local_buf(local_cache_t *buf_cache,
-				odp_buffer_hdr_t *buf)
+				 odp_buffer_hdr_t *head, odp_buffer_hdr_t *tail)
 {
-	buf->next = buf_cache->buf_freelist;
-	buf_cache->buf_freelist = buf;
+	tail->next = buf_cache->buf_freelist;
+	buf_cache->buf_freelist = head;
 }
 
 static inline void flush_cache(local_cache_t *buf_cache,
