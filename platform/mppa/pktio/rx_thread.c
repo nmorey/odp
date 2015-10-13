@@ -676,3 +676,40 @@ int rx_thread_init(void)
 
 	return 0;
 }
+
+int rx_thread_destroy(void)
+{
+	/* If it's already destroyed, don't bother */
+	if (g_rx_thread_init == 0)
+		return 0;
+
+	odp_rwlock_write_lock(&rx_hdl.lock);
+	INVALIDATE(&rx_hdl);
+
+	for (int ifce = 0; ifce < MAX_RX_IF; ++ifce) {
+		if (rx_hdl.ifce[ifce].status != RX_IFCE_DOWN) {
+			odp_rwlock_write_unlock(&rx_hdl.lock);
+			return -1;
+		}
+	}
+
+	/* No more interface open. */
+	if (rx_hdl.drop_pkt != ODP_PACKET_INVALID) {
+		odp_packet_free(rx_hdl.drop_pkt);
+		rx_hdl.drop_pkt = ODP_PACKET_INVALID;
+	}
+
+	rx_hdl.destroy = 1;
+	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
+	odp_rwlock_write_unlock(&rx_hdl.lock);
+
+	for (int i = 0; i < N_RX_THR; ++i) {
+#ifdef K1_NODEOS
+		pthread_join(rx_hdl.th[i].thr, NULL);
+#else
+		utask_join(rx_hdl.th[i].task, NULL);
+#endif
+	}
+	g_rx_thread_init = 0;
+	return 0;
+}

@@ -70,6 +70,7 @@ static inline void mppa_ethernet_header_print(const mppa_ethernet_header_t *hdr)
 int rx_thread_init(void);
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy);
 int rx_thread_link_close(uint8_t pktio_id);
+int rx_thread_destroy(void);
 
 #ifdef __cplusplus
 }
