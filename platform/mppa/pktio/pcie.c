@@ -310,7 +310,6 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 	/* Push Context to handling threads */
 	rx_thread_link_close(slot_id * MAX_PCIE_INTERFACES + pcie_eth_if_id);
 
-	free(pcie);
 	return ack.status;
 }
 

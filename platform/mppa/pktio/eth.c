@@ -311,7 +311,6 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	/* Push Context to handling threads */
 	rx_thread_link_close(slot_id * MAX_ETH_PORTS + port_id);
 
-	free(eth);
 	return ack.status;
 }
 
