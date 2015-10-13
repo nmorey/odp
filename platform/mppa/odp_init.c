@@ -12,9 +12,11 @@
 
 #include "HAL/hal/hal.h"
 
+int cluster_iopcie_sync(void);
+
 struct odp_global_data_s odp_global_data;
 
-static int cluster_iopcie_sync(void)
+int cluster_iopcie_sync(void)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;

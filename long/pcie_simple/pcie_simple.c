@@ -22,7 +22,7 @@
 
 #define PKT_SIZE		64
 
-#define TEST_RUN_COUNT		102048
+#define TEST_RUN_COUNT		1024
 
 #define PCIE_INTERFACE_COUNT	16
 
@@ -64,14 +64,14 @@ static int setup_test()
 	return 0;
 }
 
-static int term_test()
-{
-	test_assert_ret(odp_pktio_close(pktio) == 0);
+//~ static int term_test()
+//~ {
+	//~ test_assert_ret(odp_pktio_close(pktio) == 0);
 
-	test_assert_ret(odp_pool_destroy(pool) == 0);
+	//~ test_assert_ret(odp_pool_destroy(pool) == 0);
 
-	return 0;
-}
+	//~ return 0;
+//~ }
 
 static int run_pcie_simple()
 {
@@ -95,6 +95,8 @@ static int run_pcie_simple()
 	return 0;
 }
 
+extern int cluster_iopcie_sync(void);
+
 int run_test()
 {
 	int i = 0;
@@ -103,7 +105,8 @@ int run_test()
 	for (i = 0; i < TEST_RUN_COUNT; i++) 
 		test_assert_ret(run_pcie_simple() == 0);
 
-	test_assert_ret(term_test() == 0);
+	cluster_iopcie_sync();
+	//~ test_assert_ret(term_test() == 0);
 
 	return 0;
 }
@@ -117,8 +120,8 @@ int main(int argc, char **argv)
 
 	test_assert_ret(run_test() == 0);
 
-	test_assert_ret(odp_term_local() == 0);
-	test_assert_ret(odp_term_global() == 0);
+	//~ test_assert_ret(odp_term_local() == 0);
+	//~ test_assert_ret(odp_term_global() == 0);
 
 	mppa_power_base_exit(0);
 	return 0;
