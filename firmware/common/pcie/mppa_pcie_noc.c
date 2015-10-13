@@ -91,7 +91,6 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
 	int if_id = remoteClus % 4;
 	unsigned int tx_id, rx_id;
-	ack.status = -1;
 
 	printf("Received request to open PCIe\n");
 	int ret = mppa_pcie_eth_setup_tx(if_id, &tx_id, remoteClus, open_cmd.min_rx);
@@ -129,6 +128,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 odp_rpc_cmd_ack_t mppa_pcie_eth_close(__attribute__((unused)) unsigned remoteClus, __attribute__((unused)) odp_rpc_t * msg)
 {
 	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
+	ack.status = 0;
 
 	return ack;
 }
