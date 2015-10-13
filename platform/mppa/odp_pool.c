@@ -414,68 +414,63 @@ int odp_pool_destroy(odp_pool_t pool_hdl)
 	return 0;
 }
 
-static odp_anybuf_t *_buffer_alloc(odp_pool_t pool_hdl, size_t size)
+static int _buffer_alloc(odp_pool_t pool_hdl, size_t size,
+			 odp_buffer_t buf[], int num)
 {
 	pool_entry_t *pool = (pool_entry_t *)pool_hdl;
 	uintmax_t totsize = pool->s.headroom + size + pool->s.tailroom;
-	odp_anybuf_t *buf = NULL;
-
+	int count = 0;
 	/* Reject oversized allocation requests */
 	if ((pool->s.flags.unsegmented && totsize > pool->s.seg_size) ||
 	    (!pool->s.flags.unsegmented &&
 	     totsize > pool->s.seg_size * ODP_BUFFER_MAX_SEG))
-		return NULL;
+		return -1;
 
 	/* Try to satisfy request from the local cache */
 	if(POOL_HAS_LOCAL_CACHE)
-		buf = (odp_anybuf_t *)(void *)
-			get_local_buf(&local_cache[pool->s.pool_id], &pool->s, totsize);
+		for(; count < num; ++count) {
+			buf[count] = get_local_buf(&local_cache[pool->s.pool_id],
+						   &pool->s, totsize);
+			if(buf[count] == NULL)
+				break;
+		}
+
+	if (count)
+		return count;
 
 	/* If cache is empty, satisfy request from the pool */
-	if (odp_unlikely(buf == NULL)) {
-		int n_buf = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)&buf, 1);
+	count = get_buf_multi(&pool->s, (odp_buffer_hdr_t**)buf, num);
 
-		if (odp_unlikely(n_buf == 0))
-			return NULL;
+	for (int i = 0; i < count; ++i) {
+		/* By default, buffers inherit their pool's zeroization setting */
+		((odp_buffer_hdr_t*)buf[i])->flags.zeroized = pool->s.flags.zeroized;
 
-		/* Get blocks for this buffer, if pool uses application data */
-		if (buf->buf.size < totsize) {
-			return NULL;
-		}
+		/* By default, buffers are not associated with an ordered queue */
+		((odp_buffer_hdr_t*)buf[i])->origin_qe = NULL;
 	}
-
-	/* By default, buffers inherit their pool's zeroization setting */
-	buf->buf.flags.zeroized = pool->s.flags.zeroized;
-
-	/* By default, buffers are not associated with an ordered queue */
-	buf->buf.origin_qe = NULL;
-
-	return buf;
+	return count;
 }
 
 odp_buffer_t buffer_alloc(odp_pool_t pool_hdl, size_t size)
 {
-	odp_anybuf_t *buf = (odp_anybuf_t *)_buffer_alloc(pool_hdl, size);
-
-	if (buf == NULL)
+	odp_buffer_t buf;
+	if (_buffer_alloc(pool_hdl, size, &buf, 1) != 1)
 		return ODP_BUFFER_INVALID;
 
-	if (buf->buf.type == ODP_EVENT_PACKET)
-		packet_init(odp_pool_to_entry(pool_hdl), &buf->pkt, size);
+	packet_init(odp_pool_to_entry(pool_hdl), (odp_packet_hdr_t*)buf, size);
 
-	return odp_hdr_to_buf(&buf->buf);
+	return buf;
 }
 
 odp_buffer_t odp_buffer_alloc(odp_pool_t pool_hdl)
 {
-	odp_anybuf_t * buf =
-		_buffer_alloc(pool_hdl,
-			      odp_pool_to_entry(pool_hdl)->s.params.buf.size);
+	odp_buffer_t buf;
+	if (_buffer_alloc(pool_hdl,
+			  odp_pool_to_entry(pool_hdl)->s.params.buf.size,
+			  &buf, 1) != 1)
+	    return ODP_BUFFER_INVALID;
 
-	if (buf == NULL)
-		return ODP_BUFFER_INVALID;
-
-	return 	odp_hdr_to_buf(&buf->buf);
+	return buf;
 }
 
 void odp_buffer_free(odp_buffer_t buf)
