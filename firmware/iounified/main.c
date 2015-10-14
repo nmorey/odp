@@ -6,11 +6,14 @@
 
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
+#include "mppa_pcie_noc.h"
 
 int main()
 {
 
 	int ret;
+
+	mppa_pcie_eth_noc_init()
 
 	ret = odp_rpc_server_start();
 	if (ret) {
