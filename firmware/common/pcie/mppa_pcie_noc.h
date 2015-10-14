@@ -4,6 +4,8 @@
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
 
+#define MPPA_PCIE_ETH_IF_MAX 4
+
 struct mppa_pcie_eth_dnoc_tx_cfg {
 	int opened;
 	unsigned int cluster;

@@ -11,8 +11,6 @@
 #include "mppa_pcie_eth.h"
 #include "mppa_pcie_noc.h"
 
-#define IF_COUNT_MAX 16
-
 #define MAX_DNOC_TX_PER_PCIE_ETH_IF	16	
 
 #define RING_BUFFER_ENTRIES	16
@@ -49,7 +47,7 @@ struct mppa_pcie_g_eth_if_cfg {
 	struct mppa_pcie_eth_ring_buff_desc *rx, *tx;
 };
 
-static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[IF_COUNT_MAX] = {{{0}, 0, 0, 0, 0}};
+static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, 0, 0}};
 
 static unsigned int g_if_count; 
 
@@ -92,7 +90,7 @@ int mppa_pcie_eth_init(int if_count)
 	g_if_count = if_count;
 	g_pcie_eth_control.if_count = g_if_count;
 
-	if (if_count > IF_COUNT_MAX)
+	if (if_count > MPPA_PCIE_ETH_IF_MAX)
 		return 1;
 
 	for (i = 0; i < g_if_count; i++) {

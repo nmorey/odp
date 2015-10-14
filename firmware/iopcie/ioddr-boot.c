@@ -16,8 +16,6 @@
 #define MAX_ARGS                       10
 #define MAX_CLUS_NAME                  256
 
-#define PCIE_ETH_INTERFACE_COUNT	1
-
 int main (int argc, char *argv[])
 {
 	int ret;
@@ -35,7 +33,7 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");
 		exit(EXIT_FAILURE);
 	}
-	ret = mppa_pcie_eth_init(PCIE_ETH_INTERFACE_COUNT);
+	ret = mppa_pcie_eth_init(MPPA_PCIE_ETH_IF_MAX);
 	if (ret != 0) {
 		fprintf(stderr, "Failed to initialize PCIe eth interface\n");
 		exit(1);
