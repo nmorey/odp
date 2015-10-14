@@ -323,8 +323,8 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 static int pcie_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
 			    void *mac_addr ODP_UNUSED)
 {
-	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
-	memcpy(mac_addr, eth->mac_addr, ETH_ALEN);
+	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
+	memcpy(mac_addr, pcie->mac_addr, ETH_ALEN);
 	return ETH_ALEN;
 }
 
