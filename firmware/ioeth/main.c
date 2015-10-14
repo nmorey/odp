@@ -6,21 +6,17 @@
 
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
-#include "eth.h"
 
 int main()
 {
 
 	int ret;
 
-	eth_init();
-
 	ret = odp_rpc_server_start();
 	if (ret) {
 		fprintf(stderr, "Failed to start server\n");
 		exit(EXIT_FAILURE);
 	}
-
 
 	while (1) {
 		odp_rpc_t *msg;

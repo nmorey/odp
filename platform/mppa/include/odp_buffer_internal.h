@@ -109,7 +109,8 @@ typedef struct {
 #define ODP_FREEBUF -1
 
 /* Forward declarations */
-odp_buffer_t buffer_alloc(odp_pool_t pool, size_t size);
+int buffer_alloc(odp_pool_t pool_hdl, size_t size,
+		 odp_buffer_hdr_t *buf[], int num);
 
 
 /*

@@ -171,10 +171,9 @@ int ethtool_enable_cluster(unsigned remoteClus, unsigned eth_if)
 
 	status[eth_if].cluster[remoteClus].enabled = 1;
 
-	if (!status[eth_if].enabled_refcount)
-		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
-							  ETH_MATCHALL_TABLE_ID,
-							  eth_if, 1);
+	/* if (!status[eth_if].enabled_refcount) */
+	/* 	//FIXME */
+
 	status[eth_if].enabled_refcount++;
 
 	return 0;
@@ -188,10 +187,8 @@ int ethtool_disable_cluster(unsigned remoteClus, unsigned eth_if)
 	status[eth_if].cluster[remoteClus].enabled = 0;
 	status[eth_if].enabled_refcount--;
 
-	if (!status[eth_if].enabled_refcount)
-		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
-							  ETH_MATCHALL_TABLE_ID,
-							  eth_if, 0);
+	/* if (!status[eth_if].enabled_refcount) */
+	/* 	//FIXME */
 
 	return 0;
 }

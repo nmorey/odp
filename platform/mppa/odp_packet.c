@@ -28,23 +28,23 @@
 odp_packet_t odp_packet_alloc(odp_pool_t pool_hdl, uint32_t len)
 {
 	pool_entry_t *pool = odp_pool_to_entry(pool_hdl);
+	uint32_t size = len;
+	odp_packet_t pkt = ODP_PACKET_INVALID;
 
 	if (pool->s.params.type != ODP_POOL_PACKET)
-		return ODP_PACKET_INVALID;
+		return pkt;
 
 	/* Handle special case for zero-length packets */
-	if (len == 0) {
-		odp_packet_t pkt =
-			(odp_packet_t)buffer_alloc(pool_hdl,
-						   pool->s.params.buf.size);
-		if (pkt != ODP_PACKET_INVALID)
-			pull_tail(odp_packet_hdr(pkt),
-				  pool->s.params.buf.size);
+	if (len == 0)
+		size = pool->s.params.buf.size;
 
-		return pkt;
-	}
+	if (buffer_alloc(pool_hdl, len, (odp_buffer_hdr_t **)&pkt, 1) != 1)
+		return ODP_PACKET_INVALID;
 
-	return (odp_packet_t)buffer_alloc(pool_hdl, len);
+	if (len == 0)
+		pull_tail(odp_packet_hdr(pkt), size);
+
+	return pkt;
 }
 
 void odp_packet_free(odp_packet_t pkt)
@@ -656,12 +656,15 @@ int _odp_packet_copy_to_packet(odp_packet_t srcpkt, uint32_t srcoffset,
 odp_packet_t _odp_packet_alloc(odp_pool_t pool_hdl)
 {
 	pool_entry_t *pool = odp_pool_to_entry(pool_hdl);
+	odp_packet_t pkt = ODP_PACKET_INVALID;
 
 	if (pool->s.params.type != ODP_POOL_PACKET)
-		return ODP_PACKET_INVALID;
+		return pkt;
 
-	return (odp_packet_t)buffer_alloc(pool_hdl,
-					  pool->s.params.buf.size);
+	buffer_alloc(pool_hdl, pool->s.params.buf.size,
+		     (odp_buffer_hdr_t **)&pkt, 1);
+
+	return pkt;
 }
 
 /**

@@ -104,7 +104,8 @@ odp_rpc_cmd_ack_t  eth_close(unsigned remoteClus, odp_rpc_t *msg)
 
 	return ack;
 }
-void eth_init(void)
+
+static void eth_init(void)
 {
 	/* "MATCH_ALL" Rule */
 	mppabeth_lb_cfg_rule((void *)&(mppa_ethernet[0]->lb),
@@ -178,6 +179,7 @@ static int eth_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload
 
 void  __attribute__ ((constructor)) __eth_rpc_constructor()
 {
+	eth_init();
 	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
 		__rpc_handlers[__n_rpc_handlers++] = eth_rpc_handler;
 	} else {
