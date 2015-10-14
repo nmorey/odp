@@ -22,7 +22,7 @@ int ethtool_setup_eth2clus(unsigned remoteClus, int eth_if,
 			   int nocIf, int externalAddress,
 			   int min_rx, int max_rx);
 int ethtool_setup_clus2eth(unsigned remoteClus, int eth_if, int nocIf);
-int ethtool_init_lane(unsigned eth_if);
+int ethtool_init_lane(unsigned eth_if, int loopback);
 void ethtool_cleanup_cluster(unsigned remoteClus, unsigned eth_if);
 int ethtool_enable_cluster(unsigned remoteClus, unsigned eth_if);
 int ethtool_disable_cluster(unsigned remoteClus, unsigned eth_if);
@@ -37,7 +37,11 @@ typedef struct {
 	int enabled;
 } eth_cluster_status_t;
 typedef struct {
-	int initialized;
+	enum {
+		ETH_LANE_OFF,
+		ETH_LANE_ON,
+		ETH_LANE_LOOPBACK
+	} initialized;
 	int laneStatus;
 	eth_cluster_status_t cluster[BSP_NB_CLUSTER_MAX];
 	int enabled_refcount;

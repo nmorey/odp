@@ -71,7 +71,7 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 		goto err;
 	if (ethtool_setup_clus2eth(remoteClus, eth_if, nocIf))
 		goto err;
-	if (ethtool_init_lane(eth_if))
+	if (ethtool_init_lane(eth_if, data.loopback))
 		goto err;
 	if (ethtool_enable_cluster(remoteClus, eth_if))
 		goto err;

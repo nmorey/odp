@@ -128,18 +128,48 @@ int ethtool_setup_clus2eth(unsigned remoteClus, int eth_if, int nocIf)
 	return 0;
 }
 
-int ethtool_init_lane(unsigned eth_if)
+int ethtool_init_lane(unsigned eth_if, int loopback)
 {
 	int ret;
 
-	if(status[eth_if].initialized == 0){
-		ret = init_mac(eth_if, eth_if == 4 ? MPPABETHMAC_ETHMODE_40G : -1);
-		if(ret) {
-			fprintf(stderr, "[ETH] Error: Failed to initialize lane %d (%d)\n", eth_if, ret);
+	switch (status[eth_if].initialized) {
+	case ETH_LANE_OFF:
+		if (loopback) {
+			mppabeth_mac_enable_loopback_bypass((void *)&(mppa_ethernet[0]->mac));
+			for (int i = 0; i < N_ETH_LANE; ++i)
+				status[eth_if].initialized = ETH_LANE_LOOPBACK;
+		} else {
+			ret = init_mac(eth_if, eth_if == 4 ?
+				       MPPABETHMAC_ETHMODE_40G : -1);
+			if(ret) {
+				fprintf(stderr,
+					"[ETH] Error: Failed to initialize lane %d (%d)\n",
+					eth_if, ret);
+				return -1;
+			}
+			status[eth_if].initialized = ETH_LANE_ON;
+		}
+		break;
+	case ETH_LANE_ON:
+		if (loopback) {
+			fprintf(stderr,
+				"[ETH] Error: One lane was enabled. Cannot set lane %d in loopback\n",
+				eth_if);
 			return -1;
 		}
+		break;
+	case ETH_LANE_LOOPBACK:
+		if (!loopback) {
+			fprintf(stderr,
+				"[ETH] Error: Eth is in loopback. Cannot enable lane %d\n",
+				eth_if);
+			return -1;
+		}
+		break;
+	default:
+		return -1;
 	}
-	status[eth_if].initialized++;
+
 	return 0;
 }
 void ethtool_cleanup_cluster(unsigned remoteClus, unsigned eth_if)
