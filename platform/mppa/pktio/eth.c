@@ -137,6 +137,7 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 			.dma_if = eth->rx_config.dma_if,
 			.min_rx = eth->rx_config.min_port,
 			.max_rx = eth->rx_config.max_port,
+			.loopback = eth->loopback,
 		}
 	};
 	odp_rpc_t cmd = {
@@ -180,6 +181,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	int nRx = N_RX_P_ETH;
 	int rr_policy = -1;
 	int port_id, slot_id;
+	int loopback = 0;
 
 	/*
 	 * Check device name and extract slot/port
@@ -231,6 +233,9 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 				return -1;
 			}
 			pptr = eptr;
+		} else if (!strncmp(pptr, "loop", strlen("loop"))){
+			pptr += strlen("loop");
+			loopback = 1;
 		} else {
 			/* Unknown parameter */
 			ODP_ERR("Invalid option %s\n", pptr);
@@ -258,6 +263,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->slot_id = slot_id;
 	eth->port_id = port_id;
 	eth->pool = pool;
+	eth->loopback = loopback;
 	odp_spinlock_init(&eth->wlock);
 
 	/* Setup Rx threads */

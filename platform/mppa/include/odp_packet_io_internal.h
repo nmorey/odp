@@ -75,6 +75,9 @@ typedef struct {
 	odp_spinlock_t wlock;           /**< Tx lock */
 	uint8_t mac_addr[ETH_ALEN];     /**< Interface Mac address */
 	uint16_t mtu;                   /**< Interface MTU */
+	struct {
+		uint8_t loopback : 1;
+	};
 
 	/* Rx Data */
 	rx_config_t rx_config;
