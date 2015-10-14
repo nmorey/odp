@@ -213,13 +213,22 @@ int odp_rpc_do_query(uint16_t dest_id,
 	return odp_rpc_send_msg(0, dest_id, dest_tag, cmd, payload);
 }
 
-int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload)
+int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload, uint64_t timeout)
 {
+	int ret;
+
  	if (!g_rpc_init)
 		return -1;
 
-	while (!mppa_noc_dnoc_rx_lac_event_counter(0, rx_port))
+	while ((ret = mppa_noc_dnoc_rx_lac_event_counter(0, rx_port)) == 0) {
 		__k1_cpu_backoff(100);
+		if (timeout < 110)
+			break;
+		timeout -= 110;
+
+	}
+	if (!ret)
+		return 0;
 
 	odp_rpc_t * msg = &odp_rpc_ack_buf.rpc_cmd;
 	INVALIDATE(msg);
@@ -230,7 +239,7 @@ int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload)
 		*payload = odp_rpc_ack_buf.payload;
 	}
 
-	return 0;
+	return 1;
 
 }
 

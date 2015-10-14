@@ -127,7 +127,7 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
-
+	int ret;
 	/*
 	 * RPC Msg to IOPCIE  #N so the LB will dispatch to us
 	 */
@@ -150,7 +150,14 @@ static int pcie_rpc_send_pcie_open(pkt_pcie_t *pcie)
 			 odp_rpc_get_ioddr_tag_id(pcie->slot_id, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&ack_msg, NULL);
+	ret = odp_rpc_wait_ack(&ack_msg, NULL, 15 * RPC_TIMEOUT_1S);
+	if (ret < 0) {
+		fprintf(stderr, "[PCIE] RPC Error\n");
+		return 1;
+	} else if (ret == 0){
+		fprintf(stderr, "[PCIE] Query timed out\n");
+		return 1;
+	}
 	ack.inl_data = ack_msg->inl_data;
 	if (ack.status) {
 		fprintf(stderr, "[PCIE] Error: Server declined opening of pcie interface\n");
@@ -292,7 +299,7 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 	int pcie_eth_if_id = pcie->pcie_eth_if_id;
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
-
+	int ret;
 	odp_rpc_cmd_pcie_clos_t close_cmd = {
 		{
 			.ifId = pcie->pcie_eth_if_id = pcie_eth_if_id
@@ -311,7 +318,14 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 			 odp_rpc_get_ioddr_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&ack_msg, NULL);
+	ret = odp_rpc_wait_ack(&ack_msg, NULL, 5 * RPC_TIMEOUT_1S);
+	if (ret < 0) {
+		fprintf(stderr, "[PCIE] RPC Error\n");
+		return 1;
+	} else if (ret == 0){
+		fprintf(stderr, "[PCIE] Query timed out\n");
+		return 1;
+	}
 	ack.inl_data = ack_msg->inl_data;
 
 	/* Push Context to handling threads */
@@ -377,7 +391,7 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 		/* Setup parameters and pointers */
 		if ((pkt_hdr->frame_len % sizeof(uint64_t)) != 0)
 			size++;
-			
+
 		uc_conf.parameters[i] = size;
 		uc_pointers.thread_pointers[i] =
 			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -

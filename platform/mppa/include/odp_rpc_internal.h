@@ -184,6 +184,12 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id, uint16_t dest_t
 int odp_rpc_do_query(uint16_t dest_id, uint16_t dest_tag,
 		     odp_rpc_t * cmd, void * payload);
 
-int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload);
+/*
+ * Time out in cycles.
+ * Retval: -1 = Error, 0 = Timeout, 1 = OK
+ */
+int odp_rpc_wait_ack(odp_rpc_t ** cmd, void ** payload, uint64_t timeout);
+
+#define RPC_TIMEOUT_1S ((uint64_t)__bsp_frequency)
 
 #endif /* __FIRMWARE__IOETH__RPC__H__ */

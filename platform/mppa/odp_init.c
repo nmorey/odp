@@ -31,7 +31,8 @@ int cluster_iopcie_sync(void)
 			odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&ack_msg, NULL);
+	if (odp_rpc_wait_ack(&ack_msg, NULL, RPC_TIMEOUT_1S) != 1)
+		return -1;
 
 	return 0;
 }

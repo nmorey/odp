@@ -126,6 +126,7 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
+	int ret;
 
 	/*
 	 * RPC Msg to IOETH  #N so the LB will dispatch to us
@@ -149,7 +150,15 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 			 odp_rpc_get_ioeth_tag_id(eth->slot_id, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&ack_msg, NULL);
+	ret = odp_rpc_wait_ack(&ack_msg, NULL, 15 * RPC_TIMEOUT_1S);
+	if (ret < 0) {
+		fprintf(stderr, "[ETH] RPC Error\n");
+		return 1;
+	} else if (ret == 0){
+		fprintf(stderr, "[ETH] Query timed out\n");
+		return 1;
+	}
+
 	ack.inl_data = ack_msg->inl_data;
 	if (ack.status) {
 		fprintf(stderr, "[ETH] Error: Server declined opening of eth interface\n");
@@ -293,7 +302,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	int port_id = eth->port_id;
 	odp_rpc_t *ack_msg;
 	odp_rpc_cmd_ack_t ack;
-
+	int ret;
 	odp_rpc_cmd_eth_clos_t close_cmd = {
 		{
 			.ifId = eth->port_id = port_id
@@ -312,7 +321,14 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
 
-	odp_rpc_wait_ack(&ack_msg, NULL);
+	ret = odp_rpc_wait_ack(&ack_msg, NULL, 5 * RPC_TIMEOUT_1S);
+	if (ret < 0) {
+		fprintf(stderr, "[ETH] RPC Error\n");
+		return 1;
+	} else if (ret == 0){
+		fprintf(stderr, "[ETH] Query timed out\n");
+		return 1;
+	}
 	ack.inl_data = ack_msg->inl_data;
 
 	/* Push Context to handling threads */
