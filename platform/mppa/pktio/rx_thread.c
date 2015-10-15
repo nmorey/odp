@@ -382,20 +382,23 @@ static void *_rx_thread_start(void *arg)
 		}
 
 		_poll_masks(th_id);
+
+		for (int i = 0; i < ODP_CONFIG_POOLS; ++i) {
+			if (!rx_hdl.th[th_id].pools[i].n_spares)
+				continue;
+			/* Free all the spares pre allocated */
+			ret_buf(&pool_tbl.pool[i].s,
+				(odp_buffer_hdr_t **)rx_hdl.th[th_id].pools[i].spares,
+				rx_hdl.th[th_id].pools[i].n_spares);
+			rx_hdl.th[th_id].pools[i].n_spares = 0;
+		}
+
 		odp_rwlock_read_unlock(&rx_hdl.lock);
 	}
 
 	/* Cleanup and exit */
 
-	for (int i = 0; i < ODP_CONFIG_POOLS; ++i) {
-		if (!rx_hdl.th[th_id].pools[i].n_spares)
-			continue;
-		/* Free all the spares pre allocated */
-		ret_buf(&pool_tbl.pool[i].s,
-			(odp_buffer_hdr_t **)rx_hdl.th[i].pools[i].spares,
-			rx_hdl.th[i].pools[i].n_spares);
-		rx_hdl.th[i].pools[i].n_spares = 0;
-	}
+
 	rx_hdl.th[th_id].status = RX_TH_OFF;
 	__k1_wmb();
 	return NULL;
@@ -644,6 +647,12 @@ int rx_thread_link_close(uint8_t pktio_id)
 		}
 		ifce->status = RX_IFCE_DOWN;
 		rx_hdl.if_opened--;
+		/* No more interface open. */
+		if (rx_hdl.if_opened == 0 &&
+		    rx_hdl.drop_pkt != ODP_PACKET_INVALID) {
+			odp_packet_free(rx_hdl.drop_pkt);
+			rx_hdl.drop_pkt = ODP_PACKET_INVALID;
+		}
 	}
 	odp_rwlock_write_unlock(&rx_hdl.lock);
 
@@ -709,12 +718,6 @@ int rx_thread_destroy(void)
 			odp_rwlock_write_unlock(&rx_hdl.lock);
 			return -1;
 		}
-	}
-
-	/* No more interface open. */
-	if (rx_hdl.drop_pkt != ODP_PACKET_INVALID) {
-		odp_packet_free(rx_hdl.drop_pkt);
-		rx_hdl.drop_pkt = ODP_PACKET_INVALID;
 	}
 
 	rx_hdl.destroy = 1;
