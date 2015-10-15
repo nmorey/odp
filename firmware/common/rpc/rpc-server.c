@@ -48,6 +48,10 @@ static inline int rxToMsg(unsigned ifId, unsigned tag,
 		*payload = (uint8_t*)(cmd + 1);
 		INVALIDATE_AREA(*payload, cmd->data_len);
 	}
+#ifdef VERBOSE
+	odp_rpc_print_msg(cmd);
+#endif
+
 	return remoteClus;
 }
 
@@ -97,6 +101,9 @@ int odp_rpc_server_start(void)
 			return ret;
 	}
 
+#ifdef VERBOSE
+	printf("[RPC] Server started...\n");
+#endif
 	g_rpc_init = 1;
 
 	return 0;
