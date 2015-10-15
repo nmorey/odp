@@ -2,6 +2,7 @@ CONFIGS :=
 _CONFIGS :=
 
 $(foreach FIRM, $(FIRMWARES), $(eval $(FIRM)_CONFIGS := ))
+$(foreach FIRM, $(FIRMWARES), $(eval _$(FIRM)_CONFIGS := ))
 
 #
 #

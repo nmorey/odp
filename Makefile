@@ -47,7 +47,7 @@ $(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
 # Define firmware rules for all firmwares and all their targets
 #
 $(foreach FIRMWARE, $(FIRMWARES), \
-	$(foreach CONFIG, $($(FIRMWARE)_CONFIGS), \
+	$(foreach CONFIG, $(_$(FIRMWARE)_CONFIGS) $($(FIRMWARE)_CONFIGS), \
 		$(eval $(call FIRMWARE_RULE,$(CONFIG),$(FIRMWARE)))))
 
 #
