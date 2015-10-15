@@ -166,6 +166,8 @@ static int _close_rx(rx_config_t *rx_config ODP_UNUSED, int rx_id)
 		odp_packet_free(rx_hdl.tag[rx_id].pkt);
 	rx_hdl.tag[rx_id].pkt = ODP_PACKET_INVALID;
 
+	mppa_noc_dnoc_rx_free(dma_if, rx_id);
+
 	return 0;
 }
 
