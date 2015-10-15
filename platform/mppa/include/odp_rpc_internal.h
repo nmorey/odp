@@ -36,6 +36,7 @@ typedef enum {
 	ODP_RPC_CMD_BAS_SYNC     /**< SYNC: Sync command. server wait for every clusters to make a sync before sending ack */,
 	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */,
+	ODP_RPC_CMD_ETH_PROMISC  /**< ETH: KSet/Clear promisc mode */,
 	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */,
 	ODP_RPC_CMD_N_CMD        /**< Number of commands */
@@ -55,6 +56,15 @@ typedef union {
 /** @internal Compile time assert */
 _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_OPEN_T__SIZE_ERROR");
 
+typedef union {
+	struct {
+		uint8_t ifId : 3; /* 0-3, 4 for 40G */
+		uint8_t enabled : 1;
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_eth_promisc_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_eth_promisc_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_ETH_PROMISC_T__SIZE_ERROR");
 
 typedef union {
 	struct {
