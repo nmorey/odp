@@ -372,14 +372,14 @@ static void *_rx_thread_start(void *arg)
 			last_update = update_id;
 		}
 
+		if (rx_hdl.destroy)
+			break;
+
 		if (!rx_hdl.if_opened){
 			odp_rwlock_read_unlock(&rx_hdl.lock);
 			__k1_cpu_backoff(10000);
 			continue;
 		}
-
-		if (rx_hdl.destroy)
-			break;
 
 		_poll_masks(th_id);
 		odp_rwlock_read_unlock(&rx_hdl.lock);
