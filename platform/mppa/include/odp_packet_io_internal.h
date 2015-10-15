@@ -81,6 +81,7 @@ typedef struct {
 
 	/* Rx Data */
 	rx_config_t rx_config;
+	int promisc;
 
 	uint8_t slot_id;                /**< IO Eth Id */
 	uint8_t port_id;                /**< Eth Port id. 4 for 40G */

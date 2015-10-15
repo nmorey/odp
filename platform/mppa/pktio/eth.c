@@ -476,13 +476,15 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return sent;
 }
 
-static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
+static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry,
 				odp_bool_t enable ODP_UNUSED){
-	return -1;
+	/* FIXME */
+	pktio_entry->s.pkt_eth.promisc = enable;
+	return 0;
 }
 
-static int eth_promisc_mode(pktio_entry_t *const pktio_entry ODP_UNUSED){
-	return -1;
+static int eth_promisc_mode(pktio_entry_t *const pktio_entry){
+	return 	pktio_entry->s.pkt_eth.promisc;
 }
 
 static int eth_mtu_get(pktio_entry_t *const pktio_entry ODP_UNUSED) {
