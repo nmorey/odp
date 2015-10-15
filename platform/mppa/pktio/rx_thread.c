@@ -89,6 +89,7 @@ typedef struct {
 typedef struct rx_thread {
 	odp_atomic_u64_t update_id;
 	odp_rwlock_t lock;		/**< entry RW lock */
+	uint32_t if_opened;
 
 	odp_packet_t drop_pkt;          /**< ODP Packet used to temporary store
 					 *   dropped data */
@@ -349,6 +350,7 @@ static void _poll_masks(int th_id)
 
 static void *_rx_thread_start(void *arg)
 {
+	mOS_disable_streaming_load();
 	int th_id = (unsigned long)(arg);
 	for (int i = 0; i < MAX_RX_IF; ++i) {
 		rx_buffer_list_t * hdr_list =
@@ -366,6 +368,12 @@ static void *_rx_thread_start(void *arg)
 		if (update_id != last_update) {
 			INVALIDATE(&rx_hdl);
 			last_update = update_id;
+		}
+
+		if (!rx_hdl.if_opened){
+			odp_rwlock_read_unlock(&rx_hdl.lock);
+			__k1_cpu_backoff(10000);
+			continue;
 		}
 
 		if (rx_hdl.destroy)
@@ -519,48 +527,50 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 
 	/* Push Context to handling threads */
 	odp_rwlock_write_lock(&rx_hdl.lock);
-	INVALIDATE(&rx_hdl);
-	for (i = rx_config->min_port; i <= rx_config->max_port; ++i)
-		rx_hdl.tag[i].pktio_id = rx_config->pktio_id;
+	{
+		INVALIDATE(&rx_hdl);
+		for (i = rx_config->min_port; i <= rx_config->max_port; ++i)
+			rx_hdl.tag[i].pktio_id = rx_config->pktio_id;
 
-	/* Allocate one packet to put all the broken ones
-	 * coming from the NoC */
-	if (rx_hdl.drop_pkt == ODP_PACKET_INVALID) {
-		odp_packet_hdr_t *hdr;
-
-		rx_hdl.drop_pkt = _odp_packet_alloc(rx_config->pool);
+		/* Allocate one packet to put all the broken ones
+		 * coming from the NoC */
 		if (rx_hdl.drop_pkt == ODP_PACKET_INVALID) {
-			ODP_ERR("failed to allocate a packet\n");
-			for ( ; n_rx >= 0; --n_rx) {
-				mppa_noc_dnoc_rx_free(dma_if,
-						      first_rx + n_rx);
+			odp_packet_hdr_t *hdr;
+
+			rx_hdl.drop_pkt = _odp_packet_alloc(rx_config->pool);
+			if (rx_hdl.drop_pkt == ODP_PACKET_INVALID) {
+				ODP_ERR("failed to allocate a packet\n");
+				for ( ; n_rx >= 0; --n_rx) {
+					mppa_noc_dnoc_rx_free(dma_if,
+							      first_rx + n_rx);
+				}
+				return -1;
 			}
-			return -1;
+			hdr = odp_packet_hdr(rx_hdl.drop_pkt);
+			rx_hdl.drop_pkt_ptr = hdr->buf_hdr.addr;
+			rx_hdl.drop_pkt_len = hdr->frame_len;
 		}
-		hdr = odp_packet_hdr(rx_hdl.drop_pkt);
-		rx_hdl.drop_pkt_ptr = hdr->buf_hdr.addr;
-		rx_hdl.drop_pkt_len = hdr->frame_len;
-	}
 
-	for (int i = 0; i < N_RX_THR; ++i) {
-		rx_th_t *th = &rx_hdl.th[i];
+		for (int i = 0; i < N_RX_THR; ++i) {
+			rx_th_t *th = &rx_hdl.th[i];
 
-		th->pools[ifce->pool_id].n_rx += nrx_per_th;
+			th->pools[ifce->pool_id].n_rx += nrx_per_th;
 
-		for (int j = 0; j < 4; ++j) {
-			th->ev_masks[j] |= ev_masks[i][j];
-			if (ev_masks[i][j]) {
-				if (j < th->min_mask)
-					th->min_mask = j;
-				if (j > th->max_mask)
-					th->max_mask = j;
+			for (int j = 0; j < 4; ++j) {
+				th->ev_masks[j] |= ev_masks[i][j];
+				if (ev_masks[i][j]) {
+					if (j < th->min_mask)
+						th->min_mask = j;
+					if (j > th->max_mask)
+						th->max_mask = j;
+				}
 			}
 		}
+
+		ifce->status = RX_IFCE_UP;
+		rx_hdl.if_opened++;
+		odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
 	}
-
-	ifce->status = RX_IFCE_UP;
-
-	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
 	odp_rwlock_write_unlock(&rx_hdl.lock);
 	return first_rx;
 }
@@ -572,61 +582,67 @@ int rx_thread_link_close(uint8_t pktio_id)
 		&rx_hdl.ifce[pktio_id];
 
 	odp_rwlock_write_lock(&rx_hdl.lock);
-	INVALIDATE(ifce);
+	{
+		INVALIDATE(ifce);
 
-	if (ifce->status == RX_IFCE_DOWN) {
-		odp_rwlock_write_unlock(&rx_hdl.lock);
-		return 0;
-	}
-	for (i = ifce->rx_config.min_port;
-	     i <= ifce->rx_config.max_port; ++i)
-		rx_hdl.tag[i].pktio_id = -1;
+		if (ifce->status == RX_IFCE_DOWN) {
+			odp_rwlock_write_unlock(&rx_hdl.lock);
+			return 0;
+		}
+		for (i = ifce->rx_config.min_port;
+		     i <= ifce->rx_config.max_port; ++i)
+			rx_hdl.tag[i].pktio_id = -1;
 
-	int n_ports = ifce->rx_config.max_port -
-		ifce->rx_config.min_port + 1;
-	const unsigned nrx_per_th = n_ports / N_RX_THR;
-	odp_pool_t pool = ifce->rx_config.pool;
+		int n_ports = ifce->rx_config.max_port -
+			ifce->rx_config.min_port + 1;
+		const unsigned nrx_per_th = n_ports / N_RX_THR;
+		odp_pool_t pool = ifce->rx_config.pool;
 
-	for (int i = ifce->rx_config.min_port;
-	     i <= ifce->rx_config.max_port; ++i)
-		_close_rx(&ifce->rx_config, i);
+		for (int i = ifce->rx_config.min_port;
+		     i <= ifce->rx_config.max_port; ++i)
+			_close_rx(&ifce->rx_config, i);
 
-	ifce->rx_config.pool = ODP_POOL_INVALID;
-	ifce->rx_config.min_port = -1;
-	ifce->rx_config.max_port = -1;
+		ifce->rx_config.pool = ODP_POOL_INVALID;
+		ifce->rx_config.min_port = -1;
+		ifce->rx_config.max_port = -1;
 
-	for (int i = 0; i < N_RX_THR; ++i) {
-		rx_th_t *th = &rx_hdl.th[i];
+		for (int i = 0; i < N_RX_THR; ++i) {
+			rx_th_t *th = &rx_hdl.th[i];
 
-		th->pools[ifce->pool_id].n_rx -= nrx_per_th;
+			th->pools[ifce->pool_id].n_rx -= nrx_per_th;
 
-		for (int j = 0; j < 4; ++j) {
-			th->ev_masks[j] &= ~ifce->ev_masks[j];
-			if (!th->ev_masks[j]) {
-				if (j == th->min_mask)
-					th->min_mask = j + 1;
-				if (j == th->max_mask)
-					th->max_mask = j - 1;
+			th->min_mask = (uint8_t) -1;
+			th->max_mask = 0;
+
+			for (int j = 0; j < 4; ++j) {
+				th->ev_masks[j] &= ~ifce->ev_masks[j];
+				if (th->ev_masks[j]) {
+					if (j < th->min_mask)
+						th->min_mask = j;
+					if (j > th->max_mask)
+						th->max_mask = j;
+				}
 			}
 		}
-	}
 
-	odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
+		odp_atomic_add_u64(&rx_hdl.update_id, 1ULL);
 
-	{
-		/** free all the buffers */
-		odp_buffer_hdr_t * buffers[10];
-		int nbufs;
-		while ((nbufs = odp_buffer_ring_get_multi(&ifce->ring,
-							  buffers, 10,
-							  NULL)) > 0) {
-			ret_buf(&((pool_entry_t *)pool)->s,
-				buffers, nbufs);
+		{
+			/** free all the buffers */
+			odp_buffer_hdr_t * buffers[10];
+			int nbufs;
+			while ((nbufs = odp_buffer_ring_get_multi(&ifce->ring,
+								  buffers, 10,
+								  NULL)) > 0) {
+				ret_buf(&((pool_entry_t *)pool)->s,
+					buffers, nbufs);
+			}
+			free(ifce->ring.buf_ptrs);
+
 		}
-		free(ifce->ring.buf_ptrs);
-
+		ifce->status = RX_IFCE_DOWN;
+		rx_hdl.if_opened--;
 	}
-	ifce->status = RX_IFCE_DOWN;
 	odp_rwlock_write_unlock(&rx_hdl.lock);
 
 
