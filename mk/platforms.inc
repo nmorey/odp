@@ -1,9 +1,7 @@
 CONFIGS :=
 _CONFIGS :=
 
-iopcie_CONFIGS  :=
-ioeth_CONFIGS :=
-iounified_CONFIGS :=
+$(foreach FIRM, $(FIRMWARES), $(eval $(FIRM)_CONFIGS := ))
 
 #
 #
