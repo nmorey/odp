@@ -114,14 +114,15 @@ static void eth_init(void)
 			     /* offset */ 0, /* Cmp Mask */0,
 			     /* Espected Value */ 0, /* Hash. Unused */0);
 
+	mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
+					   ETH_MATCHALL_TABLE_ID, /* Priority */ 0,
+					   MPPABETHLB_DISPATCH_POLICY_RR);
 	for (int eth_if = 0; eth_if < N_ETH_LANE; ++eth_if) {
 		_eth_status_init(&status[eth_if]);
 
 		mppabeth_lb_cfg_header_mode((void *)&(mppa_ethernet[0]->lb),
 					    eth_if, MPPABETHLB_ADD_HEADER);
 
-		mppabeth_lb_cfg_extract_table_mode((void *)&(mppa_ethernet[0]->lb),
-						   ETH_MATCHALL_TABLE_ID, 0, MPPABETHLB_DISPATCH_POLICY_RR);
 		mppabeth_lb_cfg_table_rr_dispatch_trigger((void *)&(mppa_ethernet[0]->lb),
 							  ETH_MATCHALL_TABLE_ID,
 							  eth_if, 1);
