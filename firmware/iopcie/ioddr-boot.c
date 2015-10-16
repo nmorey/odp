@@ -41,6 +41,8 @@ int main (int argc, char *argv[])
 
 	boot_clusters(argc, argv);
 
+	printf("Cluster booted\n");
+
 	while (1) {
 		odp_rpc_t *msg;
 
