@@ -58,6 +58,54 @@ typedef struct eth_uc_ctx {
 
 static eth_uc_ctx_t g_eth_uc_ctx[NOC_UC_COUNT] = {{0}};
 
+
+static inline uint64_t _eth_alloc_uc_slots(eth_uc_ctx_t *ctx,
+					   unsigned int count)
+{
+	ODP_ASSERT(count <= MAX_JOB_PER_UC);
+
+	const uint64_t prepar_id =
+		odp_atomic_fetch_add_u64(&ctx->prepar_head, count);
+	const uint32_t last_id = prepar_id + count - 1;
+	unsigned  ev_counter, diff;
+
+	/* Wait for slot */
+	ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+	diff = last_id - ev_counter;
+	while (diff > 0x80000000 || ev_counter + MAX_JOB_PER_UC <= last_id) {
+		odp_spin();
+		ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
+		diff = last_id - ev_counter;
+	}
+
+	/* Free previous packets */
+	for (uint64_t pos = prepar_id; pos < prepar_id + count; pos++) {
+		if(pos > MAX_JOB_PER_UC){
+			eth_uc_job_ctx_t *job = &ctx->job_ctxs[pos % MAX_JOB_PER_UC];
+
+			for (unsigned j = 0; j < job->pkt_count; ++j) {
+				odp_packet_free(job->pkt_table[j]);
+			}
+		}
+	}
+	return prepar_id;
+}
+
+static inline void _eth_uc_commit(eth_uc_ctx_t *ctx,
+				  uint64_t slot,
+				  unsigned int count)
+{
+	while (odp_atomic_load_u64(&ctx->commit_head) != slot)
+		odp_spin();
+
+	__builtin_k1_wpurge();
+	__builtin_k1_fence ();
+
+	for (unsigned i = 0; i < count; ++i)
+		mOS_ucore_commit(ctx->dnoc_tx_id);
+	odp_atomic_fetch_add_u64(&ctx->commit_head, count);
+}
+
 /**
  * #############################
  * PKTIO Interface
@@ -323,6 +371,27 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 		.inl_data = close_cmd.inl_data
 	};
 
+	/* Free packets being sent by DMA */
+	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
+	const uint64_t prepar_id = _eth_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
+
+	for (int slot_id = 0; slot_id < MAX_JOB_PER_UC; ++slot_id) {
+		eth_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
+		mOS_uc_transaction_t * const trs =
+			&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+		for (unsigned i = 0; i < MAX_PKT_PER_UC; ++i ){
+			trs->parameter.array[2 * i + 0] = 0;
+			trs->parameter.array[2 * i + 1] = 0;
+		}
+		trs->notify._word = 0;
+		trs->desc.tx_set = 0;
+		trs->desc.param_set = 0xff;
+		trs->desc.pointer_set = 0;
+		job->pkt_count = 0;
+	}
+	_eth_uc_commit(ctx, prepar_id, MAX_JOB_PER_UC);
+
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
 			 &cmd, NULL);
@@ -386,34 +455,17 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return n_packet;
 }
 
-
 static inline int
 eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
 	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
-	const eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
-	const uint64_t prepar_id = odp_atomic_fetch_inc_u64(&g_eth_uc_ctx[tx_index].prepar_head);
-	unsigned  ev_counter, diff;
+	eth_uc_ctx_t *ctx = &g_eth_uc_ctx[tx_index];
 
-	/* Wait for slot */
-	ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
-	diff = ((uint32_t)prepar_id) - ev_counter;
-	while (diff > 0x80000000 || ev_counter + MAX_JOB_PER_UC <= ((uint32_t)prepar_id)) {
-		odp_spin();
-		ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
-		diff = ((uint32_t)prepar_id) - ev_counter;
-	}
-
+	const uint64_t prepar_id = _eth_alloc_uc_slots(ctx, 1);
 	const unsigned slot_id = prepar_id % MAX_JOB_PER_UC;
-	eth_uc_job_ctx_t * job = &g_eth_uc_ctx[tx_index].job_ctxs[slot_id];
-
-	if(prepar_id > MAX_JOB_PER_UC){
-		/* Free previous packets */
-		ret_buf(&((pool_entry_t *)eth->pool)->s,
-			(odp_buffer_hdr_t**)job->pkt_table, job->pkt_count);
-	}
-
-	mOS_uc_transaction_t * const trs =  &_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+	eth_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
+	mOS_uc_transaction_t * const trs =
+		&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
 	const odp_packet_hdr_t * pkt_hdr;
 
 	for (unsigned i = 0; i < pkt_count; ++i ){
@@ -443,15 +495,7 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 
 	job->pkt_count = pkt_count;
 
-
-	while (odp_atomic_load_u64(&g_eth_uc_ctx[tx_index].commit_head) != prepar_id)
-		odp_spin();
-
-
-	__builtin_k1_wpurge();
-	__builtin_k1_fence ();
-	mOS_ucore_commit(ctx->dnoc_tx_id);
-	odp_atomic_inc_u64(&g_eth_uc_ctx[tx_index].commit_head);
+	_eth_uc_commit(ctx, prepar_id, 1);
 
 	return 0;
 }
