@@ -33,7 +33,6 @@ endif
 
 endif
 
-#performance tests refer to pktio_env
 if test_perf
 SUBDIRS = pktio
 endif
