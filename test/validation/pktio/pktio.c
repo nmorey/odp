@@ -455,6 +455,7 @@ static void test_txrx(odp_queue_type_t q_type, int num_pkts)
 	int ret, i, if_b;
 	pktio_info_t pktios[MAX_NUM_IFACES];
 	pktio_info_t *io;
+	uint32_t mtu, min_mtu = UINT32_MAX;
 
 	/* create pktios and associate input/output queues */
 	for (i = 0; i < num_ifaces; ++i) {
@@ -475,12 +476,19 @@ static void test_txrx(odp_queue_type_t q_type, int num_pkts)
 
 		ret = odp_pktio_start(io->id);
 		CU_ASSERT(ret == 0);
+
+		mtu = odp_pktio_mtu(io->id);
+		if (mtu < min_mtu)
+			min_mtu = mtu;
 	}
 
-	/* if we have two interfaces then send through one and receive on
-	 * another but if there's only one assume it's a loopback */
-	if_b = (num_ifaces == 1) ? 0 : 1;
-	pktio_txrx_multi(&pktios[0], &pktios[if_b], num_pkts);
+	/* Skip test if packet len is larger than the MTU */
+	if (min_mtu >= packet_len) {
+		/* if we have two interfaces then send through one and receive
+		 * on another but if there's only one assume it's a loopback */
+		if_b = (num_ifaces == 1) ? 0 : 1;
+		pktio_txrx_multi(&pktios[0], &pktios[if_b], num_pkts);
+	}
 
 	for (i = 0; i < num_ifaces; ++i) {
 		destroy_inq(pktios[i].id);
