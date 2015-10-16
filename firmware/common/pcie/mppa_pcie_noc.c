@@ -4,15 +4,117 @@
 #include <mppa_routing.h>
 #include "mppa_pcie_noc.h"
 #include "mppa_pcie_eth.h"
+#include "mppa_pcie_buf_alloc.h"
 #include "HAL/hal/hal.h"
 
-#define DDR_BUFFER_BASE_ADDR		0x80000000
+#define DDR_BASE_ADDR			0x80000000
+#define DIRECTORY_SIZE			(32 * 1024 * 1024)
+
+#define DDR_BUFFER_BASE_ADDR		(DDR_BASE_ADDR + DIRECTORY_SIZE)
 
 #define MPPA_PCIE_ETH_NOC_PKT_COUNT	16
 
-static unsigned int g_pkt_base_addr = DDR_BUFFER_BASE_ADDR;
+/**
+ *
+ */
+#define MPPA_PCIE_MULTIBUF_PKT_SIZE	(9*1024)
+/**
+ * 4 packets per multi buffer
+ */
+#define MPPA_PCIE_MULTIBUF_PKT_COUNT	4
+#define MPPA_PCIE_MULTIBUF_SIZE		(MPPA_PCIE_MULTIBUF_PKT_COUNT * MPPA_PCIE_MULTIBUF_PKT_SIZE)
+
+
+#define MPPA_PCIE_MULTIBUF_COUNT	64
+
+/**
+ * Maximum count of usable interface
+ */
+#define MPPA_PCIE_USABLE_DNOC_IF	4
+#define MPPA_PCIE_RM_COUNT		4
+
+#define RX_RM_START		1
+#define RX_RM_COUNT		2
+#define RX_RM_STACK_SIZE	(0x2000 / (sizeof(uint64_t)))
+
+static void *g_pkt_base_addr = (void *) DDR_BUFFER_BASE_ADDR;
 
 struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
+
+buffer_ring_t g_buf_pool;
+
+/**
+ * Stacks for RX_RM
+ */
+struct rm_rx_ctx {
+	uint64_t stack[RX_RM_STACK_SIZE];
+	volatile uint32_t ready;
+};
+
+static struct rm_rx_ctx g_rm_ctx[MPPA_PCIE_RM_COUNT];
+
+static void
+mppa_pcie_rx_rm_func()
+{
+	g_rm_ctx[__k1_get_cpu_id()].ready = 1;
+	while(1) {
+		
+	};
+}
+
+void
+mppa_pcie_noc_start_rx_rm()
+{
+	unsigned int rm_num;
+	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
+
+		/* Init with scratchpad size */
+		_K1_PE_STACK_ADDRESS[rm_num] = &g_rm_ctx[rm_num].stack[RX_RM_STACK_SIZE - 16];
+		_K1_PE_START_ADDRESS[rm_num] = &mppa_pcie_rx_rm_func;
+		_K1_PE_ARGS_ADDRESS[rm_num] = 0;
+
+		__builtin_k1_dinval();
+		__builtin_k1_wpurge();
+		__builtin_k1_fence();
+
+		printf("Powering RM %d\n", rm_num);
+		__k1_poweron(rm_num);
+	}
+
+	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
+		while(!g_rm_ctx[rm_num].ready);
+		printf("RM %d ready\n", rm_num);
+	}
+}
+
+
+int mppa_pcie_noc_init_buff_pool()
+{
+	mppa_pcie_noc_rx_buf_t **buf_pool;
+	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT];
+	int i;
+	uint32_t buf_left;
+
+	buf_pool = calloc(MPPA_PCIE_MULTIBUF_COUNT, sizeof(mppa_pcie_noc_rx_buf_t *));
+	if (!buf_pool) {
+		printf("Failed to alloc pool descriptor\n");
+		return 1;
+	}
+
+	buffer_ring_init(&g_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+
+	for (i = 0; i < MPPA_PCIE_MULTIBUF_COUNT; i++) {
+		bufs[i] = (mppa_pcie_noc_rx_buf_t *) g_pkt_base_addr;
+		g_pkt_base_addr += sizeof(mppa_pcie_noc_rx_buf_t);
+		
+		bufs[i]->buf_addr = (void *) g_pkt_base_addr;
+		g_pkt_base_addr += MPPA_PCIE_MULTIBUF_SIZE;
+	}
+
+	buffer_ring_push_multi(&g_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &buf_left);
+	printf("Allocation done\n");
+	return 0;
+}
 
 int mppa_pcie_eth_noc_init()
 {
@@ -20,6 +122,10 @@ int mppa_pcie_eth_noc_init()
 
 	for(i = 0; i < BSP_NB_DMA_IO_MAX; i++)
 		mppa_noc_interrupt_line_disable(i, MPPA_NOC_INTERRUPT_LINE_DNOC_TX);
+
+	//~ mppa_pcie_noc_init_buff_pool();
+
+	//~ mppa_pcie_noc_start_rx_rm();
 
 	return 0;
 }
@@ -70,7 +176,7 @@ static int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 		return 1;
 	}
 
-	conf.buffer_base = g_pkt_base_addr;
+	conf.buffer_base = DDR_BASE_ADDR;
 	conf.buffer_size = buf_size;
 	g_pkt_base_addr += buf_size;
 
@@ -89,7 +195,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	odp_rpc_cmd_pcie_open_t open_cmd = {.inl_data = msg->inl_data};
 	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
 	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
-	int if_id = remoteClus % 4;
+	int if_id = remoteClus % MPPA_PCIE_USABLE_DNOC_IF;
 	unsigned int tx_id, rx_id;
 
 	printf("Received request to open PCIe\n");
@@ -143,7 +249,7 @@ static int pcie_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payloa
 		ack = mppa_pcie_eth_open(remoteClus, msg);
 		break;
 	case ODP_RPC_CMD_PCIE_CLOS:
-		/* FIXME */
+		ack = mppa_pcie_eth_close(remoteClus, msg);
 		break;
 	default:
 		return -1;

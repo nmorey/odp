@@ -33,7 +33,7 @@
 #define MPPA_PCIE_ETH_SET_ENTRY_FLAGS(__entry, __val) MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, flags, __val)
 #define MPPA_PCIE_ETH_SET_ENTRY_ADDR(__entry, __val) MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, pkt_addr, __val)
 
-__attribute__((section(".g_pcie_eth_control"))) struct mppa_pcie_eth_control g_pcie_eth_control = {
+struct mppa_pcie_eth_control g_pcie_eth_control = {
 	.magic = 0xDEADBEEF,
 };
 
@@ -117,8 +117,9 @@ int mppa_pcie_eth_init(int if_count)
 
 	/* Ensure coherency */
 	__k1_mb();
-
 	__builtin_k1_swu(&g_pcie_eth_control.magic, MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC);
+
+	mppa_pcie_write_doorbell_user_reg(2, (uint32_t) &g_pcie_eth_control);
 
 	/* Cross fingers for everything to be setup correctly ! */
 	mppa_pcie_send_it_to_host();
@@ -128,14 +129,14 @@ int mppa_pcie_eth_init(int if_count)
 
 int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size)
 {
-	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if);
+	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if), next_rx_tail;
 	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
 	struct mppa_pcie_eth_rx_ring_buff_entry *entry, *entries;
 	uint64_t daddr = (uintptr_t) addr;
 
 	/* Check if there is room to send a packet to host */
-	rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
-	if (rx_tail == rx_head)
+	next_rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
+	if (next_rx_tail == rx_head)
 		return -1;
 
 	//printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
@@ -145,7 +146,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 
-	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, rx_tail);
+	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, next_rx_tail);
 	mppa_pcie_send_it_to_host();
 
 	return 0;
