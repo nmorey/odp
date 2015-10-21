@@ -36,8 +36,6 @@ static void *odp_run_start_routine(void *arg)
 	int ret = odp_term_local();
 	if (ret < 0)
 		ODPH_ERR("Local term failed\n");
-	else if (ret == 0 && odp_term_global())
-		ODPH_ERR("Global term failed\n");
 
 	return ret_ptr;
 }
