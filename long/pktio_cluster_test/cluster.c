@@ -201,23 +201,29 @@ static int pktio_suite_term(void)
 	return ret;
 }
 
-static CU_TestInfo pktio_suite[] = {
-	{"pktio open",		pktio_test_open},
-	{"pktio lookup",	pktio_test_lookup},
-	{"pktio mac",		pktio_test_mac},
-	{"pktio mtu",		pktio_test_mtu},
-	CU_TEST_INFO_NULL
+static odp_testinfo_t pktio_suite[] = {
+	ODP_TEST_INFO(pktio_test_open),
+	ODP_TEST_INFO(pktio_test_lookup),
+	ODP_TEST_INFO(pktio_test_mac),
+	ODP_TEST_INFO(pktio_test_mtu),
+	ODP_TEST_INFO_NULL
 };
 
-static CU_SuiteInfo pktio_suites[] = {
+static odp_suiteinfo_t pktio_suites[] = {
 	{"Packet I/O",
-		pktio_suite_init, pktio_suite_term, NULL, NULL, pktio_suite},
-	CU_SUITE_INFO_NULL
+		pktio_suite_init, pktio_suite_term, pktio_suite},
+	ODP_SUITE_INFO_NULL
 };
 
 int main(int argc, char **argv)
 {
+	int ret;
 	(void) argc;
 	(void) argv;
-	return odp_cunit_run(pktio_suites);
+
+	ret = odp_cunit_register(pktio_suites);
+	if (!ret)
+		ret = odp_cunit_run();
+
+	return ret;
 }
