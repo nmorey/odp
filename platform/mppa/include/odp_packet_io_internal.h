@@ -29,9 +29,7 @@ extern "C" {
 #include <odp/config.h>
 #include <odp/hints.h>
 
-#ifndef IF_NAMESIZE
-#define IF_NAMESIZE 256
-#endif
+#define PKTIO_NAME_LEN 256
 
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
@@ -127,7 +125,7 @@ struct pktio_entry {
 	odp_queue_t inq_default;	/**< default input queue, if set */
 	odp_queue_t outq_default;	/**< default out queue */
 	classifier_t cls;		/**< classifier linked with this pktio*/
-	char name[IF_NAMESIZE];	        /**< name of pktio provided to
+	char name[PKTIO_NAME_LEN];      /**< name of pktio provided to
 					     pktio_open() */
 
 
