@@ -122,6 +122,5 @@ int main(int argc, char **argv)
 	//~ test_assert_ret(odp_term_local() == 0);
 	//~ test_assert_ret(odp_term_global() == 0);
 
-	mppa_power_base_exit(0);
 	return 0;
 }
