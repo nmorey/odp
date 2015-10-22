@@ -133,7 +133,7 @@ k1b-kalray-iounified_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 iounified_CONFIGS += k1b-kalray-iounified
 
 k1b-kalray-iounified-nopcie_CC          := k1-gcc
-k1b-kalray-iounified-nopcie_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioddr -mos=bare
+k1b-kalray-iounified-nopcie_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioddr -mos=bare -DKONIC
 k1b-kalray-iounified-nopcie_LDFLAGS     :=
 k1b-kalray-iounified-nopcie_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 _iounified-nopcie_CONFIGS += k1b-kalray-iounified-nopcie

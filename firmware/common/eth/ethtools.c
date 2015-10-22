@@ -135,6 +135,9 @@ int ethtool_init_lane(unsigned eth_if, int loopback)
 	switch (status[eth_if].initialized) {
 	case ETH_LANE_OFF:
 		if (loopback) {
+#ifdef VERBOSE
+			printf("[ETH] Initializing lane %d in loopback\n", eth_if);
+#endif
 			mppabeth_mac_enable_loopback_bypass((void *)&(mppa_ethernet[0]->mac));
 			for (int i = 0; i < N_ETH_LANE; ++i)
 				status[eth_if].initialized = ETH_LANE_LOOPBACK;
