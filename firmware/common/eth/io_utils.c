@@ -14,12 +14,16 @@ static struct {
 
 static enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
 {
+	(void)lane_id;
 	switch (__bsp_flavour) {
 	case BSP_ETH_530:
 	case BSP_EXPLORER:
 		return MPPA_ETH_MAC_ETHMODE_1G;
 		break;
 	case BSP_DEVELOPER:
+#ifdef KONIC
+		return MPPA_ETH_MAC_ETHMODE_40G;
+#else
 		if (__k1_get_cluster_id() >= 192) {
 			/* IO(DDR|ETH)1 */
 			if(lane_id == 0 || lane_id == 1)
@@ -30,6 +34,7 @@ static enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
 			/* IO(DDR|ETH)0 => EXB03 */
 			return MPPA_ETH_MAC_ETHMODE_40G;
 		}
+#endif
 		break;
 	default:
 		return -1;
