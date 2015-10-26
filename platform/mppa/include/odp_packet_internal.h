@@ -35,7 +35,8 @@ typedef union {
 	uint32_t all;
 
 	struct {
-		uint32_t unparsed:1;  /**< Set to inticate parse needed */
+		uint32_t parsed_l2:1; /**< L2 parsed */
+		uint32_t parsed_all:1;/**< Parsing complete */
 
 		uint32_t l2:1;        /**< known L2 protocol present */
 		uint32_t l3:1;        /**< known L3 protocol present */
@@ -113,10 +114,16 @@ typedef struct {
 	output_flags_t output_flags;
 
 	uint16_t l2_offset; /**< offset to L2 hdr, e.g. Eth */
+	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
+	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
+
 	uint16_t l3_offset; /**< offset to L3 hdr, e.g. IPv4, IPv6 */
+	uint16_t l3_protocol;    /**< Parsed L3 protocol */
+
 	uint16_t l4_offset; /**< offset to L4 hdr (TCP, UDP, SCTP, also ICMP) */
-	uint16_t payload_offset; /**< offset to payload */
 	uint16_t l4_protocol;    /**< Parsed L4 protocol */
+
+	uint16_t payload_offset; /**< offset to payload */
 
 	uint16_t frame_len;
 	uint16_t headroom;
@@ -124,18 +131,17 @@ typedef struct {
 
 	odp_pktio_t input;
 
+	uint32_t has_hash:1;      /**< Flow hash present */
+	uint32_t flow_hash;      /**< Flow hash value */
+
 	odp_crypto_generic_op_result_t op_result;  /**< Result for crypto */
 } odp_packet_hdr_t;
 
 typedef struct {
 	uint8_t *parseptr;
 	uint32_t offset;
-	uint16_t vlan_s_tag;     /**< Parsed 1st VLAN header (S-TAG) */
-	uint16_t vlan_c_tag;     /**< Parsed 2nd VLAN header (C-TAG) */
 
-	uint16_t l3_protocol;    /**< Parsed L3 protocol */
 	uint16_t l3_len;
-
 	uint16_t l4_len;
 
 } odp_packet_parsing_ctx_t;
@@ -150,42 +156,6 @@ typedef struct odp_packet_hdr_stride {
 static inline odp_packet_hdr_t *odp_packet_hdr(odp_packet_t pkt)
 {
 	return (odp_packet_hdr_t *)odp_buf_to_hdr((odp_buffer_t)pkt);
-}
-
-/**
- * Initialize packet buffer
- */
-static inline void packet_init(pool_entry_t *pool,
-			       odp_packet_hdr_t *pkt_hdr,
-			       size_t size)
-{
-       /*
-	* Reset parser metadata.  Note that we clear via memset to make
-	* this routine indepenent of any additional adds to packet metadata.
-	*/
-	const size_t start_offset = ODP_FIELD_SIZEOF(odp_packet_hdr_t, buf_hdr);
-	uint8_t *start;
-	size_t len;
-
-	start = (uint8_t *)pkt_hdr + start_offset;
-	len = sizeof(odp_packet_hdr_t) - start_offset;
-	memset(start, 0, len);
-
-	/* Set metadata items that initialize to non-zero values */
-	pkt_hdr->l2_offset = ODP_PACKET_OFFSET_INVALID;
-	pkt_hdr->l3_offset = ODP_PACKET_OFFSET_INVALID;
-	pkt_hdr->l4_offset = ODP_PACKET_OFFSET_INVALID;
-	pkt_hdr->payload_offset = ODP_PACKET_OFFSET_INVALID;
-
-       /*
-	* Packet headroom is set from the pool's headroom
-	* Packet tailroom is rounded up to fill the last
-	* segment occupied by the allocated length.
-	*/
-	pkt_hdr->frame_len = size;
-	pkt_hdr->headroom  = pool->s.headroom;
-	pkt_hdr->tailroom  = pool->s.seg_size -
-		(pool->s.headroom + size);
 }
 
 static inline void copy_packet_parser_metadata(odp_packet_hdr_t *src_hdr,
@@ -243,13 +213,14 @@ static inline void packet_set_len(odp_packet_t pkt, uint32_t len)
 	odp_packet_hdr(pkt)->frame_len = len;
 }
 
-#define ODP_PACKET_UNPARSED ~0
-
-static inline void _odp_packet_reset_parse(odp_packet_t pkt)
+static inline int packet_parse_l2_not_done(odp_packet_hdr_t *pkt_hdr)
 {
-	odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+	return !pkt_hdr->input_flags.parsed_l2;
+}
 
-	pkt_hdr->input_flags.all = ODP_PACKET_UNPARSED;
+static inline int packet_parse_not_complete(odp_packet_hdr_t *pkt_hdr)
+{
+	return !pkt_hdr->input_flags.parsed_all;
 }
 
 static inline void _odp_free_packets(odp_packet_t pkt_tbl[], unsigned len)
@@ -280,7 +251,17 @@ void _odp_packet_copy_md_to_packet(odp_packet_t srcpkt, odp_packet_t dstpkt);
 
 odp_packet_t _odp_packet_alloc(odp_pool_t pool_hdl);
 
-int _odp_packet_parse(odp_packet_hdr_t *pkt_hdr);
+void packet_init(pool_entry_t *pool, odp_packet_hdr_t *pkt_hdr,
+		 size_t size, int parse);
+
+/* Fill in parser metadata for L2 */
+void packet_parse_l2(odp_packet_hdr_t *pkt_hdr);
+
+/* Perform full packet parse */
+int packet_parse_full(odp_packet_hdr_t *pkt_hdr);
+
+/* Reset parser metadata for a new parse */
+void packet_parse_reset(odp_packet_t pkt);
 
 #ifdef __cplusplus
 }

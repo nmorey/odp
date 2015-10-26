@@ -57,7 +57,7 @@ static int loopback_recv(pktio_entry_t *pktio_entry, odp_packet_t pkts[],
 	nbr = queue_deq_multi(qentry, (odp_buffer_hdr_t**)pkts, len);
 
 	for (i = 0; i < nbr; ++i)
-		_odp_packet_reset_parse(pkts[i]);
+		packet_parse_reset(pkts[i]);
 
 	return nbr;
 }

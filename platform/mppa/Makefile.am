@@ -122,6 +122,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_classification_datamodel.h \
 		  $(srcdir)/include/odp_classification_inlines.h \
 		  $(srcdir)/include/odp_classification_internal.h \
+		  $(srcdir)/include/odp_config_internal.h \
 		  $(srcdir)/include/odp_crypto_internal.h \
 		  $(srcdir)/include/odp_debug_internal.h \
 		  $(srcdir)/include/odp_forward_typedefs_internal.h \
@@ -147,7 +148,9 @@ __LIB__libodp_la_SOURCES = \
 			   odp_buffer.c \
 			   odp_buffer_ring.c \
 			   ../linux-generic/odp_classification.c \
+			   odp_cpu.c \
 			   odp_cpumask.c \
+			   odp_cpumask_task.c \
 			   ../linux-generic/odp_errno.c \
 			   odp_event.c \
 			   odp_init.c \
@@ -180,7 +183,6 @@ __LIB__libodp_la_SOURCES = \
 			   os/@OS@/timer.c \
 			   ../linux-generic/odp_version.c \
 			   ../linux-generic/odp_weak.c \
-			   odp_time.c \
 			   ucode_fw/ucode_eth.c \
 			   ucode_fw/ucode_pcie.c \
 			   ucode_fw/odp_ucode_linear.c

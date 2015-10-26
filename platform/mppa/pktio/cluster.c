@@ -360,7 +360,7 @@ static int cluster_receive_single_packet(pkt_cluster_t *pktio_clus,
 
 	/* Parse and set packet header data */
 	odp_packet_pull_tail(*pkt, pktio_clus->max_frame_len - recv_bytes);
-	_odp_packet_reset_parse(*pkt);
+	packet_parse_reset(*pkt);
 
 	pktio_clus->recv_pkt_count++;
 

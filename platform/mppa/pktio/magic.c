@@ -101,7 +101,7 @@ static int magic_recv(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[]
 
 		/* Parse and set packet header data */
 		odp_packet_pull_tail(pkt, pktio_entry->s.pkt_magic.max_frame_len - recv_bytes);
-		_odp_packet_reset_parse(pkt);
+		packet_parse_reset(pkt);
 
 		pkt_table[nb_rx] = pkt;
 		pkt = ODP_PACKET_INVALID;

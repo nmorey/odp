@@ -115,7 +115,7 @@ uint32_t queue_to_id(odp_queue_t handle)
 }
 int odp_queue_init_global(void)
 {
-	uint32_t i;
+	uint32_t i, j;
 
 	ODP_DBG("Queue init ... ");
 
@@ -125,8 +125,10 @@ int odp_queue_init_global(void)
 		/* init locks */
 		queue_entry_t *queue = &queue_tbl.queue[i];
 		LOCK_INIT(queue);
-		odp_atomic_init_u64(&queue->s.sync_in, 0);
-		odp_atomic_init_u64(&queue->s.sync_out, 0);
+		for (j = 0; j < ODP_CONFIG_MAX_ORDERED_LOCKS_PER_QUEUE; j++) {
+			odp_atomic_init_u64(&queue->s.sync_in[j], 0);
+			odp_atomic_init_u64(&queue->s.sync_out[j], 0);
+		}
 	}
 
 	ODP_DBG("done\n");
@@ -196,6 +198,13 @@ odp_schedule_group_t odp_queue_sched_group(odp_queue_t handle)
 	return queue->s.param.sched.group;
 }
 
+int odp_queue_lock_count(odp_queue_t handle)
+{
+	queue_entry_t *queue = queue_to_qentry(handle);
+
+	return queue->s.param.sched.sync == ODP_SCHED_SYNC_ORDERED ?
+		(int)queue->s.param.sched.lock_count : -1;
+}
 odp_queue_t odp_queue_create(const char *name, odp_queue_type_t type,
 			     odp_queue_param_t *param)
 {
@@ -594,6 +603,7 @@ int queue_enq_internal(odp_buffer_hdr_t *buf_hdr)
 odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 {
 	odp_buffer_hdr_t *buf_hdr;
+	uint32_t i;
 
 	if (LOAD_PTR(queue->s.head) == NULL)
 		return NULL;
@@ -618,7 +628,10 @@ odp_buffer_hdr_t *queue_deq(queue_entry_t *queue)
 	if (queue_is_ordered(queue)) {
 		buf_hdr->origin_qe = queue;
 		buf_hdr->order = queue->s.order_in++;
-		buf_hdr->sync  = odp_atomic_fetch_inc_u64(&queue->s.sync_in);
+		for (i = 0; i < queue->s.param.sched.lock_count; i++) {
+			buf_hdr->sync[i] =
+				odp_atomic_fetch_inc_u64(&queue->s.sync_in[i]);
+		}
 		buf_hdr->flags.sustain = 0;
 	} else {
 		buf_hdr->origin_qe = NULL;
@@ -641,6 +654,7 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 {
 	odp_buffer_hdr_t *hdr;
 	int i;
+	uint32_t j;
 
 	LOCK(queue);
 	int status = LOAD_S32(queue->s.status);
@@ -670,8 +684,11 @@ int queue_deq_multi(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr[], int num)
 		if (queue_is_ordered(queue)) {
 			buf_hdr[i]->origin_qe = queue;
 			buf_hdr[i]->order     = queue->s.order_in++;
-			buf_hdr[i]->sync =
-				odp_atomic_fetch_inc_u64(&queue->s.sync_in);
+			for (j = 0; j < queue->s.param.sched.lock_count; j++) {
+				buf_hdr[i]->sync[j] =
+					odp_atomic_fetch_inc_u64
+					(&queue->s.sync_in[j]);
+			}
 			buf_hdr[i]->flags.sustain = 0;
 		} else {
 			buf_hdr[i]->origin_qe = NULL;
@@ -983,40 +1000,33 @@ int release_order(queue_entry_t *origin_qe, uint64_t order,
 	return 0;
 }
 
-/* This routine is a no-op in linux-generic */
-int odp_schedule_order_lock_init(odp_schedule_order_lock_t *lock ODP_UNUSED,
-				 odp_queue_t queue ODP_UNUSED)
-{
-	return 0;
-}
-
-void odp_schedule_order_lock(odp_schedule_order_lock_t *lock ODP_UNUSED)
+void odp_schedule_order_lock(unsigned lock_index)
 {
 	queue_entry_t *origin_qe;
 	uint64_t *sync;
 
-	get_sched_sync(&origin_qe, &sync);
-	if (!origin_qe)
+	get_sched_sync(&origin_qe, &sync, lock_index);
+	if (!origin_qe || lock_index >= origin_qe->s.param.sched.lock_count)
 		return;
 
 	/* Wait until we are in order. Note that sync_out will be incremented
 	 * both by unlocks as well as order resolution, so we're OK if only
 	 * some events in the ordered flow need to lock.
 	 */
-	while (*sync > odp_atomic_load_u64(&origin_qe->s.sync_out))
+	while (*sync > odp_atomic_load_u64(&origin_qe->s.sync_out[lock_index]))
 		odp_spin();
 }
 
-void odp_schedule_order_unlock(odp_schedule_order_lock_t *lock ODP_UNUSED)
+void odp_schedule_order_unlock(unsigned lock_index)
 {
 	queue_entry_t *origin_qe;
 	uint64_t *sync;
 
 	__k1_wmb();
-	get_sched_sync(&origin_qe, &sync);
-	if (!origin_qe)
+	get_sched_sync(&origin_qe, &sync, lock_index);
+	if (!origin_qe || lock_index >= origin_qe->s.param.sched.lock_count)
 		return;
 
 	/* Release the ordered lock */
-	odp_atomic_fetch_inc_u64(&origin_qe->s.sync_out);
+	odp_atomic_fetch_inc_u64(&origin_qe->s.sync_out[lock_index]);
 }

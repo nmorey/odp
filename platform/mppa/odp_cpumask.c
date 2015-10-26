@@ -11,12 +11,11 @@
 
 #include <odp/cpu.h>
 #include <odp/cpumask.h>
+#include <odp_config_internal.h>
 #include <odp_debug_internal.h>
 
 #include <stdlib.h>
 #include <string.h>
-
-#define CPU_SETSIZE ((int)(sizeof(uint32_t) * 8))
 
 void odp_cpumask_from_str(odp_cpumask_t *mask, const char *str_in)
 {
@@ -208,47 +207,3 @@ int odp_cpumask_next(const odp_cpumask_t *mask, int cpu)
 	return -1;
 }
 
-int odp_cpumask_def_worker(odp_cpumask_t *mask, int num_in)
-{
-	int i;
-	int first_cpu = 1;
-	int num = num_in;
-	int cpu_count;
-
-	cpu_count = odp_cpu_count();
-
-	/*
-	 * If no user supplied number or it's too large, then attempt
-	 * to use all CPUs
-	 */
-	if (0 == num)
-		num = cpu_count;
-	if (cpu_count < num)
-		num = cpu_count;
-
-	/*
-	 * Always force "first_cpu" to a valid CPU
-	 */
-	if (first_cpu > cpu_count)
-		first_cpu = cpu_count - 1;
-
-	/* Build the mask */
-	odp_cpumask_zero(mask);
-	for (i = 0; i < num; i++) {
-		int cpu;
-		/* Add one for the module as odp_cpu_count only
-		 * returned available CPU (ie [1..cpucount]) */
-		cpu = (first_cpu + i) % (cpu_count + 1);
-		odp_cpumask_set(mask, cpu);
-	}
-
-	return num;
-}
-
-int odp_cpumask_def_control(odp_cpumask_t *mask, int num ODP_UNUSED)
-{
-	odp_cpumask_zero(mask);
-	/* By default all control threads on CPU 0 */
-	odp_cpumask_set(mask, 0);
-	return 1;
-}

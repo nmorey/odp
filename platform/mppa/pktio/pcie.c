@@ -360,7 +360,7 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 			((uint8_t *)pkt_hdr->buf_hdr.addr) +
 			pkt_hdr->headroom;
 
-		_odp_packet_reset_parse(pkt);
+		packet_parse_reset(pkt);
 
 		uint32_t size;
 		uint8_t * const hdr_addr = base_addr -

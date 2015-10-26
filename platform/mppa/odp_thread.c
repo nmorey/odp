@@ -14,6 +14,7 @@
 #include <odp_internal.h>
 #include <odp/spinlock.h>
 #include <odp/config.h>
+#include <odp_config_internal.h>
 #include <odp_debug_internal.h>
 #include <odp/shared_memory.h>
 #include <odp/align.h>
@@ -205,6 +206,11 @@ int odp_thread_id(void)
 int odp_thread_count(void)
 {
 	return thread_globals->num;
+}
+
+int odp_thread_count_max(void)
+{
+	return _ODP_INTERNAL_MAX_THREADS;
 }
 
 odp_thread_type_t odp_thread_type(void)

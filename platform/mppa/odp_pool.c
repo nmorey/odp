@@ -447,10 +447,6 @@ int buffer_alloc(odp_pool_t pool_hdl, size_t size,
 
 		/* By default, buffers are not associated with an ordered queue */
 		buf[i]->origin_qe = NULL;
-
-		if (pool->s.params.type == ODP_POOL_PACKET) {
-			packet_init(pool, (odp_packet_hdr_t *)buf[i], size);
-		}
 	}
 	return count;
 }
@@ -581,7 +577,7 @@ void ret_buf(struct pool_entry_s *pool, odp_buffer_hdr_t *buffers[],
 		for (unsigned i = 0; i < n_buffers; ++i) {
 			packet_init((pool_entry_t *)pool,
 				    (odp_packet_hdr_t*)buffers[i],
-				    pool->params.pkt.len);
+				    pool->params.pkt.len, true);
 		}
 	}
 	__builtin_k1_wpurge();
