@@ -280,7 +280,7 @@ int classification_suite_init(void)
 	int ret;
 	odp_pktio_param_t pktio_param;
 
-	memset(&param, 0, sizeof(param));
+	odp_pool_param_init(&param);
 	param.pkt.seg_len = SHM_PKT_BUF_SIZE;
 	param.pkt.len     = SHM_PKT_BUF_SIZE;
 	param.pkt.num     = SHM_PKT_NUM_BUFS;
@@ -306,6 +306,7 @@ int classification_suite_init(void)
 			fprintf(stderr, "unable to destroy pool.\n");
 		return -1;
 	}
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio  = ODP_SCHED_PRIO_DEFAULT;
 	qparam.sched.sync  = ODP_SCHED_SYNC_ATOMIC;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -383,11 +384,13 @@ void configure_cls_pmr_chain(void)
 	char queuename[ODP_QUEUE_NAME_LEN];
 	uint32_t addr;
 	uint32_t mask;
+	odp_pmr_match_t match;
 
 	sprintf(cosname, "SrcCos");
 	cos_list[CLS_PMR_CHAIN_SRC] = odp_cos_create(cosname);
-	CU_ASSERT_FATAL(cos_list[CLS_PMR_CHAIN_SRC] != ODP_COS_INVALID)
+	CU_ASSERT_FATAL(cos_list[CLS_PMR_CHAIN_SRC] != ODP_COS_INVALID);
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio = ODP_SCHED_PRIO_NORMAL;
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -398,7 +401,7 @@ void configure_cls_pmr_chain(void)
 						     &qparam);
 
 	CU_ASSERT_FATAL(queue_list[CLS_PMR_CHAIN_SRC] != ODP_QUEUE_INVALID);
-	retval = odp_cos_set_queue(cos_list[CLS_PMR_CHAIN_SRC],
+	retval = odp_cos_queue_set(cos_list[CLS_PMR_CHAIN_SRC],
 				   queue_list[CLS_PMR_CHAIN_SRC]);
 	CU_ASSERT(retval == 0);
 
@@ -417,19 +420,25 @@ void configure_cls_pmr_chain(void)
 						     &qparam);
 	CU_ASSERT_FATAL(queue_list[CLS_PMR_CHAIN_DST] != ODP_QUEUE_INVALID);
 
-	retval = odp_cos_set_queue(cos_list[CLS_PMR_CHAIN_DST],
+	retval = odp_cos_queue_set(cos_list[CLS_PMR_CHAIN_DST],
 				   queue_list[CLS_PMR_CHAIN_DST]);
 	CU_ASSERT(retval == 0);
 
 	parse_ipv4_string(CLS_PMR_CHAIN_SADDR, &addr, &mask);
-	pmr_list[CLS_PMR_CHAIN_SRC] = odp_pmr_create(ODP_PMR_SIP_ADDR, &addr,
-						     &mask, sizeof(addr));
+	match.term = ODP_PMR_SIP_ADDR;
+	match.val = &addr;
+	match.mask = &mask;
+	match.val_sz = sizeof(addr);
+	pmr_list[CLS_PMR_CHAIN_SRC] = odp_pmr_create(&match);
 	CU_ASSERT_FATAL(pmr_list[CLS_PMR_CHAIN_SRC] != ODP_PMR_INVAL);
 
 	val = CLS_PMR_CHAIN_SPORT;
 	maskport = 0xffff;
-	pmr_list[CLS_PMR_CHAIN_DST] = odp_pmr_create(ODP_PMR_UDP_SPORT, &val,
-						     &maskport, sizeof(val));
+	match.term = ODP_PMR_UDP_SPORT;
+	match.val = &val;
+	match.mask = &maskport;
+	match.val_sz = sizeof(val);
+	pmr_list[CLS_PMR_CHAIN_DST] = odp_pmr_create(&match);
 	CU_ASSERT_FATAL(pmr_list[CLS_PMR_CHAIN_DST] != ODP_PMR_INVAL);
 
 	retval = odp_pktio_pmr_cos(pmr_list[CLS_PMR_CHAIN_SRC], pktio_loop,
@@ -496,6 +505,7 @@ void configure_pktio_default_cos(void)
 	cos_list[CLS_DEFAULT] = odp_cos_create(cosname);
 	CU_ASSERT_FATAL(cos_list[CLS_DEFAULT] != ODP_COS_INVALID);
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio = ODP_SCHED_PRIO_DEFAULT;
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -504,7 +514,7 @@ void configure_pktio_default_cos(void)
 					 ODP_QUEUE_TYPE_SCHED, &qparam);
 	CU_ASSERT_FATAL(queue_list[CLS_DEFAULT] != ODP_QUEUE_INVALID);
 
-	retval = odp_cos_set_queue(cos_list[CLS_DEFAULT],
+	retval = odp_cos_queue_set(cos_list[CLS_DEFAULT],
 				   queue_list[CLS_DEFAULT]);
 	CU_ASSERT(retval == 0);
 
@@ -537,6 +547,7 @@ void configure_pktio_error_cos(void)
 	char queuename[ODP_QUEUE_NAME_LEN];
 	char cosname[ODP_COS_NAME_LEN];
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio = ODP_SCHED_PRIO_LOWEST;
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -551,7 +562,7 @@ void configure_pktio_error_cos(void)
 	cos_list[CLS_ERROR] = odp_cos_create(cosname);
 	CU_ASSERT_FATAL(cos_list[CLS_ERROR] != ODP_COS_INVALID);
 
-	retval = odp_cos_set_queue(cos_list[CLS_ERROR], queue_list[CLS_ERROR]);
+	retval = odp_cos_queue_set(cos_list[CLS_ERROR], queue_list[CLS_ERROR]);
 	CU_ASSERT(retval == 0);
 
 	retval = odp_pktio_error_cos_set(pktio_loop, cos_list[CLS_ERROR]);
@@ -623,6 +634,7 @@ void configure_cos_with_l2_priority(void)
 	for (i = 0; i < CLS_L2_QOS_MAX; i++)
 		qos_tbl[i] = 0;
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
 	for (i = 0; i < num_qos; i++) {
@@ -638,7 +650,7 @@ void configure_cos_with_l2_priority(void)
 					      &qparam);
 		CU_ASSERT_FATAL(queue_tbl[i] != ODP_QUEUE_INVALID);
 		queue_list[CLS_L2_QOS_0 + i] = queue_tbl[i];
-		retval = odp_cos_set_queue(cos_tbl[i], queue_tbl[i]);
+		retval = odp_cos_queue_set(cos_tbl[i], queue_tbl[i]);
 		CU_ASSERT(retval == 0);
 		qos_tbl[i] = i;
 	}
@@ -676,20 +688,26 @@ void configure_pmr_cos(void)
 	uint16_t val;
 	uint16_t mask;
 	int retval;
-	val = CLS_PMR_SPORT;
-	mask = 0xffff;
+	odp_pmr_match_t match;
 	odp_queue_param_t qparam;
 	char cosname[ODP_COS_NAME_LEN];
 	char queuename[ODP_QUEUE_NAME_LEN];
 
-	pmr_list[CLS_PMR] = odp_pmr_create(ODP_PMR_UDP_SPORT, &val,
-					   &mask, sizeof(val));
+	val = CLS_PMR_SPORT;
+	mask = 0xffff;
+	match.term = ODP_PMR_UDP_SPORT;
+	match.val = &val;
+	match.mask = &mask;
+	match.val_sz = sizeof(val);
+
+	pmr_list[CLS_PMR] = odp_pmr_create(&match);
 	CU_ASSERT(pmr_list[CLS_PMR] != ODP_PMR_INVAL);
 
 	sprintf(cosname, "PMR_CoS");
 	cos_list[CLS_PMR] = odp_cos_create(cosname);
 	CU_ASSERT_FATAL(cos_list[CLS_PMR] != ODP_COS_INVALID);
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio = ODP_SCHED_PRIO_HIGHEST;
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -700,7 +718,7 @@ void configure_pmr_cos(void)
 					       &qparam);
 	CU_ASSERT_FATAL(queue_list[CLS_PMR] != ODP_QUEUE_INVALID);
 
-	retval = odp_cos_set_queue(cos_list[CLS_PMR],
+	retval = odp_cos_queue_set(cos_list[CLS_PMR],
 				   queue_list[CLS_PMR]);
 	CU_ASSERT(retval == 0);
 
@@ -759,8 +777,9 @@ void configure_pktio_pmr_match_set_cos(void)
 
 	sprintf(cosname, "cos_pmr_set");
 	cos_list[CLS_PMR_SET] = odp_cos_create(cosname);
-	CU_ASSERT_FATAL(cos_list[CLS_PMR_SET] != ODP_COS_INVALID)
+	CU_ASSERT_FATAL(cos_list[CLS_PMR_SET] != ODP_COS_INVALID);
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio = ODP_SCHED_PRIO_HIGHEST;
 	qparam.sched.sync = ODP_SCHED_SYNC_NONE;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -771,7 +790,7 @@ void configure_pktio_pmr_match_set_cos(void)
 							 &qparam);
 	CU_ASSERT_FATAL(queue_list[CLS_PMR_SET] != ODP_QUEUE_INVALID);
 
-	retval = odp_cos_set_queue(cos_list[CLS_PMR_SET],
+	retval = odp_cos_queue_set(cos_list[CLS_PMR_SET],
 				   queue_list[CLS_PMR_SET]);
 	CU_ASSERT(retval == 0);
 

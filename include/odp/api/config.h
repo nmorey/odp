@@ -24,11 +24,6 @@ extern "C" {
  */
 
 /**
- * Maximum number of threads
- */
-#define ODP_CONFIG_MAX_THREADS  128
-
-/**
  * Maximum number of pools
  */
 #define ODP_CONFIG_POOLS        16
@@ -37,6 +32,11 @@ extern "C" {
  * Maximum number of queues
  */
 #define ODP_CONFIG_QUEUES       1024
+
+/**
+ * Maximum number of ordered locks per queue
+ */
+#define ODP_CONFIG_MAX_ORDERED_LOCKS_PER_QUEUE  2
 
 /**
  * Number of scheduling priorities

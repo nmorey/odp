@@ -118,7 +118,7 @@ static odp_pktio_t create_pktio(const char *dev, odp_pool_t pool, int mode)
 	int ret;
 	odp_pktio_param_t pktio_param;
 
-	memset(&pktio_param, 0, sizeof(pktio_param));
+	odp_pktio_param_init(&pktio_param);
 
 	switch (mode) {
 	case  APPL_MODE_PKT_BURST:
@@ -389,7 +389,7 @@ int main(int argc, char *argv[])
 		num_workers = args->appl.cpu_count;
 
 	/* Get default worker cpumask */
-	num_workers = odp_cpumask_def_worker(&cpumask, num_workers);
+	num_workers = odp_cpumask_default_worker(&cpumask, num_workers);
 	(void)odp_cpumask_to_str(&cpumask, cpumaskstr, sizeof(cpumaskstr));
 
 	printf("num worker threads: %i\n", num_workers);
