@@ -223,23 +223,9 @@ static inline int packet_parse_not_complete(odp_packet_hdr_t *pkt_hdr)
 	return !pkt_hdr->input_flags.parsed_all;
 }
 
-static inline void _odp_free_packets(odp_packet_t pkt_tbl[], unsigned len)
+static inline void packet_free_multi(odp_packet_t pkt_tbl[], unsigned len)
 {
-	unsigned first = 0;
-	while (first < len) {
-		odp_pool_t base_pool =
-			((odp_packet_hdr_t*)pkt_tbl[first])->buf_hdr.pool_hdl;
-		unsigned cur = first +1;
-		while(cur < len &&
-		      ((odp_packet_hdr_t*)pkt_tbl[cur])->buf_hdr.pool_hdl ==
-		      base_pool) {
-			cur++;
-		}
-		ret_buf(&((pool_entry_t *)base_pool)->s,
-			(odp_buffer_hdr_t **)&pkt_tbl[first],
-			cur - first);
-		first = cur;
-	}
+	buffer_free_multi((odp_buffer_t *)pkt_tbl, len);
 }
 
 /* Forward declarations */

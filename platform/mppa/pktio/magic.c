@@ -137,8 +137,7 @@ static int magic_send(pktio_entry_t *const pktio_entry, odp_packet_t pkt_table[]
 	}			/* end while */
 	nb_tx = i;
 
-	for (i = 0; i < len; i++)
-		odp_packet_free(pkt_table[i]);
+	packet_free_multi(pkt_table, len);
 
 	return nb_tx;
 }

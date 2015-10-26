@@ -40,7 +40,7 @@ static int drop_send_pkt(pktio_entry_t *pktio_entry ODP_UNUSED,
 			 odp_packet_t pkt_tbl[] ODP_UNUSED,
 			 unsigned len)
 {
-	_odp_free_packets(pkt_tbl, len);
+	packet_free_multi(pkt_tbl, len);
 	return len;
 }
 

@@ -387,9 +387,8 @@ static void *_rx_thread_start(void *arg)
 			if (!rx_hdl.th[th_id].pools[i].n_spares)
 				continue;
 			/* Free all the spares pre allocated */
-			ret_buf(&pool_tbl.pool[i].s,
-				(odp_buffer_hdr_t **)rx_hdl.th[th_id].pools[i].spares,
-				rx_hdl.th[th_id].pools[i].n_spares);
+			packet_free_multi(rx_hdl.th[th_id].pools[i].spares,
+					  rx_hdl.th[th_id].pools[i].n_spares);
 			rx_hdl.th[th_id].pools[i].n_spares = 0;
 		}
 
@@ -601,7 +600,6 @@ int rx_thread_link_close(uint8_t pktio_id)
 		int n_ports = ifce->rx_config.max_port -
 			ifce->rx_config.min_port + 1;
 		const unsigned nrx_per_th = n_ports / N_RX_THR;
-		odp_pool_t pool = ifce->rx_config.pool;
 
 		for (int i = ifce->rx_config.min_port;
 		     i <= ifce->rx_config.max_port; ++i)
@@ -639,8 +637,7 @@ int rx_thread_link_close(uint8_t pktio_id)
 			while ((nbufs = odp_buffer_ring_get_multi(&ifce->ring,
 								  buffers, 10,
 								  NULL)) > 0) {
-				ret_buf(&((pool_entry_t *)pool)->s,
-					buffers, nbufs);
+				buffer_free_multi((odp_buffer_t*)buffers, nbufs);
 			}
 			free(ifce->ring.buf_ptrs);
 

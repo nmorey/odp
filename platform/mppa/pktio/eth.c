@@ -83,9 +83,8 @@ static inline uint64_t _eth_alloc_uc_slots(eth_uc_ctx_t *ctx,
 		if(pos > MAX_JOB_PER_UC){
 			eth_uc_job_ctx_t *job = &ctx->job_ctxs[pos % MAX_JOB_PER_UC];
 
-			for (unsigned j = 0; j < job->pkt_count; ++j) {
-				odp_packet_free(job->pkt_table[j]);
-			}
+			packet_free_multi(job->pkt_table,
+					  job->pkt_count);
 		}
 	}
 	return prepar_id;

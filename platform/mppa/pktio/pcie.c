@@ -418,8 +418,8 @@ pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_c
 				pcie_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
 				joined_job->is_running = 0;
 				/* Free previous packets */
-				ret_buf(&((pool_entry_t *)pcie->pool)->s,
-					(odp_buffer_hdr_t**)joined_job->pkt_table, joined_job->pkt_count);
+				packet_free_multi(joined_job->pkt_table,
+						  joined_job->pkt_count);
 			}
 			ctx->joined_jobs += ev_counter;
 		}
