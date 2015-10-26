@@ -471,6 +471,23 @@ void odp_buffer_free(odp_buffer_t buf)
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr, buf_hdr);
 }
 
+void buffer_free_multi(odp_buffer_t _buf_tbl[], int num)
+{
+	odp_buffer_hdr_t ** buf_tbl = (odp_buffer_hdr_t**)_buf_tbl;
+	int offset = 0;
+	while (offset < num) {
+		odp_pool_t pool = buf_tbl[offset]->pool_hdl;
+		int end;
+
+		for (end = offset + 1; end < num &&
+			     buf_tbl[end]->pool_hdl == pool; end++) {}
+
+		ret_buf(&((pool_entry_t *)pool)->s,
+			(odp_buffer_hdr_t **)&buf_tbl[offset], end - offset);
+		offset = end;
+	}
+}
+
 void _odp_flush_caches(void)
 {
 	int i;

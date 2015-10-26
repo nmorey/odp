@@ -111,7 +111,7 @@ typedef struct {
 /* Forward declarations */
 int buffer_alloc(odp_pool_t pool_hdl, size_t size,
 		 odp_buffer_hdr_t *buf[], int num);
-
+void buffer_free_multi(odp_buffer_t _buf_tbl[], int num);
 
 /*
  * Buffer type
