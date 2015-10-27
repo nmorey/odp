@@ -50,7 +50,6 @@ typedef struct eth_uc_ctx {
 	unsigned int dnoc_tx_id;
 	unsigned int dnoc_uc_id;
 
-	unsigned joined_jobs;
 	odp_atomic_u64_t prepar_head;
 	odp_atomic_u64_t commit_head;
 	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
