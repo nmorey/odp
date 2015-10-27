@@ -184,6 +184,7 @@ __LIB__libodp_la_SOURCES = \
 			   ../linux-generic/odp_version.c \
 			   ../linux-generic/odp_weak.c \
 			   ucode_fw/ucode_eth.c \
+			   ucode_fw/ucode_eth_v2.c \
 			   ucode_fw/ucode_pcie.c \
 			   ucode_fw/odp_ucode_linear.c
 

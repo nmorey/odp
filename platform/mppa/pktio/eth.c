@@ -20,7 +20,7 @@
 #include "odp_rpc_internal.h"
 #include "odp_rx_internal.h"
 #include "ucode_fw/ucode_eth.h"
-
+#include "ucode_fw/ucode_eth_v2.h"
 
 #define MAX_ETH_SLOTS 2
 #define MAX_ETH_PORTS 4
@@ -51,7 +51,9 @@ typedef struct eth_uc_ctx {
 	unsigned int dnoc_uc_id;
 
 	odp_atomic_u64_t head;
+#if MOS_UC_VERSION == 1
 	odp_atomic_u64_t commit_head;
+#endif
 	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } eth_uc_ctx_t;
 
@@ -81,6 +83,9 @@ static inline uint64_t _eth_alloc_uc_slots(eth_uc_ctx_t *ctx,
 	for (uint64_t pos = head; pos < head + count; pos++) {
 		if(pos > MAX_JOB_PER_UC){
 			eth_uc_job_ctx_t *job = &ctx->job_ctxs[pos % MAX_JOB_PER_UC];
+			INVALIDATE(job);
+			if (!job->pkt_count)
+				continue;
 
 			packet_free_multi(job->pkt_table,
 					  job->pkt_count);
@@ -93,15 +98,26 @@ static inline void _eth_uc_commit(eth_uc_ctx_t *ctx,
 				  uint64_t slot,
 				  unsigned int count)
 {
+#if MOS_UC_VERSION == 1
 	while (odp_atomic_load_u64(&ctx->commit_head) != slot)
 		odp_spin();
+#endif
 
 	__builtin_k1_wpurge();
 	__builtin_k1_fence ();
 
+#if MOS_UC_VERSION == 1
 	for (unsigned i = 0; i < count; ++i)
 		mOS_ucore_commit(ctx->dnoc_tx_id);
 	odp_atomic_fetch_add_u64(&ctx->commit_head, count);
+#else
+	for (unsigned i = 0, pos = slot % MAX_JOB_PER_UC; i < count;
+	     ++i, pos = (pos + 1) % MAX_JOB_PER_UC) {
+		mOS_uc_transaction_t * const trs =
+			&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][pos];
+		mOS_ucore_commit(ctx->dnoc_tx_id, trs);
+	}
+#endif
 }
 
 /**
@@ -117,12 +133,20 @@ static int eth_init_dnoc_tx(void)
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
+#if MOS_UC_VERSION == 1
 	uc_conf.program_start = (uintptr_t)ucode_eth;
+#else
+	uc_conf.program_start = (uintptr_t)ucode_eth_v2;
+#endif
 	uc_conf.buffer_base = (uintptr_t)&_data_start;
 	uc_conf.buffer_size = (uintptr_t)&_heap_end - (uintptr_t)&_data_start;
 
 	for (i = 0; i < NOC_UC_COUNT; i++) {
 
+		odp_atomic_init_u64(&g_eth_uc_ctx[i].head, 0);
+#if MOS_UC_VERSION == 1
+		odp_atomic_init_u64(&g_eth_uc_ctx[i].commit_head, 0);
+#endif
 		/* DNoC */
 		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
 						  &g_eth_uc_ctx[i].dnoc_tx_id,
@@ -147,6 +171,17 @@ static int eth_init_dnoc_tx(void)
 					    g_eth_uc_ctx[i].dnoc_tx_id, uc_conf);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
+
+#if MOS_UC_VERSION == 2
+		for (int j = 0; j < MOS_NB_UC_TRS; j++) {
+			mOS_uc_transaction_t  * trs =
+				& _scoreboard_start.SCB_UC.trs[g_eth_uc_ctx[i].dnoc_uc_id][j];
+			trs->notify._word = 0;
+			trs->desc.tx_set = 1 << g_eth_uc_ctx[i].dnoc_tx_id;
+			trs->desc.param_count = 8;
+			trs->desc.pointer_count = 4;
+		}
+#endif
 	}
 
 	return 0;
@@ -333,7 +368,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->config._.write_user_en = 1;
 	eth->config._.decounter_id = 0;
 	eth->config._.decounted = 0;
-	eth->config._.payload_min = 1;
+	eth->config._.payload_min = 6;
 	eth->config._.payload_max = 32;
 	eth->config._.bw_current_credit = 0xff;
 	eth->config._.bw_max_credit     = 0xff;
@@ -370,22 +405,24 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	};
 
 	/* Free packets being sent by DMA */
-	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
 	eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
 	const uint64_t head = _eth_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
 
 	for (int slot_id = 0; slot_id < MAX_JOB_PER_UC; ++slot_id) {
 		eth_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
 		mOS_uc_transaction_t * const trs =
-			&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+			&_scoreboard_start.SCB_UC.trs[ctx->dnoc_uc_id][slot_id];
 		for (unsigned i = 0; i < MAX_PKT_PER_UC; ++i ){
 			trs->parameter.array[2 * i + 0] = 0;
 			trs->parameter.array[2 * i + 1] = 0;
 		}
 		trs->notify._word = 0;
 		trs->desc.tx_set = 0;
+#if MOS_UC_VERSION == 1
 		trs->desc.param_set = 0xff;
 		trs->desc.pointer_set = 0;
+#endif
 		job->pkt_count = 0;
 	}
 	_eth_uc_commit(ctx, head, MAX_JOB_PER_UC);
@@ -456,7 +493,7 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static inline int
 eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
 {
-	const unsigned int tx_index = eth->port_id % NOC_UC_COUNT;
+	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
 	eth_uc_ctx_t *ctx = &g_eth_uc_ctx[tx_index];
 
 	const uint64_t head = _eth_alloc_uc_slots(ctx, 1);
@@ -486,10 +523,12 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 
 	trs->path.array[ctx->dnoc_tx_id].header = eth->header;
 	trs->path.array[ctx->dnoc_tx_id].config = eth->config;
+#if MOS_UC_VERSION == 1
 	trs->notify._word = 0;
 	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
 	trs->desc.param_set = 0xff;
 	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
+#endif
 
 	job->pkt_count = pkt_count;
 

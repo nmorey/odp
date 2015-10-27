@@ -41,6 +41,7 @@ extern "C" {
 #else
 #define N_RX_THR 2
 #endif
+#define MOS_UC_VERSION 1
 
 /* Forward declaration */
 struct pktio_if_ops;
