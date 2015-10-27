@@ -455,7 +455,7 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 	/*
 	 * Compute event mask to detect events on our own tags later
 	 */
-	const unsigned nrx_per_th = n_ports / N_RX_THR;
+	const unsigned nrx_per_th = (n_ports + N_RX_THR - 1) / N_RX_THR;
 	uint64_t ev_masks[N_RX_THR][N_EV_MASKS];
 	int i;
 
@@ -473,7 +473,8 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 			int min_port = th_id * nrx_per_th + rx_config->min_port;
 			int max_port = (th_id + 1) * nrx_per_th +
 				rx_config->min_port - 1;
-
+			if (max_port > rx_config->max_port)
+				max_port = rx_config->max_port;
 			for (i = 0; i < 4; ++i) {
 				if (min_port >= (i + 1) * 64 || max_port < i * 64) {
 					ev_masks[th_id][i] = 0ULL;
