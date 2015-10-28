@@ -1020,7 +1020,7 @@ int release_order(queue_entry_t *origin_qe, uint64_t order,
 	return 0;
 }
 
-void odp_schedule_order_lock(uint32_t lock_index)
+void odp_schedule_order_lock(unsigned lock_index)
 {
 	queue_entry_t *origin_qe;
 	uint64_t *sync;
@@ -1037,7 +1037,7 @@ void odp_schedule_order_lock(uint32_t lock_index)
 		odp_spin();
 }
 
-void odp_schedule_order_unlock(uint32_t lock_index)
+void odp_schedule_order_unlock(unsigned lock_index)
 {
 	queue_entry_t *origin_qe;
 	uint64_t *sync;
