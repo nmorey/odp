@@ -36,11 +36,12 @@ typedef struct {
 typedef struct {
 	odp_buffer_hdr_t  *head;
 	odp_buffer_hdr_t **tail;
-	int count;
+	unsigned count;
 } rx_buffer_list_t;
 
 typedef struct {
 	rx_buffer_list_t hdr_list;
+	uint64_t recv_pkts;
 	uint64_t dropped_pkts;
 	uint64_t oom_pkts;
 } rx_ifce_th_t;
@@ -282,6 +283,7 @@ static int _reload_rx(int th_id, int rx_id)
 		if (odp_likely(pkt != ODP_PACKET_INVALID)) {
 			rx_buffer_list_t * hdr_list = &if_th->hdr_list;
 
+			if_th->recv_pkts++;
 			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 			hdr_list->count++;
@@ -321,6 +323,7 @@ static void _poll_masks(int th_id)
 		}
 
 		if ((iter & FLUSH_PERIOD) == FLUSH_PERIOD) {
+			int if_mask_incomplete = 0;
 			while (if_mask) {
 				i = __builtin_k1_ctz(if_mask);
 				if_mask ^= (1 << i);
@@ -331,19 +334,26 @@ static void _poll_masks(int th_id)
 				if (hdr_list->tail == &hdr_list->head)
 					continue;
 
-				odp_buffer_ring_push_list(&rx_hdl.ifce[i].ring,
-							  hdr_list->head,
-							  hdr_list->count);
-				odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
-					((uint8_t*)hdr_list->tail -
-					 ODP_OFFSETOF(odp_buffer_hdr_t, next));
-				tail->next = NULL;
+				hdr_list->head = odp_buffer_ring_push_list(&rx_hdl.ifce[i].ring,
+									   hdr_list->head,
+									   &hdr_list->count);
+				if (!hdr_list->count) {
+					/* All were flushed */
+					odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
+						((uint8_t*)hdr_list->tail -
+						 ODP_OFFSETOF(odp_buffer_hdr_t, next));
+					tail->next = NULL;
 
-				hdr_list->tail = &hdr_list->head;
-				hdr_list->count = 0;
+					hdr_list->tail = &hdr_list->head;
+					hdr_list->count = 0;
+					if_mask ^= (1 << i);
+				} else {
+					/* Not all buffers were flushed to the ring */
+					if_mask_incomplete = 1 << i;
+				}
 
 			}
-			if_mask = 0;
+			if_mask = if_mask_incomplete;
 		}
 
 	}
