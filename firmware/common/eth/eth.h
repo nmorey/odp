@@ -16,7 +16,6 @@
 
 odp_rpc_cmd_ack_t eth_open(unsigned remoteClus, odp_rpc_t * msg);
 odp_rpc_cmd_ack_t eth_close(unsigned remoteClus, odp_rpc_t * msg);
-void eth_send_pkts(void);
 
 int ethtool_setup_eth2clus(unsigned remoteClus, int eth_if,
 			   int nocIf, int externalAddress,
