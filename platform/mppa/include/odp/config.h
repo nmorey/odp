@@ -27,6 +27,9 @@ extern "C" {
 #undef ODP_CONFIG_MAX_THREADS
 #define ODP_CONFIG_MAX_THREADS  16
 
+#undef ODP_CONFIG_MAX_QUEUES
+#define ODP_CONFIG_MAX_QUEUES  128
+
 #undef ODP_CONFIG_POOLS
 #define ODP_CONFIG_POOLS        8
 
