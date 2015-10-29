@@ -25,7 +25,7 @@
 #define PKT_BURST_SZ (30)
 #define N_ITER_LOCKED 1000000 /* About once per sec */
 #define FLUSH_PERIOD 7 /* Must pe a (power of 2) - 1*/
-
+#define MIN_RING_SIZE (2 * PKT_BURST_SZ)
 typedef struct {
 	odp_packet_t pkt;
 	uint8_t broken;
@@ -515,12 +515,16 @@ int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 	}
 
 	/* Setup buffer ring */
-	void * addr = malloc(2 * n_rx * sizeof(odp_buffer_hdr_t*));
+	int ring_size = 2 * n_rx;
+	if (ring_size < MIN_RING_SIZE)
+		ring_size = MIN_RING_SIZE;
+	void * addr = malloc(ring_size * sizeof(odp_buffer_hdr_t*));
 	if (!addr) {
 		ODP_ERR("Failed to allocate Ring buffer");
 		return -1;
 	}
-	odp_buffer_ring_init(&ifce->ring, addr, 2 * n_rx);
+
+	odp_buffer_ring_init(&ifce->ring, addr, ring_size);
 	rx_config->ring = &ifce->ring;
 
 	/* Copy config to Thread data */
