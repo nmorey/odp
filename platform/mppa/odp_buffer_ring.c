@@ -110,14 +110,24 @@ void odp_buffer_ring_push_multi(odp_buffer_ring_t *ring,
 	}
 }
 
-void odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
-			       odp_buffer_hdr_t *buffers,
-				unsigned n_buffers)
+odp_buffer_hdr_t * odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
+					     odp_buffer_hdr_t *buffers,
+					     unsigned *nbufs)
 {
-	uint32_t prod_head, prod_next;
-
+	uint32_t prod_head, prod_next, cons_tail;
+	unsigned n_buffers = *nbufs;
 	do {
 		prod_head =  odp_atomic_load_u32(&ring->prod_head);
+		cons_tail = odp_atomic_load_u32(&ring->cons_tail);
+
+		if(prod_head < cons_tail && prod_head + n_buffers >= cons_tail) {
+			n_buffers = cons_tail - prod_head - 1;
+		} else if(prod_head > cons_tail && prod_head + n_buffers >= cons_tail + ring->buf_num) {
+			n_buffers = cons_tail + ring->buf_num - prod_head - 1;
+		}
+
+		if (!n_buffers)
+			return buffers;
 
 		prod_next = prod_head + n_buffers;
 		if(prod_next > ring->buf_num)
@@ -139,11 +149,12 @@ void odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
 		ring->buf_ptrs[idx] = buffers;
 	}
 
+	*nbufs = *nbufs - n_buffers;
 	__builtin_k1_wpurge();
 
 	while (odp_atomic_load_u32(&ring->prod_tail) != prod_head)
 		odp_spin();
 
 	odp_atomic_store_u32(&ring->prod_tail, prod_next);
-
+	return buffers;
 }
