@@ -512,6 +512,7 @@ void configure_dnoc_ethernet_lb(uint32_t ethernet_dnoc_interface,
 	header._.route = route_for_rx_packets;
 	header._.valid = 1;
 	header._.tag = min_tag_for_rx_packets;
+	header._.multicast = 0;
 	__k1_dnoc_configure_tx(dnoc_interface, tx_id_for_mac,
 			       first_dir_for_rx_packets, header.dword, 0);
 	mppa_dnoc[dnoc_interface]->tx_chan_route[tx_id_for_mac].min_max_task_id[context]._.

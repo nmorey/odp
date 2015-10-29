@@ -285,6 +285,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->config._.bw_fast_delay     = 0x00;
 	pcie->config._.bw_slow_delay     = 0x00;
 
+	pcie->header._.multicast = 0;
 	pcie->header._.tag = pcie->tx_tag;
 	pcie->header._.valid = 1;
 

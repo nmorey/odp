@@ -152,6 +152,7 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 		return 1;
 	}
 
+	header._.multicast = 0;
 	header._.tag = rx_id;
 	header._.valid = 1;
 

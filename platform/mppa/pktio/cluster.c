@@ -278,6 +278,7 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		pkt_cluster->config._.bw_fast_delay     = 0x00;
 		pkt_cluster->config._.bw_slow_delay     = 0x00;
 
+		pkt_cluster->header._.multicast = 0;
 		pkt_cluster->header._.tag = DNOC_CLUS_BASE_RX + __k1_get_cluster_id();
 		pkt_cluster->header._.valid = 1;
 

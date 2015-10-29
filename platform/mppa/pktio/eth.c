@@ -375,6 +375,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->config._.bw_fast_delay     = 0x00;
 	eth->config._.bw_slow_delay     = 0x00;
 
+	eth->header._.multicast = 0;
 	eth->header._.tag = eth->tx_tag;
 	eth->header._.valid = 1;
 

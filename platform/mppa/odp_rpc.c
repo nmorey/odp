@@ -173,6 +173,7 @@ int odp_rpc_send_msg(uint16_t local_interface, uint16_t dest_id,
 		return 1;
 
 	/* Get and configure route */
+	header._.multicast = 0;
 	header._.tag = dest_tag;
 	header._.valid = 1;
 

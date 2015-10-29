@@ -55,6 +55,7 @@ int ethtool_setup_eth2clus(unsigned remoteClus, int eth_if,
 
 	header._.tag = min_rx;
 	header._.valid = 1;
+	header._.multicast = 0;
 
 	ret = mppa_noc_dnoc_tx_configure(nocIf, nocTx, header, config);
 	if (ret != MPPA_NOC_RET_SUCCESS) {
