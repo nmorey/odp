@@ -16,12 +16,12 @@
 unsigned long long ucode_eth_v2[] __attribute__((aligned(128) )) = {
 0x0000000000022000ULL,  /* C_0: SEND_IT(); WAIT_TOKEN();*/
 0x0000001000600000ULL,  /* C_1: dcnt0=R[0];*/
-0x0000000000400012ULL,  /* C_2: if(dcnt0==0) goto C_4; dcnt0--;*/
-0x0000000803c0000fULL,  /* C_3: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt0!=0) goto C_3; dcnt0--;*/
-0x0000003000608000ULL,  /* C_4: FLUSH(chan_0); dcnt0=R[1];*/
-0x000000000040001eULL,  /* C_5: if(dcnt0==0) goto C_7; dcnt0--;*/
-0x000000080240001bULL,  /* C_6: READ1(ptr_0,chan_0); ptr_0+=1; if(dcnt0!=0) goto C_6; dcnt0--;*/
-0x0000000000004041ULL,  /* C_7: SEND_EOT(chan_0); goto C_16;*/
+0x0000003000680000ULL,  /* C_2: dcnt1=R[1];*/
+0x000000000008004aULL,  /* C_3: if(dcnt1==0) goto C_18;*/
+0x000000000040001eULL,  /* C_4: if(dcnt0==0) goto C_7; dcnt0--;*/
+0x0000000803c00017ULL,  /* C_5: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt0!=0) goto C_5; dcnt0--;*/
+0x0000000000008000ULL,  /* C_6: FLUSH(chan_0);*/
+0x0000000000480041ULL,  /* C_7: goto C_16; dcnt1--;*/
 0x0000000000001000ULL,  /* C_8: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_9: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_10: STOP(); ALIGN DROP ADDRESS */
@@ -30,14 +30,14 @@ unsigned long long ucode_eth_v2[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_13: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_14: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_15: STOP(); ALIGN DROP ADDRESS */
-0x0000005000600000ULL,  /* C_16: dcnt0=R[2];*/
-0x000000000040004eULL,  /* C_17: if(dcnt0==0) goto C_19; dcnt0--;*/
-0x0000000843c0004bULL,  /* C_18: READ8(ptr_1,chan_0); ptr_1+=8; if(dcnt0!=0) goto C_18; dcnt0--;*/
-0x0000007000608000ULL,  /* C_19: FLUSH(chan_0); dcnt0=R[3];*/
-0x000000000040005aULL,  /* C_20: if(dcnt0==0) goto C_22; dcnt0--;*/
-0x0000000842400057ULL,  /* C_21: READ1(ptr_1,chan_0); ptr_1+=1; if(dcnt0!=0) goto C_21; dcnt0--;*/
-0x0000000000004000ULL,  /* C_22: SEND_EOT(chan_0);*/
-0x0000009000600081ULL,  /* C_23: goto C_32; dcnt0=R[4];*/
+0x0000000802480043ULL,  /* C_16: READ1(ptr_0,chan_0); ptr_0+=1; if(dcnt1!=0) goto C_16; dcnt1--;*/
+0x0000000000004059ULL,  /* C_17: SEND_EOT(chan_0); goto C_22;*/
+0x000000000040005aULL,  /* C_18: if(dcnt0==0) goto C_22; dcnt0--;*/
+0x0000000000400000ULL,  /* C_19: dcnt0--;*/
+0x0000000803c00053ULL,  /* C_20: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt0!=0) goto C_20; dcnt0--;*/
+0x0000000803804000ULL,  /* C_21: SEND_EOT(chan_0); READ8(ptr_0,chan_0); ptr_0+=8;*/
+0x0000005000600000ULL,  /* C_22: dcnt0=R[2];*/
+0x0000007000680081ULL,  /* C_23: goto C_32; dcnt1=R[3];*/
 0x0000000000001000ULL,  /* C_24: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_25: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_26: STOP(); ALIGN DROP ADDRESS */
@@ -46,13 +46,13 @@ unsigned long long ucode_eth_v2[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_29: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_30: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_31: STOP(); ALIGN DROP ADDRESS */
-0x000000000040008aULL,  /* C_32: if(dcnt0==0) goto C_34; dcnt0--;*/
-0x0000000883c00087ULL,  /* C_33: READ8(ptr_2,chan_0); ptr_2+=8; if(dcnt0!=0) goto C_33; dcnt0--;*/
-0x000000b000608000ULL,  /* C_34: FLUSH(chan_0); dcnt0=R[5];*/
-0x0000000000400096ULL,  /* C_35: if(dcnt0==0) goto C_37; dcnt0--;*/
-0x0000000882400093ULL,  /* C_36: READ1(ptr_2,chan_0); ptr_2+=1; if(dcnt0!=0) goto C_36; dcnt0--;*/
-0x0000000000004000ULL,  /* C_37: SEND_EOT(chan_0);*/
-0x000000d0006000c1ULL,  /* C_38: goto C_48; dcnt0=R[6];*/
+0x00000000000800c2ULL,  /* C_32: if(dcnt1==0) goto C_48;*/
+0x0000000000400092ULL,  /* C_33: if(dcnt0==0) goto C_36; dcnt0--;*/
+0x0000000843c0008bULL,  /* C_34: READ8(ptr_1,chan_0); ptr_1+=8; if(dcnt0!=0) goto C_34; dcnt0--;*/
+0x0000000000008000ULL,  /* C_35: FLUSH(chan_0);*/
+0x0000000000480000ULL,  /* C_36: dcnt1--;*/
+0x0000000842480097ULL,  /* C_37: READ1(ptr_1,chan_0); ptr_1+=1; if(dcnt1!=0) goto C_37; dcnt1--;*/
+0x00000000000040d1ULL,  /* C_38: SEND_EOT(chan_0); goto C_52;*/
 0x00000000000000c1ULL,  /* C_39: goto C_48;*/
 0x0000000000001000ULL,  /* C_40: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_41: STOP(); ALIGN DROP ADDRESS */
@@ -62,10 +62,60 @@ unsigned long long ucode_eth_v2[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_45: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_46: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_47: STOP(); ALIGN DROP ADDRESS */
-0x00000000004000caULL,  /* C_48: if(dcnt0==0) goto C_50; dcnt0--;*/
-0x00000008c3c000c7ULL,  /* C_49: READ8(ptr_3,chan_0); ptr_3+=8; if(dcnt0!=0) goto C_49; dcnt0--;*/
-0x000000f000608000ULL,  /* C_50: FLUSH(chan_0); dcnt0=R[7];*/
-0x00000000004000d6ULL,  /* C_51: if(dcnt0==0) goto C_53; dcnt0--;*/
-0x00000008c24000d3ULL,  /* C_52: READ1(ptr_3,chan_0); ptr_3+=1; if(dcnt0!=0) goto C_52; dcnt0--;*/
-0x0000000000004001ULL}; /* C_53: SEND_EOT(chan_0); goto C_0;*/
+0x00000000004000d2ULL,  /* C_48: if(dcnt0==0) goto C_52; dcnt0--;*/
+0x0000000000400000ULL,  /* C_49: dcnt0--;*/
+0x0000000843c000cbULL,  /* C_50: READ8(ptr_1,chan_0); ptr_1+=8; if(dcnt0!=0) goto C_50; dcnt0--;*/
+0x0000000843804000ULL,  /* C_51: SEND_EOT(chan_0); READ8(ptr_1,chan_0); ptr_1+=8;*/
+0x0000009000600000ULL,  /* C_52: dcnt0=R[4];*/
+0x000000b000680000ULL,  /* C_53: dcnt1=R[5];*/
+0x000000000008011aULL,  /* C_54: if(dcnt1==0) goto C_70;*/
+0x0000000000000101ULL,  /* C_55: goto C_64;*/
+0x0000000000001000ULL,  /* C_56: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_57: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_58: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_59: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_60: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_61: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_62: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_63: STOP(); ALIGN DROP ADDRESS */
+0x000000000040010eULL,  /* C_64: if(dcnt0==0) goto C_67; dcnt0--;*/
+0x0000000883c00107ULL,  /* C_65: READ8(ptr_2,chan_0); ptr_2+=8; if(dcnt0!=0) goto C_65; dcnt0--;*/
+0x0000000000008000ULL,  /* C_66: FLUSH(chan_0);*/
+0x0000000000480000ULL,  /* C_67: dcnt1--;*/
+0x0000000882480113ULL,  /* C_68: READ1(ptr_2,chan_0); ptr_2+=1; if(dcnt1!=0) goto C_68; dcnt1--;*/
+0x0000000000004149ULL,  /* C_69: SEND_EOT(chan_0); goto C_82;*/
+0x000000000040014aULL,  /* C_70: if(dcnt0==0) goto C_82; dcnt0--;*/
+0x0000000000400141ULL,  /* C_71: goto C_80; dcnt0--;*/
+0x0000000000001000ULL,  /* C_72: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_73: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_74: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_75: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_76: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_77: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_78: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_79: STOP(); ALIGN DROP ADDRESS */
+0x0000000883c00143ULL,  /* C_80: READ8(ptr_2,chan_0); ptr_2+=8; if(dcnt0!=0) goto C_80; dcnt0--;*/
+0x0000000883804000ULL,  /* C_81: SEND_EOT(chan_0); READ8(ptr_2,chan_0); ptr_2+=8;*/
+0x000000d000600000ULL,  /* C_82: dcnt0=R[6];*/
+0x000000f000680000ULL,  /* C_83: dcnt1=R[7];*/
+0x000000000008018eULL,  /* C_84: if(dcnt1==0) goto C_99;*/
+0x0000000000400182ULL,  /* C_85: if(dcnt0==0) goto C_96; dcnt0--;*/
+0x00000008c3c0015bULL,  /* C_86: READ8(ptr_3,chan_0); ptr_3+=8; if(dcnt0!=0) goto C_86; dcnt0--;*/
+0x0000000000008181ULL,  /* C_87: FLUSH(chan_0); goto C_96;*/
+0x0000000000001000ULL,  /* C_88: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_89: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_90: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_91: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_92: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_93: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_94: STOP(); ALIGN DROP ADDRESS */
+0x0000000000001000ULL,  /* C_95: STOP(); ALIGN DROP ADDRESS */
+0x0000000000480000ULL,  /* C_96: dcnt1--;*/
+0x00000008c2480187ULL,  /* C_97: READ1(ptr_3,chan_0); ptr_3+=1; if(dcnt1!=0) goto C_97; dcnt1--;*/
+0x000000000000419dULL,  /* C_98: SEND_EOT(chan_0); goto C_103;*/
+0x000000000040019eULL,  /* C_99: if(dcnt0==0) goto C_103; dcnt0--;*/
+0x0000000000400000ULL,  /* C_100: dcnt0--;*/
+0x00000008c3c00197ULL,  /* C_101: READ8(ptr_3,chan_0); ptr_3+=8; if(dcnt0!=0) goto C_101; dcnt0--;*/
+0x00000008c3804000ULL,  /* C_102: SEND_EOT(chan_0); READ8(ptr_3,chan_0); ptr_3+=8;*/
+0x0000000000000001ULL}; /* C_103: goto C_0;*/
 

@@ -29,6 +29,8 @@ for {set i 0} {$i < 4} {incr i} {
 	set POINTER rd$i
 	set SIZE64 r[expr $i * 2]
 	set SIZE8 r[expr $i * 2 + 1]
-	source ucode_eth_main_v2.tcl
+	source ucode_eth_main.tcl
 }
 
+dma_goto high_speed_loop
+dma_write_bundle
