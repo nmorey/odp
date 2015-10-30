@@ -12,7 +12,7 @@ static struct {
 	enum mppa_eth_mac_ethernet_mode_e mode;
 } lane_status[MPPA_ETHERNET_FIFO_IF_LANE_NUMBER] = { { .configured = 0, .mode = 0} };
 
-static enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
+enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
 {
 	(void)lane_id;
 	switch (__bsp_flavour) {

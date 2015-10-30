@@ -94,6 +94,8 @@ int ethtool_setup_clus2eth(unsigned remoteClus, int eth_if, int nocIf)
 	int ret;
 	unsigned rx_port;
 
+	mppa_dnoc[nocIf]->rx_global.rx_ctrl._.alert_level = -1;
+	mppa_dnoc[nocIf]->rx_global.rx_ctrl._.payload_slice = 2;
 	ret = mppa_noc_dnoc_rx_alloc_auto(nocIf, &rx_port, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
 		fprintf(stderr, "[ETH] Error: Failed to find an available Rx on DMA %d\n", nocIf);
@@ -103,15 +105,22 @@ int ethtool_setup_clus2eth(unsigned remoteClus, int eth_if, int nocIf)
 	mppa_dnoc_queue_event_it_target_t it_targets = {
 		.reg = 0
 	};
+	int fifo_id = remoteClus;
+	if (mac_get_default_mode(eth_if) == MPPA_ETH_MAC_ETHMODE_40G) {
+		/* Jumbo frames */
+		fifo_id = (remoteClus % 4) * 4;
+		mppa_ethernet[0]->tx.fifo_if[nocIf].lane[eth_if].eth_fifo[fifo_id].eth_fifo_ctrl._.jumbo_mode = 1;
+	}
+	mppa_ethernet[0]->tx.fifo_if[nocIf].lane[eth_if].eth_fifo[fifo_id].eth_fifo_ctrl._.drop_en = 1;
 	mppa_noc_dnoc_rx_configuration_t conf = {
 		.buffer_base = (unsigned long)(void*)
-		&mppa_ethernet[0]->tx.fifo_if[0].lane[eth_if].eth_fifo[remoteClus].push_data,
+		&mppa_ethernet[0]->tx.fifo_if[nocIf].lane[eth_if].eth_fifo[fifo_id].push_data,
 		.buffer_size = 8,
 		.current_offset = 0,
 		.event_counter = 0,
 		.item_counter = 1,
 		.item_reload = 1,
-		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF,
+		.reload_mode = MPPA_NOC_RX_RELOAD_MODE_DECR_NOTIF_RELOAD,
 		.activation = MPPA_NOC_ACTIVATED | MPPA_NOC_FIFO_MODE,
 		.counter_id = 0,
 		.event_it_targets = &it_targets,
@@ -143,8 +152,7 @@ int ethtool_init_lane(unsigned eth_if, int loopback)
 			for (int i = 0; i < N_ETH_LANE; ++i)
 				status[eth_if].initialized = ETH_LANE_LOOPBACK;
 		} else {
-			ret = init_mac(eth_if, eth_if == 4 ?
-				       MPPABETHMAC_ETHMODE_40G : -1);
+			ret = init_mac(eth_if, -1);
 			if(ret) {
 				fprintf(stderr,
 					"[ETH] Error: Failed to initialize lane %d (%d)\n",

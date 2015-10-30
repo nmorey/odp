@@ -147,6 +147,7 @@ void configure_dnoc_ethernet_lb(uint32_t ethernet_dnoc_interface,
 								uint64_t min_tag_for_rx_packets, uint64_t max_tag_for_rx_packets);
 void configure_dnoc_ethernet_tx(uint32_t dnoc_interface,
 								uint32_t rx_tag_to_mac, uint32_t lane_id, uint32_t fifo_id);
+enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id);
 void dump_stat(mppa_ethernet_lane_stat_t * stat);
 void copy_stat(unsigned int lane_id, mppa_ethernet_lane_stat_t * out);
 int compare_stat(mppa_ethernet_lane_stat_t * a, mppa_ethernet_lane_stat_t * b);
