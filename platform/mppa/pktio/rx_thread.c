@@ -339,11 +339,6 @@ static void _poll_masks(int th_id)
 									   &hdr_list->count);
 				if (!hdr_list->count) {
 					/* All were flushed */
-					odp_buffer_hdr_t * tail = (odp_buffer_hdr_t*)
-						((uint8_t*)hdr_list->tail -
-						 ODP_OFFSETOF(odp_buffer_hdr_t, next));
-					tail->next = NULL;
-
 					hdr_list->tail = &hdr_list->head;
 					hdr_list->count = 0;
 					if_mask ^= (1 << i);

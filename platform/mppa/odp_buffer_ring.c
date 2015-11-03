@@ -151,6 +151,7 @@ odp_buffer_hdr_t * odp_buffer_ring_push_list(odp_buffer_ring_t *ring,
 
 	*nbufs = *nbufs - n_buffers;
 	__builtin_k1_wpurge();
+	__builtin_k1_fence();
 
 	while (odp_atomic_load_u32(&ring->prod_tail) != prod_head)
 		odp_spin();
