@@ -485,8 +485,9 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 			(mppa_ethernet_header_t *)hdr_addr;
 
 		info.dword = LOAD_U64(header->info.dword);
-		packet_set_len(pkt, info._.pkt_size -
-			       sizeof(mppa_ethernet_header_t));
+		const unsigned frame_len =
+			info._.pkt_size - sizeof(mppa_ethernet_header_t);
+		pull_tail(pkt_hdr, pkt_hdr->frame_len - frame_len);
 	}
 	return n_packet;
 }
