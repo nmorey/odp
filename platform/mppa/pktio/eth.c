@@ -355,37 +355,42 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->loopback = loopback;
 	odp_spinlock_init(&eth->wlock);
 
-	/* Setup Rx threads */
-	eth->rx_config.dma_if = 0;
-	eth->rx_config.pool = pool;
-	eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
-	eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
-	ret = rx_thread_link_open(&eth->rx_config, nRx, rr_policy);
-	if(ret < 0)
-		return -1;
+	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
+		/* Setup Rx threads */
+		eth->rx_config.dma_if = 0;
+		eth->rx_config.pool = pool;
+		eth->rx_config.pktio_id = slot_id * MAX_ETH_PORTS + port_id;
+		eth->rx_config.header_sz = sizeof(mppa_ethernet_header_t);
+		ret = rx_thread_link_open(&eth->rx_config, nRx, rr_policy);
+		if(ret < 0)
+			return -1;
+	}
 
 	ret = eth_rpc_send_eth_open(&pktio_entry->s.param, eth);
 
-	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
-					    &eth->config, &eth->header);
+	if (pktio_entry->s.param.out_mode != ODP_PKTOUT_MODE_DISABLED) {
+		mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
+						    eth->tx_if,
+						    &eth->config, &eth->header);
 
-	eth->config._.loopback_multicast = 0;
-	eth->config._.cfg_pe_en = 1;
-	eth->config._.cfg_user_en = 1;
-	eth->config._.write_pe_en = 1;
-	eth->config._.write_user_en = 1;
-	eth->config._.decounter_id = 0;
-	eth->config._.decounted = 0;
-	eth->config._.payload_min = 6;
-	eth->config._.payload_max = 32;
-	eth->config._.bw_current_credit = 0xff;
-	eth->config._.bw_max_credit     = 0xff;
-	eth->config._.bw_fast_delay     = 0x00;
-	eth->config._.bw_slow_delay     = 0x00;
+		eth->config._.loopback_multicast = 0;
+		eth->config._.cfg_pe_en = 1;
+		eth->config._.cfg_user_en = 1;
+		eth->config._.write_pe_en = 1;
+		eth->config._.write_user_en = 1;
+		eth->config._.decounter_id = 0;
+		eth->config._.decounted = 0;
+		eth->config._.payload_min = 6;
+		eth->config._.payload_max = 32;
+		eth->config._.bw_current_credit = 0xff;
+		eth->config._.bw_max_credit     = 0xff;
+		eth->config._.bw_fast_delay     = 0x00;
+		eth->config._.bw_slow_delay     = 0x00;
 
-	eth->header._.multicast = 0;
-	eth->header._.tag = eth->tx_tag;
-	eth->header._.valid = 1;
+		eth->header._.multicast = 0;
+		eth->header._.tag = eth->tx_tag;
+		eth->header._.valid = 1;
+	}
 
 	return ret;
 }
