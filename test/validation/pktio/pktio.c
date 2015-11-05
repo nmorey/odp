@@ -21,6 +21,7 @@
 #define MAX_NUM_IFACES         2
 #define TEST_SEQ_INVALID       ((uint32_t)~0)
 #define TEST_SEQ_MAGIC         0x92749451
+#define TX_BATCH_LEN           4
 
 /** interface names used for testing */
 static const char *iface_name[MAX_NUM_IFACES];
@@ -34,6 +35,7 @@ typedef struct {
 	odp_pktio_t id;
 	odp_queue_t outq;
 	odp_queue_t inq;
+	odp_pktio_input_mode_t in_mode;
 } pktio_info_t;
 
 /** magic number and sequence at start of UDP payload */
@@ -250,20 +252,17 @@ static int default_pool_create(void)
 	return 0;
 }
 
-static odp_pktio_t create_pktio(const char *iface, odp_queue_type_t q_type,
-				int num)
+static odp_pktio_t create_pktio(int iface_idx, odp_pktio_input_mode_t mode)
 {
 	odp_pktio_t pktio;
 	odp_pktio_param_t pktio_param;
+	const char *iface = iface_name[iface_idx];
 
 	odp_pktio_param_init(&pktio_param);
 
-	if (q_type == ODP_QUEUE_TYPE_POLL)
-		pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
-	else
-		pktio_param.in_mode = ODP_PKTIN_MODE_SCHED;
+	pktio_param.in_mode = mode;
 
-	pktio = odp_pktio_open(iface, pool[num], &pktio_param);
+	pktio = odp_pktio_open(iface, pool[iface_idx], &pktio_param);
 	if (pktio == ODP_PKTIO_INVALID)
 		pktio = odp_pktio_lookup(iface);
 	CU_ASSERT(pktio != ODP_PKTIO_INVALID);
@@ -279,6 +278,7 @@ static int create_inq(odp_pktio_t pktio, odp_queue_type_t qtype)
 	odp_queue_t inq_def;
 	char inq_name[ODP_QUEUE_NAME_LEN];
 
+	odp_queue_param_init(&qparam);
 	qparam.sched.prio  = ODP_SCHED_PRIO_DEFAULT;
 	qparam.sched.sync  = ODP_SCHED_SYNC_ATOMIC;
 	qparam.sched.group = ODP_SCHED_GROUP_ALL;
@@ -348,33 +348,41 @@ static odp_event_t queue_deq_wait_time(odp_queue_t queue, uint64_t ns)
 	return ODP_EVENT_INVALID;
 }
 
-static odp_packet_t wait_for_packet(odp_queue_t queue,
+static odp_packet_t wait_for_packet(pktio_info_t *pktio_rx,
 				    uint32_t seq, uint64_t ns)
 {
 	uint64_t start, now, diff;
 	odp_event_t ev;
-	odp_packet_t pkt = ODP_PACKET_INVALID;
+	odp_packet_t pkt;
 	uint64_t wait;
 
 	start = odp_time_cycles();
 	wait = odp_schedule_wait_time(ns);
 
 	do {
-		if (queue != ODP_QUEUE_INVALID &&
-		    odp_queue_type(queue) == ODP_QUEUE_TYPE_POLL)
-			ev = queue_deq_wait_time(queue, ns);
-		else
-			ev  = odp_schedule(NULL, wait);
+		pkt = ODP_PACKET_INVALID;
 
-		if (ev != ODP_EVENT_INVALID) {
-			if (odp_event_type(ev) == ODP_EVENT_PACKET) {
-				pkt = odp_packet_from_event(ev);
-				if (pktio_pkt_seq(pkt) == seq)
-					return pkt;
+		if (pktio_rx->in_mode == ODP_PKTIN_MODE_RECV) {
+			odp_pktio_recv(pktio_rx->id, &pkt, 1);
+		} else {
+			if (pktio_rx->in_mode == ODP_PKTIN_MODE_POLL)
+				ev = queue_deq_wait_time(pktio_rx->inq, ns);
+			else
+				ev = odp_schedule(NULL, wait);
+
+			if (ev != ODP_EVENT_INVALID) {
+				if (odp_event_type(ev) == ODP_EVENT_PACKET)
+					pkt = odp_packet_from_event(ev);
+				else
+					odp_event_free(ev);
 			}
+		}
 
-			/* not interested in this event */
-			odp_event_free(ev);
+		if (pkt != ODP_PACKET_INVALID) {
+			if (pktio_pkt_seq(pkt) == seq)
+				return pkt;
+
+			odp_packet_free(pkt);
 		}
 
 		now = odp_time_cycles();
@@ -438,7 +446,7 @@ static void pktio_txrx_multi(pktio_info_t *pktio_a, pktio_info_t *pktio_b,
 
 	/* and wait for them to arrive back */
 	for (i = 0; i < num_pkts; ++i) {
-		rx_pkt = wait_for_packet(pktio_b->inq, tx_seq[i], ODP_TIME_SEC);
+		rx_pkt = wait_for_packet(pktio_b, tx_seq[i], ODP_TIME_SEC);
 
 		if (rx_pkt == ODP_PACKET_INVALID)
 			break;
@@ -450,7 +458,7 @@ static void pktio_txrx_multi(pktio_info_t *pktio_a, pktio_info_t *pktio_b,
 	CU_ASSERT(i == num_pkts);
 }
 
-static void test_txrx(odp_queue_type_t q_type, int num_pkts)
+static void test_txrx(odp_pktio_input_mode_t in_mode, int num_pkts)
 {
 	int ret, i, if_b;
 	pktio_info_t pktios[MAX_NUM_IFACES];
@@ -462,17 +470,21 @@ static void test_txrx(odp_queue_type_t q_type, int num_pkts)
 		io = &pktios[i];
 
 		io->name = iface_name[i];
-		io->id   = create_pktio(iface_name[i], q_type, i);
+		io->id   = create_pktio(i, in_mode);
 		if (io->id == ODP_PKTIO_INVALID) {
 			CU_FAIL("failed to open iface");
 			return;
 		}
-		create_inq(io->id, q_type);
 		io->outq = odp_pktio_outq_getdef(io->id);
-		if (q_type == ODP_QUEUE_TYPE_POLL)
+		io->in_mode = in_mode;
+
+		if (in_mode == ODP_PKTIN_MODE_POLL) {
+			create_inq(io->id, ODP_QUEUE_TYPE_POLL);
 			io->inq = odp_pktio_inq_getdef(io->id);
-		else
+		} else if (in_mode == ODP_PKTIN_MODE_SCHED) {
+			create_inq(io->id, ODP_QUEUE_TYPE_SCHED);
 			io->inq = ODP_QUEUE_INVALID;
+		}
 
 		ret = odp_pktio_start(io->id);
 		CU_ASSERT(ret == 0);
@@ -491,7 +503,8 @@ static void test_txrx(odp_queue_type_t q_type, int num_pkts)
 	}
 
 	for (i = 0; i < num_ifaces; ++i) {
-		destroy_inq(pktios[i].id);
+		if (in_mode != ODP_PKTIN_MODE_RECV)
+			destroy_inq(pktios[i].id);
 		ret = odp_pktio_close(pktios[i].id);
 		CU_ASSERT(ret == 0);
 	}
@@ -499,22 +512,32 @@ static void test_txrx(odp_queue_type_t q_type, int num_pkts)
 
 void pktio_test_poll_queue(void)
 {
-	test_txrx(ODP_QUEUE_TYPE_POLL, 1);
+	test_txrx(ODP_PKTIN_MODE_POLL, 1);
 }
 
 void pktio_test_poll_multi(void)
 {
-	test_txrx(ODP_QUEUE_TYPE_POLL, 4);
+	test_txrx(ODP_PKTIN_MODE_POLL, TX_BATCH_LEN);
 }
 
 void pktio_test_sched_queue(void)
 {
-	test_txrx(ODP_QUEUE_TYPE_SCHED, 1);
+	test_txrx(ODP_PKTIN_MODE_SCHED, 1);
 }
 
 void pktio_test_sched_multi(void)
 {
-	test_txrx(ODP_QUEUE_TYPE_SCHED, 4);
+	test_txrx(ODP_PKTIN_MODE_SCHED, TX_BATCH_LEN);
+}
+
+void pktio_test_recv(void)
+{
+	test_txrx(ODP_PKTIN_MODE_RECV, 1);
+}
+
+void pktio_test_recv_multi(void)
+{
+	test_txrx(ODP_PKTIN_MODE_RECV, TX_BATCH_LEN);
 }
 
 void pktio_test_jumbo(void)
@@ -529,7 +552,7 @@ void pktio_test_mtu(void)
 	int ret;
 	int mtu;
 
-	odp_pktio_t pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+	odp_pktio_t pktio = create_pktio(0, ODP_PKTIN_MODE_SCHED);
 	CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 
 	mtu = odp_pktio_mtu(pktio);
@@ -545,7 +568,7 @@ void pktio_test_promisc(void)
 {
 	int ret;
 
-	odp_pktio_t pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+	odp_pktio_t pktio = create_pktio(0, ODP_PKTIN_MODE_SCHED);
 	CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 
 	ret = odp_pktio_promisc_mode_set(pktio, 1);
@@ -573,7 +596,7 @@ void pktio_test_mac(void)
 	int ret;
 	odp_pktio_t pktio;
 
-	pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+	pktio = create_pktio(0, ODP_PKTIN_MODE_SCHED);
 	CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 
 	printf("testing mac for %s\n", iface_name[0]);
@@ -601,7 +624,7 @@ void pktio_test_inq_remdef(void)
 	uint64_t wait;
 	int i;
 
-	pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+	pktio = create_pktio(0, ODP_PKTIN_MODE_SCHED);
 	CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 	CU_ASSERT(create_inq(pktio, ODP_QUEUE_TYPE_POLL) == 0);
 	inq = odp_pktio_inq_getdef(pktio);
@@ -629,7 +652,7 @@ void pktio_test_open(void)
 
 	/* test the sequence open->close->open->close() */
 	for (i = 0; i < 2; ++i) {
-		pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+		pktio = create_pktio(0, ODP_PKTIN_MODE_SCHED);
 		CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 		CU_ASSERT(odp_pktio_close(pktio) == 0);
 	}
@@ -668,7 +691,7 @@ void pktio_test_inq(void)
 {
 	odp_pktio_t pktio;
 
-	pktio = create_pktio(iface_name[0], ODP_QUEUE_TYPE_SCHED, 0);
+	pktio = create_pktio(0, ODP_PKTIN_MODE_POLL);
 	CU_ASSERT_FATAL(pktio != ODP_PKTIO_INVALID);
 
 	CU_ASSERT(create_inq(pktio, ODP_QUEUE_TYPE_POLL) == 0);
@@ -687,7 +710,7 @@ static void pktio_test_start_stop(void)
 	uint64_t wait = odp_schedule_wait_time(ODP_TIME_MSEC);
 
 	for (i = 0; i < num_ifaces; i++) {
-		pktio[i] = create_pktio(iface_name[i], ODP_QUEUE_TYPE_SCHED, 0);
+		pktio[i] = create_pktio(i, ODP_PKTIN_MODE_SCHED);
 		CU_ASSERT_FATAL(pktio[i] != ODP_PKTIO_INVALID);
 		create_inq(pktio[i],  ODP_QUEUE_TYPE_SCHED);
 	}
@@ -790,6 +813,146 @@ static void pktio_test_start_stop(void)
 		destroy_inq(pktio[i]);
 		CU_ASSERT(odp_pktio_close(pktio[i]) == 0);
 	}
+}
+
+/*
+ * This is a pre-condition check that the pktio_test_send_failure()
+ * test case can be run. If the TX interface MTU is larger that the
+ * biggest packet we can allocate then the test won't be able to
+ * attempt to send packets larger than the MTU, so skip the test.
+ */
+static int pktio_check_send_failure(void)
+{
+	odp_pktio_t pktio_tx;
+	int mtu;
+	odp_pktio_param_t pktio_param;
+	int iface_idx = 0;
+	const char *iface = iface_name[iface_idx];
+
+	memset(&pktio_param, 0, sizeof(pktio_param));
+
+	pktio_param.in_mode = ODP_PKTIN_MODE_RECV;
+
+	pktio_tx = odp_pktio_open(iface, pool[iface_idx], &pktio_param);
+	if (pktio_tx == ODP_PKTIO_INVALID) {
+		fprintf(stderr, "%s: failed to open pktio\n", __func__);
+		return 0;
+	}
+
+	/* read the MTU from the transmit interface */
+	mtu = odp_pktio_mtu(pktio_tx);
+
+	odp_pktio_close(pktio_tx);
+
+	return (mtu <= ODP_CONFIG_PACKET_BUF_LEN_MAX - 32);
+}
+
+static void pktio_test_send_failure(void)
+{
+	odp_pktio_t pktio_tx, pktio_rx;
+	odp_packet_t pkt_tbl[TX_BATCH_LEN];
+	uint32_t pkt_seq[TX_BATCH_LEN];
+	int ret, mtu, i, alloc_pkts;
+	odp_pool_param_t pool_params;
+	odp_pool_t pkt_pool;
+	int long_pkt_idx = TX_BATCH_LEN / 2;
+	pktio_info_t info_rx;
+
+	pktio_tx = create_pktio(0, ODP_PKTIN_MODE_RECV);
+	if (pktio_tx == ODP_PKTIO_INVALID) {
+		CU_FAIL("failed to open pktio");
+		return;
+	}
+
+	/* read the MTU from the transmit interface */
+	mtu = odp_pktio_mtu(pktio_tx);
+
+	ret = odp_pktio_start(pktio_tx);
+	CU_ASSERT_FATAL(ret == 0);
+
+	/* configure the pool so that we can generate test packets larger
+	 * than the interface MTU */
+	memset(&pool_params, 0, sizeof(pool_params));
+	pool_params.pkt.len     = mtu + 32;
+	pool_params.pkt.seg_len = pool_params.pkt.len;
+	pool_params.pkt.num     = TX_BATCH_LEN + 1;
+	pool_params.type        = ODP_POOL_PACKET;
+	pkt_pool = odp_pool_create("pkt_pool_oversize", &pool_params);
+	CU_ASSERT_FATAL(pkt_pool != ODP_POOL_INVALID);
+
+	if (num_ifaces > 1) {
+		pktio_rx = create_pktio(1, ODP_PKTIN_MODE_RECV);
+		ret = odp_pktio_start(pktio_rx);
+		CU_ASSERT_FATAL(ret == 0);
+	} else {
+		pktio_rx = pktio_tx;
+	}
+
+	/* generate a batch of packets with a single overly long packet
+	 * in the middle */
+	for (i = 0; i < TX_BATCH_LEN; ++i) {
+		uint32_t pkt_len;
+
+		if (i == long_pkt_idx)
+			pkt_len = pool_params.pkt.len;
+		else
+			pkt_len = PKT_LEN_NORMAL;
+
+		pkt_tbl[i] = odp_packet_alloc(pkt_pool, pkt_len);
+		if (pkt_tbl[i] == ODP_PACKET_INVALID)
+			break;
+
+		pkt_seq[i] = pktio_init_packet(pkt_tbl[i]);
+		if (pkt_seq[i] == TEST_SEQ_INVALID)
+			break;
+	}
+	alloc_pkts = i;
+
+	if (alloc_pkts == TX_BATCH_LEN) {
+		/* try to send the batch with the long packet in the middle,
+		 * the initial short packets should be sent successfully */
+		odp_errno_zero();
+		ret = odp_pktio_send(pktio_tx, pkt_tbl, TX_BATCH_LEN);
+		CU_ASSERT(ret == long_pkt_idx);
+		CU_ASSERT(odp_errno() == 0);
+
+		info_rx.id   = pktio_rx;
+		info_rx.outq = ODP_QUEUE_INVALID;
+		info_rx.inq  = ODP_QUEUE_INVALID;
+		info_rx.in_mode = ODP_PKTIN_MODE_RECV;
+
+		for (i = 0; i < ret; ++i) {
+			pkt_tbl[i] = wait_for_packet(&info_rx,
+						     pkt_seq[i], ODP_TIME_SEC);
+			if (pkt_tbl[i] == ODP_PACKET_INVALID)
+				break;
+		}
+
+		if (i == ret) {
+			/* now try to send starting with the too-long packet
+			 * and verify it fails */
+			odp_errno_zero();
+			ret = odp_pktio_send(pktio_tx,
+					     &pkt_tbl[long_pkt_idx],
+					     TX_BATCH_LEN - long_pkt_idx);
+			CU_ASSERT(ret == -1);
+			CU_ASSERT(odp_errno() != 0);
+		} else {
+			CU_FAIL("failed to receive transmitted packets\n");
+		}
+	} else {
+		CU_FAIL("failed to generate test packets\n");
+	}
+
+	for (i = 0; i < alloc_pkts; ++i) {
+		if (pkt_tbl[i] != ODP_PACKET_INVALID)
+			odp_packet_free(pkt_tbl[i]);
+	}
+
+	if (pktio_rx != pktio_tx)
+		CU_ASSERT(odp_pktio_close(pktio_rx) == 0);
+	CU_ASSERT(odp_pktio_close(pktio_tx) == 0);
+	CU_ASSERT(odp_pool_destroy(pkt_pool) == 0);
 }
 
 static int create_pool(const char *iface, int num)
@@ -897,7 +1060,11 @@ odp_testinfo_t pktio_suite_unsegmented[] = {
 	ODP_TEST_INFO(pktio_test_poll_multi),
 	ODP_TEST_INFO(pktio_test_sched_queue),
 	ODP_TEST_INFO(pktio_test_sched_multi),
+	ODP_TEST_INFO(pktio_test_recv),
+	ODP_TEST_INFO(pktio_test_recv_multi),
 	ODP_TEST_INFO(pktio_test_jumbo),
+	ODP_TEST_INFO_CONDITIONAL(pktio_test_send_failure,
+				  pktio_check_send_failure),
 	ODP_TEST_INFO(pktio_test_mtu),
 	ODP_TEST_INFO(pktio_test_promisc),
 	ODP_TEST_INFO(pktio_test_mac),
@@ -911,7 +1078,11 @@ odp_testinfo_t pktio_suite_segmented[] = {
 	ODP_TEST_INFO(pktio_test_poll_multi),
 	ODP_TEST_INFO(pktio_test_sched_queue),
 	ODP_TEST_INFO(pktio_test_sched_multi),
+	ODP_TEST_INFO(pktio_test_recv),
+	ODP_TEST_INFO(pktio_test_recv_multi),
 	ODP_TEST_INFO(pktio_test_jumbo),
+	ODP_TEST_INFO_CONDITIONAL(pktio_test_send_failure,
+				  pktio_check_send_failure),
 	ODP_TEST_INFO_NULL
 };
 

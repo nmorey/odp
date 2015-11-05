@@ -61,6 +61,28 @@ typedef struct queue_table_t {
 
 static queue_table_t queue_tbl;
 
+static inline void get_qe_locks(queue_entry_t *qe1, queue_entry_t *qe2)
+{
+	/* Special case: enq to self */
+	if (qe1 == qe2) {
+		LOCK(qe1);
+		return;
+	}
+
+       /* Since any queue can be either a source or target, queues do not have
+	* a natural locking hierarchy.  Create one by using the qentry address
+	* as the ordering mechanism.
+	*/
+
+	if (qe1 < qe2) {
+		LOCK(qe1);
+		LOCK(qe2);
+	} else {
+		LOCK(qe2);
+		LOCK(qe1);
+	}
+}
+
 static void queue_init(queue_entry_t *queue, const char *name,
 		       odp_queue_type_t type, odp_queue_param_t *param)
 {
@@ -386,17 +408,12 @@ static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	int sched = 0;
 	odp_buffer_hdr_t *buf_tail;
 
-	LOCK(origin_qe);
-
-	/* Need two locks for enq operations from ordered queues */
-	while (!LOCK_TRY(queue)) {
-		UNLOCK(origin_qe);
-		LOCK(origin_qe);
-	}
+	get_qe_locks(origin_qe, queue);
 
 	if (odp_unlikely(origin_qe->s.status < QUEUE_STATUS_READY)) {
 		UNLOCK(queue);
-		UNLOCK(origin_qe);
+		if (origin_qe != queue)
+			UNLOCK(origin_qe);
 		ODP_ERR("Bad origin queue status\n");
 		ODP_ERR("queue = %s, origin q = %s, buf = %p\n",
 			queue->s.name, origin_qe->s.name, buf_hdr);
@@ -406,7 +423,8 @@ static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	int status = LOAD_S32(queue->s.status);
 	if (odp_unlikely(status < QUEUE_STATUS_READY)) {
 		UNLOCK(queue);
-		UNLOCK(origin_qe);
+		if (origin_qe != queue)
+			UNLOCK(origin_qe);
 		ODP_ERR("Bad queue status\n");
 		return -1;
 	}
@@ -420,7 +438,8 @@ static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 		 * we're done here.
 		 */
 		UNLOCK(queue);
-		UNLOCK(origin_qe);
+		if (origin_qe != queue)
+			UNLOCK(origin_qe);
 		return 0;
 	}
 
@@ -475,8 +494,9 @@ static int _queue_enq_ordered(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	/* Now handle any unblocked complete buffers destined for
 	 * other queues, appending placeholder bufs as needed.
 	 */
-	UNLOCK(queue);
-	reorder_complete(origin_qe, &reorder_buf, &placeholder_buf, 1);
+	if (origin_qe != queue)
+		UNLOCK(queue);
+	reorder_complete(origin_qe, &reorder_buf, &placeholder_buf, 1, 0);
 	UNLOCK(origin_qe);
 
 	if (reorder_buf)
@@ -854,7 +874,7 @@ int queue_pktout_enq(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	order_release(origin_qe, release_count + placeholder_count);
 
 	/* Now handle sends to other queues that are ready to go */
-	reorder_complete(origin_qe, &reorder_buf, &placeholder_buf, 1);
+	reorder_complete(origin_qe, &reorder_buf, &placeholder_buf, 1, 0);
 
 	/* We're fully done with the origin_qe at last */
 	UNLOCK(origin_qe);
@@ -930,13 +950,16 @@ int release_order(queue_entry_t *origin_qe, uint64_t order,
 	if (order <= origin_qe->s.order_out) {
 		order_release(origin_qe, 1);
 
-		/* Check if this release allows us to unblock waiters.
-		 * At the point of this call, the reorder list may contain
-		 * zero or more placeholders that need to be freed, followed
-		 * by zero or one complete reorder buffer chain.
+		/* Check if this release allows us to unblock waiters.  At the
+		 * point of this call, the reorder list may contain zero or
+		 * more placeholders that need to be freed, followed by zero
+		 * or one complete reorder buffer chain. Note that since we
+		 * are releasing order, we know no further enqs for this order
+		 * can occur, so ignore the sustain bit to clear out our
+		 * element(s) on the reorder queue
 		 */
 		reorder_complete(origin_qe, &reorder_buf,
-				 &placeholder_buf_hdr, 0);
+				 &placeholder_buf_hdr, 0, 1);
 
 		/* Now safe to unlock */
 		UNLOCK(origin_qe);

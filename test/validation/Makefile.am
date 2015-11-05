@@ -4,6 +4,7 @@ bindir      = $(datarootdir)/tests/validation/
 
 ODP_MODULES = buffer \
 	      classification \
+	      config \
 	      cpumask \
 	      errno \
 	      init \

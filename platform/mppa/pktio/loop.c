@@ -18,8 +18,6 @@
 #include <odp/helper/eth.h>
 #include <odp/helper/ip.h>
 
-/* MTU to be reported for the "loop" interface */
-#define PKTIO_LOOP_MTU 1500
 /* MAC address for the "loop" interface */
 static const char pktio_loop_mac[] = {0x02, 0xe9, 0x34, 0x80, 0x73, 0x01};
 
@@ -73,7 +71,7 @@ static int loopback_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_tbl[],
 
 static int loopback_mtu_get(pktio_entry_t *pktio_entry ODP_UNUSED)
 {
-	return PKTIO_LOOP_MTU;
+	return INT_MAX;
 }
 
 static int loopback_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,

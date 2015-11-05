@@ -113,15 +113,6 @@ int buffer_alloc(odp_pool_t pool_hdl, size_t size,
 		 odp_buffer_hdr_t *buf[], int num);
 void buffer_free_multi(odp_buffer_t _buf_tbl[], int num);
 
-/*
- * Buffer type
- *
- * @param buf      Buffer handle
- *
- * @return Buffer type
- */
-int _odp_buffer_type(odp_buffer_t buf);
-
 #ifdef __cplusplus
 }
 #endif
