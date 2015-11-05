@@ -566,10 +566,12 @@ int pktin_deq_multi(queue_entry_t *qentry, odp_buffer_hdr_t *buf_hdr[], int num)
 		if(nbr + pkts <= num) {
 			j = 0;
 		} else {
-			j = num - pkts;
-			queue_enq_multi(qentry, (odp_buffer_hdr_t**)pkt_tbl, j, 0);
+			j = (pkts + nbr) - num;
+			queue_enq_multi(qentry,
+					(odp_buffer_hdr_t**)&pkt_tbl[num - nbr],
+					j, 0);
 		}
-		memcpy(&buf_hdr[nbr], &pkt_tbl[j], (pkts - j) * sizeof(*pkt_tbl));
+		memcpy(&buf_hdr[nbr], &pkt_tbl[0], (pkts - j) * sizeof(*pkt_tbl));
 		nbr += pkts - j;
 	}
 
