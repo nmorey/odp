@@ -26,6 +26,9 @@ int ethtool_setup_eth2clus(unsigned remoteClus, int eth_if,
 	mppa_dnoc_channel_config_t config = { 0 };
 	unsigned nocTx;
 
+	if (!status[eth_if].cluster[remoteClus].rx_enabled)
+		return 0;
+
 	ret = mppa_routing_get_dnoc_unicast_route(externalAddress,
 						  remoteClus, &config, &header);
 	if (ret != MPPA_ROUTING_RET_SUCCESS) {
@@ -93,6 +96,9 @@ int ethtool_setup_clus2eth(unsigned remoteClus, int eth_if, int nocIf)
 {
 	int ret;
 	unsigned rx_port;
+
+	if (!status[eth_if].cluster[remoteClus].tx_enabled)
+		return 0;
 
 	mppa_dnoc[nocIf]->rx_global.rx_ctrl._.alert_level = -1;
 	mppa_dnoc[nocIf]->rx_global.rx_ctrl._.payload_slice = 2;

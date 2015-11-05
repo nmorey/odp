@@ -34,6 +34,8 @@ typedef struct {
 	int rx_tag;
 
 	int enabled;
+	int rx_enabled; /* Pktio wants to receive packets from ethernet */
+	int tx_enabled; /* Pktio wants to send packets to ethernet */
 } eth_cluster_status_t;
 typedef struct {
 	enum {
@@ -54,6 +56,8 @@ static inline void _eth_cluster_status_init(eth_cluster_status_t * cluster)
 	cluster->max_rx = -1;
 	cluster->rx_tag = -1;
 	cluster->enabled = 0;
+	cluster->rx_enabled = 0;
+	cluster->tx_enabled = 0;
 }
 
 static inline void _eth_status_init(eth_status_t * status)

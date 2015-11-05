@@ -66,6 +66,9 @@ odp_rpc_cmd_ack_t  eth_open(unsigned remoteClus, odp_rpc_t *msg)
 	externalAddress = __k1_get_cluster_id() + (nocIf % 4);
 #endif
 
+	status[eth_if].cluster[remoteClus].rx_enabled = data.rx_enabled;
+	status[eth_if].cluster[remoteClus].tx_enabled = data.tx_enabled;
+
 	if (ethtool_setup_eth2clus(remoteClus, eth_if, nocIf, externalAddress,
 				   data.min_rx, data.max_rx))
 		goto err;
