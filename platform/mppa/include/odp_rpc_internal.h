@@ -50,6 +50,8 @@ typedef union {
 		uint8_t min_rx : 8;
 		uint8_t max_rx : 8;
 		uint8_t loopback : 1;
+		uint8_t rx_enabled : 1;
+		uint8_t tx_enabled : 1;
 	};
 	odp_rpc_inl_data_t inl_data;
 } odp_rpc_cmd_eth_open_t;

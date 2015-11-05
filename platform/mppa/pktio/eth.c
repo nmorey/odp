@@ -202,7 +202,7 @@ static int eth_destroy(void)
 	return 0;
 }
 
-static int eth_rpc_send_eth_open(pkt_eth_t *eth)
+static int eth_rpc_send_eth_open(odp_pktio_param_t * params, pkt_eth_t *eth)
 {
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
@@ -219,8 +219,16 @@ static int eth_rpc_send_eth_open(pkt_eth_t *eth)
 			.min_rx = eth->rx_config.min_port,
 			.max_rx = eth->rx_config.max_port,
 			.loopback = eth->loopback,
+			.rx_enabled = 1,
+			.tx_enabled = 1,
 		}
 	};
+	if (params) {
+		if (params->in_mode == ODP_PKTIN_MODE_DISABLED)
+			open_cmd.rx_enabled = 0;
+		if (params->out_mode == ODP_PKTOUT_MODE_DISABLED)
+			open_cmd.tx_enabled = 0;
+	}
 	odp_rpc_t cmd = {
 		.data_len = 0,
 		.pkt_type = ODP_RPC_CMD_ETH_OPEN,
@@ -356,7 +364,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	if(ret < 0)
 		return -1;
 
-	ret = eth_rpc_send_eth_open(eth);
+	ret = eth_rpc_send_eth_open(&pktio_entry->s.param, eth);
 
 	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), eth->tx_if,
 					    &eth->config, &eth->header);
