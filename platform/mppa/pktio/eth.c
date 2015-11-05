@@ -506,7 +506,7 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 }
 
 static inline int
-eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_count)
+eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], int pkt_count, int *err)
 {
 	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
 	eth_uc_ctx_t *ctx = &g_eth_uc_ctx[tx_index];
@@ -518,9 +518,17 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 		&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
 	const odp_packet_hdr_t * pkt_hdr;
 
-	for (unsigned i = 0; i < pkt_count; ++i ){
+	*err = 0;
+
+	for (int i = 0; i < pkt_count; ++i ){
 		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
+
+		if (pkt_hdr->frame_len > eth->mtu) {
+			pkt_count = i;
+			*err = EINVAL;
+			break;
+		}
 
 		trs->parameter.array[2 * i + 0] =
 			pkt_hdr->frame_len / sizeof(uint64_t);
@@ -531,7 +539,7 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
 			 - (uint8_t*)&_data_start);
 	}
-	for (unsigned i = pkt_count; i < 4; ++i) {
+	for (int i = pkt_count; i < 4; ++i) {
 		trs->parameter.array[2 * i + 0] = 0;
 		trs->parameter.array[2 * i + 1] = 0;
 	}
@@ -549,25 +557,33 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], unsigned int pkt_coun
 
 	_eth_uc_commit(ctx, head, 1);
 
-	return 0;
+	return pkt_count;
 }
 
 static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	unsigned int sent = 0;
+	int sent = 0;
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
-	unsigned int pkt_count;
+	int pkt_count;
 
 
-	while(sent < len) {
+	while(sent < (int)len) {
+		int ret, uc_sent;
+
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
 			(len - sent);
 
-		eth_send_packets(eth, &pkt_table[sent], pkt_count);
-		sent += pkt_count;
+		uc_sent = eth_send_packets(eth, &pkt_table[sent], pkt_count, &ret);
+		sent += uc_sent;
+		if (ret) {
+			if (!sent) {
+				__odp_errno = ret;
+				return -1;
+			}
+			return sent;
+		}
 	}
-
 
 	return sent;
 }
