@@ -288,6 +288,10 @@ int odp_pktio_start(odp_pktio_t id)
 		return -1;
 
 	lock_entry(entry);
+	if (entry->s.state == STATE_START) {
+		unlock_entry(entry);
+		return -1;
+	}
 	if (entry->s.ops->start)
 		res = entry->s.ops->start(entry);
 	if (!res)
@@ -307,6 +311,10 @@ int odp_pktio_stop(odp_pktio_t id)
 		return -1;
 
 	lock_entry(entry);
+	if (entry->s.state == STATE_STOP) {
+		unlock_entry(entry);
+		return -1;
+	}
 	if (entry->s.ops->stop)
 		res = entry->s.ops->stop(entry);
 	if (!res)
