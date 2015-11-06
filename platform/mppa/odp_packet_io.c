@@ -39,7 +39,7 @@ int odp_pktio_init_global(void)
 	for (id = 0; id < ODP_CONFIG_PKTIO_ENTRIES; ++id) {
 		pktio_entry = &pktio_tbl.entries[id];
 
-		odp_rwlock_init(&pktio_entry->s.lock);
+		odp_ticketlock_init(&pktio_entry->s.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l2_cos_table.lock);
 		odp_spinlock_init(&pktio_entry->s.cls.l3_cos_table.lock);
@@ -112,22 +112,12 @@ static void set_taken(pktio_entry_t *entry)
 
 static void lock_entry(pktio_entry_t *entry)
 {
-	odp_rwlock_write_lock(&entry->s.lock);
+	odp_ticketlock_lock(&entry->s.lock);
 }
 
 static void unlock_entry(pktio_entry_t *entry)
 {
-	odp_rwlock_write_unlock(&entry->s.lock);
-}
-
-static void enter_entry(pktio_entry_t *entry)
-{
-	odp_rwlock_read_lock(&entry->s.lock);
-}
-
-static void exit_entry(pktio_entry_t *entry)
-{
-	odp_rwlock_read_unlock(&entry->s.lock);
+	odp_ticketlock_unlock(&entry->s.lock);
 }
 
 static void lock_entry_classifier(pktio_entry_t *entry)
@@ -237,10 +227,25 @@ static odp_pktio_t setup_pktio_entry(const char *dev, odp_pool_t pool,
 	return id;
 }
 
+static int pool_type_is_packet(odp_pool_t pool)
+{
+	odp_pool_info_t pool_info;
+
+	if (pool == ODP_POOL_INVALID)
+		return 0;
+
+	if (odp_pool_info(pool, &pool_info) != 0)
+		return 0;
+
+	return pool_info.params.type == ODP_POOL_PACKET;
+}
+
 odp_pktio_t odp_pktio_open(const char *dev, odp_pool_t pool,
 			   const odp_pktio_param_t *param)
 {
 	odp_pktio_t id;
+
+	ODP_ASSERT(pool_type_is_packet(pool));
 
 	id = odp_pktio_lookup(dev);
 	if (id != ODP_PKTIO_INVALID) {
@@ -337,13 +342,13 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 		if (!entry || is_free(entry))
 			continue;
 
-		enter_entry(entry);
+		lock_entry(entry);
 
 		if (!is_free(entry) &&
 		    strncmp(entry->s.name, dev, PKTIO_NAME_LEN) == 0)
 			pktio = (odp_pktio_t) entry;
 
-		exit_entry(entry);
+		lock_entry(entry);
 
 		if (pktio != ODP_PKTIO_INVALID)
 			break;

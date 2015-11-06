@@ -119,7 +119,7 @@ typedef struct {
 
 struct pktio_entry {
 	const struct pktio_if_ops *ops; /**< Implementation specific methods */
-	odp_rwlock_t lock;		/**< entry RW lock */
+	odp_ticketlock_t lock;		/**< entry ticketlock */
 	int taken;			/**< is entry taken(1) or free(0) */
 	int cls_enabled;		/**< is classifier enabled */
 	odp_pktio_t handle;		/**< pktio handle */
