@@ -355,7 +355,8 @@ int odp_pktio_recv(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	if (pktio_entry->s.state == STATE_STOP) {
+	if (pktio_entry->s.state == STATE_STOP ||
+	    pktio_entry->s.param.in_mode == ODP_PKTIN_MODE_DISABLED) {
 		__odp_errno = EPERM;
 		return -1;
 	}
@@ -379,7 +380,8 @@ int odp_pktio_send(odp_pktio_t id, odp_packet_t pkt_table[], int len)
 	if (pktio_entry == NULL)
 		return -1;
 
-	if (pktio_entry->s.state == STATE_STOP) {
+	if (pktio_entry->s.state == STATE_STOP ||
+	    pktio_entry->s.param.out_mode == ODP_PKTOUT_MODE_DISABLED) {
 		__odp_errno = EPERM;
 		return -1;
 	}
