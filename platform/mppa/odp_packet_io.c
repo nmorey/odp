@@ -348,7 +348,7 @@ odp_pktio_t odp_pktio_lookup(const char *dev)
 		    strncmp(entry->s.name, dev, PKTIO_NAME_LEN) == 0)
 			pktio = (odp_pktio_t) entry;
 
-		lock_entry(entry);
+		unlock_entry(entry);
 
 		if (pktio != ODP_PKTIO_INVALID)
 			break;
