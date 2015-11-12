@@ -27,16 +27,6 @@
 #include <odp/helper/icmp.h>
 #include <odp/helper/ipsec.h>
 
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-
-#include <sys/socket.h>
-#include <netpacket/packet.h>
-#include <net/ethernet.h>
-#include <arpa/inet.h>
-
 #include <odp_ipsec_misc.h>
 #include <odp_ipsec_sa_db.h>
 #include <odp_ipsec_sp_db.h>
