@@ -123,9 +123,9 @@ int mppa_pcie_eth_noc_init()
 	for(i = 0; i < BSP_NB_DMA_IO_MAX; i++)
 		mppa_noc_interrupt_line_disable(i, MPPA_NOC_INTERRUPT_LINE_DNOC_TX);
 
-	//~ mppa_pcie_noc_init_buff_pool();
+	mppa_pcie_noc_init_buff_pool();
 
-	//~ mppa_pcie_noc_start_rx_rm();
+	mppa_pcie_noc_start_rx_rm();
 
 	return 0;
 }

@@ -122,8 +122,6 @@ int mppa_pcie_eth_init(int if_count)
 	__k1_mb();
 	__builtin_k1_swu(&g_pcie_eth_control.magic, MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC);
 
-	mppa_pcie_write_doorbell_user_reg(2, (uint32_t) &g_pcie_eth_control);
-
 	/* Cross fingers for everything to be setup correctly ! */
 	mppa_pcie_send_it_to_host();
 
