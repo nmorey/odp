@@ -16,6 +16,9 @@
 #include <odp_debug_internal.h>
 #include <odp/hints.h>
 #include <odp/random.h>
+
+#include <stdint.h>
+#include <odp_rpc_internal.h>
 #include <odp_packet_internal.h>
 
 #include <string.h>
@@ -667,14 +670,30 @@ int odp_crypto_term_global(void)
 int32_t
 odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 {
-	int32_t rc;
+	ODP_ASSERT((unsigned)len <= sizeof(((odp_rpc_inl_data_t*)0)->data) );
+	unsigned cluster_id = __k1_get_cluster_id();
+	odp_rpc_t *ack_msg;
 
-	srand(0);
-	for ( int i = 0; i < len; ++i ) {
-		buf[i] = rand();
+	odp_rpc_t cmd = {
+		.pkt_type = ODP_RPC_CMD_RND_GET,
+		.data_len = 0,
+		.flags = 0,
+		.inl_data = ( ( odp_rpc_cmd_rnd_t ){ .rnd_len = len }).inl_data,
+	};
+
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
+				odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
+				&cmd, NULL);
+	int ret = odp_rpc_wait_ack(&ack_msg, NULL, 15 * RPC_TIMEOUT_1S);
+	if (ret < 0) {
+		fprintf(stderr, "[RND] RPC Error\n");
+		return 1;
+	} else if (ret == 0){
+		fprintf(stderr, "[RND] Query timed out\n");
+		return 1;
 	}
-	rc = 1;
-	return (1 == rc) ? len /*success*/: -1 /*failure*/;
+	memcpy(buf, ack_msg->inl_data.data, len);
+	return len;
 }
 
 odp_crypto_compl_t odp_crypto_compl_from_event(odp_event_t ev)
