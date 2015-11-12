@@ -27,8 +27,8 @@ case "$RUN_TARGET" in
 		exec k1-jtag-runner ${FIRMWARES} --exec-file "Cluster0:$ELF" -- $*
 		;;
 	"k1-cluster")
-		echo k1-cluster   --functional --dcache-no-check  --mboard=large_memory  --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $ELF $*
-		exec k1-cluster   --functional --dcache-no-check  --mboard=large_memory  --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $ELF $*
+		echo k1-cluster   --functional --dcache-no-check  --mboard=mppa64 --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $ELF $*
+		exec k1-cluster   --functional --dcache-no-check  --mboard=mppa64  --user-syscall=${TOP_SRCDIR}/syscall/build_x86_64/libodp_syscall.so -- $ELF $*
 		;;
 	*)
 		echo ${ELF} $*
