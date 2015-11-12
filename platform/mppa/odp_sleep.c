@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 #include <unistd.h>
+#include <HAL/hal/hal.h>
+#include "../../syscall/include/common.h"
 
 static int my_nanosleep(struct timespec *ts){
 	uint64_t freq = __bsp_frequency;
