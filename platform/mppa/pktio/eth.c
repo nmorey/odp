@@ -336,6 +336,10 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		ODP_ERR("Invalid option %s\n", pptr);
 		return -1;
 	}
+#ifdef MAGIC_SCALL
+	ODP_ERR("Trying to invoke ETH interface in simulation. Use magic: interface type");
+	return 1;
+#endif
 
 	if (!tx_init) {
 		if(eth_init_dnoc_tx()) {
