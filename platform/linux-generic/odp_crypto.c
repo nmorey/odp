@@ -271,7 +271,7 @@ odp_crypto_alg_err_t aes_decrypt(odp_crypto_op_params_t *params,
 
 static
 int process_aes_params(odp_crypto_generic_session_t *session,
-		       odp_crypto_session_params_t *params)
+		       odp_crypto_session_params_t *params, int bits)
 {
 	/* Verify IV len is either 0 or 16 */
 	if (!((0 == params->iv.length) || (16 == params->iv.length)))
@@ -280,11 +280,11 @@ int process_aes_params(odp_crypto_generic_session_t *session,
 	/* Set function */
 	if (ODP_CRYPTO_OP_ENCODE == params->op) {
 		session->cipher.func = aes_encrypt;
-		AES_set_encrypt_key(params->cipher_key.data, 128,
+		AES_set_encrypt_key(params->cipher_key.data, bits,
 				    &session->cipher.data.aes.key);
 	} else {
 		session->cipher.func = aes_decrypt;
-		AES_set_decrypt_key(params->cipher_key.data, 128,
+		AES_set_decrypt_key(params->cipher_key.data, bits,
 				    &session->cipher.data.aes.key);
 	}
 
@@ -641,7 +641,10 @@ odp_crypto_session_create(odp_crypto_session_params_t *params,
 		rc = process_des_params(session, params);
 		break;
 	case ODP_CIPHER_ALG_AES128_CBC:
-		rc = process_aes_params(session, params);
+		rc = process_aes_params(session, params, 128);
+		break;
+	case ODP_CIPHER_ALG_AES256_CBC:
+		rc = process_aes_params(session, params, 256);
 		break;
 	case ODP_CIPHER_ALG_AES128_GCM:
 		/* AES-GCM requires to do both auth and

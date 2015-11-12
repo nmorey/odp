@@ -72,6 +72,8 @@ typedef enum {
 	ODP_CIPHER_ALG_AES128_CBC,
 	/** AES128 in Galois/Counter Mode */
 	ODP_CIPHER_ALG_AES128_GCM,
+	/** AES256 with cipher block chaining */
+	ODP_CIPHER_ALG_AES256_CBC,
 } odp_cipher_alg_t;
 
 /**
