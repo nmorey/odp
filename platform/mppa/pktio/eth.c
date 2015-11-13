@@ -44,6 +44,7 @@ static int tx_init = 0;
 typedef struct eth_uc_job_ctx {
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
+	unsigned char nofree;
 } eth_uc_job_ctx_t;
 
 typedef struct eth_uc_ctx {
@@ -84,7 +85,7 @@ static inline uint64_t _eth_alloc_uc_slots(eth_uc_ctx_t *ctx,
 		if(pos > MAX_JOB_PER_UC){
 			eth_uc_job_ctx_t *job = &ctx->job_ctxs[pos % MAX_JOB_PER_UC];
 			INVALIDATE(job);
-			if (!job->pkt_count)
+			if (!job->pkt_count || job->nofree)
 				continue;
 
 			packet_free_multi(job->pkt_table,
@@ -271,7 +272,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	int rr_policy = -1;
 	int port_id, slot_id;
 	int loopback = 0;
-
+	int nofree = 0;
 	/*
 	 * Check device name and extract slot/port
 	 */
@@ -325,6 +326,9 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 		} else if (!strncmp(pptr, "loop", strlen("loop"))){
 			pptr += strlen("loop");
 			loopback = 1;
+		} else if (!strncmp(pptr, "nofree", strlen("nofree"))){
+			pptr += strlen("nofree");
+			nofree = 1;
 		} else {
 			/* Unknown parameter */
 			ODP_ERR("Invalid option %s\n", pptr);
@@ -357,6 +361,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->port_id = port_id;
 	eth->pool = pool;
 	eth->loopback = loopback;
+	eth->nofree = nofree;
 	odp_spinlock_init(&eth->wlock);
 
 	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
@@ -442,6 +447,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 		trs->desc.pointer_set = 0;
 #endif
 		job->pkt_count = 0;
+		job->nofree = 1;
 	}
 	_eth_uc_commit(ctx, head, MAX_JOB_PER_UC);
 
@@ -523,7 +529,7 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], int pkt_count, int *e
 	const odp_packet_hdr_t * pkt_hdr;
 
 	*err = 0;
-
+	job->nofree = eth->nofree;
 	for (int i = 0; i < pkt_count; ++i ){
 		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);

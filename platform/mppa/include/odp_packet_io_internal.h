@@ -76,6 +76,7 @@ typedef struct {
 	uint16_t mtu;                   /**< Interface MTU */
 	struct {
 		uint8_t loopback : 1;
+		uint8_t nofree : 1;
 	};
 
 	/* Rx Data */
