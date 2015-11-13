@@ -568,6 +568,8 @@ odp_crypto_operation(odp_crypto_op_params_t *params,
 		rc_auth = session->auth.func(params, session);
 		rc_cipher = session->cipher.func(params, session);
 	}
+	/* FIXME */
+	__builtin_k1_set(_K1_SFR_EV5, 0);
 
 	/* Fill in result */
 	local_result.ctx = params->ctx;
