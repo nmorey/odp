@@ -402,7 +402,7 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 
 static inline int
 cluster_send_single_packet(pkt_cluster_t *pktio_clus,
-			   odp_packet_t pkt)
+			   odp_packet_t pkt, int *err)
 {
 	mppa_noc_dnoc_uc_configuration_t uc_conf = MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
@@ -413,6 +413,11 @@ cluster_send_single_packet(pkt_cluster_t *pktio_clus,
 	int tx_index = pktio_clus->clus_id % NOC_UC_COUNT;
 	odp_packet_hdr_t * pkt_hdr = odp_packet_hdr(pkt);
 	void *pkt_addr = packet_map(pkt_hdr, 0, NULL);
+
+	if (pkt_hdr->frame_len > ODP_PKTIO_MAX_PKT_SIZE) {
+		*err = EINVAL;
+		return 1;
+	}
 
 	uc_conf.pointers = NULL;
 	uc_conf.event_counter = 0;
@@ -483,10 +488,16 @@ static int cluster_send(pktio_entry_t *const pktio_entry,
 	ODP_CLUS_DBG("Sending %d packet(s)\n", len);
 
 	for (i = 0; i < len; i++) {
+		int ret;
 		pkt = pkt_table[i];
 
-		if(cluster_send_single_packet(pktio_clus, pkt))
+		if (cluster_send_single_packet(pktio_clus, pkt, &ret)){
+			if (i == 0) {
+				__odp_errno = ret;
+				return -1;
+			}
 			break;
+		}
 	}
 	nb_tx = i;
 
