@@ -99,6 +99,7 @@ noinst_HEADERS = \
 		  $(srcdir)/include/odp_spin_internal.h \
 		  $(srcdir)/include/odp_timer_internal.h \
 		  $(srcdir)/include/odp_timer_types_internal.h \
+		  $(srcdir)/include/odp_tx_uc_internal.h \
 		  $(srcdir)/Makefile.inc
 
 
@@ -127,6 +128,7 @@ __LIB__libodp_la_SOURCES = \
 			   pktio/magic.c \
 			   pktio/loop.c \
 			   pktio/rx_thread.c \
+			   pktio/tx_uc.c \
 			   odp_pool.c \
 			   odp_queue.c \
 			   odp_rpc.c \

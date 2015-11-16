@@ -19,8 +19,7 @@
 #include "odp_pool_internal.h"
 #include "odp_rpc_internal.h"
 #include "odp_rx_internal.h"
-#include "ucode_fw/ucode_eth.h"
-#include "ucode_fw/ucode_eth_v2.h"
+#include "odp_tx_uc_internal.h"
 
 #define MAX_ETH_SLOTS 2
 #define MAX_ETH_PORTS 4
@@ -29,165 +28,14 @@ _ODP_STATIC_ASSERT(MAX_ETH_PORTS * MAX_ETH_SLOTS <= MAX_RX_ETH_IF,
 
 #define N_RX_P_ETH 12
 
-#define NOC_UC_COUNT		2
-#define MAX_PKT_PER_UC		4
-/* must be > greater than max_threads */
-#define MAX_JOB_PER_UC          MOS_NB_UC_TRS
-#define DNOC_CLUS_IFACE_ID	0
-
 #include <mppa_noc.h>
 #include <mppa_routing.h>
-
-extern char _heap_end;
-static int tx_init = 0;
-
-typedef struct eth_uc_job_ctx {
-	odp_packet_t pkt_table[MAX_PKT_PER_UC];
-	unsigned int pkt_count;
-	unsigned char nofree;
-} eth_uc_job_ctx_t;
-
-typedef struct eth_uc_ctx {
-	unsigned int dnoc_tx_id;
-	unsigned int dnoc_uc_id;
-
-	odp_atomic_u64_t head;
-#if MOS_UC_VERSION == 1
-	odp_atomic_u64_t commit_head;
-#endif
-	eth_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
-} eth_uc_ctx_t;
-
-static eth_uc_ctx_t g_eth_uc_ctx[NOC_UC_COUNT] = {{0}};
-
-
-static inline uint64_t _eth_alloc_uc_slots(eth_uc_ctx_t *ctx,
-					   unsigned int count)
-{
-	ODP_ASSERT(count <= MAX_JOB_PER_UC);
-
-	const uint64_t head =
-		odp_atomic_fetch_add_u64(&ctx->head, count);
-	const uint32_t last_id = head + count - 1;
-	unsigned  ev_counter, diff;
-
-	/* Wait for slot */
-	ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
-	diff = last_id - ev_counter;
-	while (diff > 0x80000000 || ev_counter + MAX_JOB_PER_UC <= last_id) {
-		odp_spin();
-		ev_counter = mOS_uc_read_event(ctx->dnoc_uc_id);
-		diff = last_id - ev_counter;
-	}
-
-	/* Free previous packets */
-	for (uint64_t pos = head; pos < head + count; pos++) {
-		if(pos > MAX_JOB_PER_UC){
-			eth_uc_job_ctx_t *job = &ctx->job_ctxs[pos % MAX_JOB_PER_UC];
-			INVALIDATE(job);
-			if (!job->pkt_count || job->nofree)
-				continue;
-
-			packet_free_multi(job->pkt_table,
-					  job->pkt_count);
-		}
-	}
-	return head;
-}
-
-static inline void _eth_uc_commit(eth_uc_ctx_t *ctx,
-				  uint64_t slot,
-				  unsigned int count)
-{
-#if MOS_UC_VERSION == 1
-	while (odp_atomic_load_u64(&ctx->commit_head) != slot)
-		odp_spin();
-#endif
-
-	__builtin_k1_wpurge();
-	__builtin_k1_fence ();
-
-#if MOS_UC_VERSION == 1
-	for (unsigned i = 0; i < count; ++i)
-		mOS_ucore_commit(ctx->dnoc_tx_id);
-	odp_atomic_fetch_add_u64(&ctx->commit_head, count);
-#else
-	for (unsigned i = 0, pos = slot % MAX_JOB_PER_UC; i < count;
-	     ++i, pos = (pos + 1) % MAX_JOB_PER_UC) {
-		mOS_uc_transaction_t * const trs =
-			&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][pos];
-		mOS_ucore_commit(ctx->dnoc_tx_id, trs);
-	}
-#endif
-}
 
 /**
  * #############################
  * PKTIO Interface
  * #############################
  */
-
-static int eth_init_dnoc_tx(void)
-{
-	int i;
-	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_uc_configuration_t uc_conf =
-		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-
-#if MOS_UC_VERSION == 1
-	uc_conf.program_start = (uintptr_t)ucode_eth;
-#else
-	uc_conf.program_start = (uintptr_t)ucode_eth_v2;
-#endif
-	uc_conf.buffer_base = (uintptr_t)&_data_start;
-	uc_conf.buffer_size = (uintptr_t)&_heap_end - (uintptr_t)&_data_start;
-
-	for (i = 0; i < NOC_UC_COUNT; i++) {
-
-		odp_atomic_init_u64(&g_eth_uc_ctx[i].head, 0);
-#if MOS_UC_VERSION == 1
-		odp_atomic_init_u64(&g_eth_uc_ctx[i].commit_head, 0);
-#endif
-		/* DNoC */
-		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_eth_uc_ctx[i].dnoc_tx_id,
-						  MPPA_NOC_BLOCKING);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_eth_uc_ctx[i].dnoc_uc_id,
-						  MPPA_NOC_BLOCKING);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-		/* We will only use events */
-		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
-						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_eth_uc_ctx[i].dnoc_uc_id);
-
-
-		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
-					    g_eth_uc_ctx[i].dnoc_uc_id,
-					    g_eth_uc_ctx[i].dnoc_tx_id, uc_conf);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-#if MOS_UC_VERSION == 2
-		for (int j = 0; j < MOS_NB_UC_TRS; j++) {
-			mOS_uc_transaction_t  * trs =
-				& _scoreboard_start.SCB_UC.trs[g_eth_uc_ctx[i].dnoc_uc_id][j];
-			trs->notify._word = 0;
-			trs->desc.tx_set = 1 << g_eth_uc_ctx[i].dnoc_tx_id;
-			trs->desc.param_count = 8;
-			trs->desc.pointer_count = 4;
-		}
-#endif
-	}
-
-	return 0;
-}
-
 static int eth_init(void)
 {
 	if (rx_thread_init())
@@ -345,13 +193,8 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	return 1;
 #endif
 
-	if (!tx_init) {
-		if(eth_init_dnoc_tx()) {
-			ODP_ERR("Not enough DMA Tx for ETH send setup\n");
-			return 1;
-		}
-		tx_init = 1;
-	}
+
+	tx_uc_init();
 
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	/*
@@ -429,11 +272,11 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 
 	/* Free packets being sent by DMA */
 	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
-	eth_uc_ctx_t * ctx = &g_eth_uc_ctx[tx_index];
-	const uint64_t head = _eth_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
+	tx_uc_ctx_t * ctx = &g_tx_uc_ctx[tx_index];
+	const uint64_t head = tx_uc_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
 
 	for (int slot_id = 0; slot_id < MAX_JOB_PER_UC; ++slot_id) {
-		eth_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
+		tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
 		mOS_uc_transaction_t * const trs =
 			&_scoreboard_start.SCB_UC.trs[ctx->dnoc_uc_id][slot_id];
 		for (unsigned i = 0; i < MAX_PKT_PER_UC; ++i ){
@@ -449,7 +292,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 		job->pkt_count = 0;
 		job->nofree = 1;
 	}
-	_eth_uc_commit(ctx, head, MAX_JOB_PER_UC);
+	tx_uc_commit(ctx, head, MAX_JOB_PER_UC);
 
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
@@ -519,11 +362,11 @@ static inline int
 eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], int pkt_count, int *err)
 {
 	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
-	eth_uc_ctx_t *ctx = &g_eth_uc_ctx[tx_index];
+	tx_uc_ctx_t *ctx = &g_tx_uc_ctx[tx_index];
 
-	const uint64_t head = _eth_alloc_uc_slots(ctx, 1);
+	const uint64_t head = tx_uc_alloc_uc_slots(ctx, 1);
 	const unsigned slot_id = head % MAX_JOB_PER_UC;
-	eth_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
+	tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
 	mOS_uc_transaction_t * const trs =
 		&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
 	const odp_packet_hdr_t * pkt_hdr;
@@ -565,7 +408,7 @@ eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], int pkt_count, int *e
 
 	job->pkt_count = pkt_count;
 
-	_eth_uc_commit(ctx, head, 1);
+	tx_uc_commit(ctx, head, 1);
 
 	return pkt_count;
 }
