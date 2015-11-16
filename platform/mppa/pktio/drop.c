@@ -46,7 +46,7 @@ static int drop_send_pkt(pktio_entry_t *pktio_entry ODP_UNUSED,
 
 static int drop_mtu_get(pktio_entry_t *pktio_entry ODP_UNUSED)
 {
-	return -1;
+	return INT_MAX;
 }
 
 static int drop_mac_addr_get(pktio_entry_t *pktio_entry ODP_UNUSED,
