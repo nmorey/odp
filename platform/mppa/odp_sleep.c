@@ -27,9 +27,9 @@ static int my_nanosleep(struct timespec *ts){
 	uint64_t target = cc + tdiff;;
 	return __k1_syscall2(MAGIC_SCALL_SLEEP, target & 0xffffffffULL, target >> 32);
 #else
-	while(tdiff > UINT32_MAX){
-		__k1_cpu_backoff(UINT32_MAX);
-		tdiff -= UINT32_MAX;
+	while(tdiff > INT32_MAX){
+		__k1_cpu_backoff(INT32_MAX);
+		tdiff -= INT32_MAX;
 	}
 	__k1_cpu_backoff(tdiff);
 	return 0;
