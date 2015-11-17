@@ -60,7 +60,7 @@ cluster-cflags := -I$(ODP_INSTALL_DIR)/$(INCLUDE_DIR)/include -I$(CUNIT_INSTALL_
 cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/ -L$(CUNIT_INSTALL_DIR)/lib/ 
 
 cluster-cflags += -I$(ODP_SRC_DIR)/test/validation/common/ -I$(CURDIR)/include $($(ODP_ARCH)_CFLAGS)
-cluster-lflags += -lodphelper -lodp -lcunit $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS)
+cluster-lflags += -lodphelper -lodp -lcunit -lcrypto  $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS)
 
 $(IOPCIE_ELF)-nameinmpk = iopcie
 IOPCIE_NAME := iopcie
