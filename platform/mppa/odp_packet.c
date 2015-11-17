@@ -136,16 +136,6 @@ int odp_packet_reset(odp_packet_t pkt, uint32_t len)
 	return 0;
 }
 
-odp_packet_t odp_packet_from_event(odp_event_t ev)
-{
-	return (odp_packet_t)ev;
-}
-
-odp_event_t odp_packet_to_event(odp_packet_t pkt)
-{
-	return (odp_event_t)pkt;
-}
-
 /*
  *
  * Pointers and lengths
@@ -397,32 +387,6 @@ void odp_packet_flow_hash_set(odp_packet_t pkt, uint32_t flow_hash)
 
 	pkt_hdr->flow_hash = flow_hash;
 	pkt_hdr->has_hash = 1;
-}
-
-int odp_packet_is_segmented(odp_packet_t pkt ODP_UNUSED)
-{
-	return 0;
-}
-
-int odp_packet_num_segs(odp_packet_t pkt ODP_UNUSED)
-{
-	return 1;
-}
-
-odp_packet_seg_t odp_packet_first_seg(odp_packet_t pkt)
-{
-	return (odp_packet_seg_t)pkt;
-}
-
-odp_packet_seg_t odp_packet_last_seg(odp_packet_t pkt)
-{
-	return (odp_packet_seg_t)pkt;
-}
-
-odp_packet_seg_t odp_packet_next_seg(odp_packet_t pkt ODP_UNUSED,
-				     odp_packet_seg_t seg ODP_UNUSED)
-{
-	return ODP_PACKET_SEG_INVALID;
 }
 
 /*
