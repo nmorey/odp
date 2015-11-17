@@ -36,6 +36,14 @@ _ODP_STATIC_ASSERT(MAX_ETH_PORTS * MAX_ETH_SLOTS <= MAX_RX_ETH_IF,
  * PKTIO Interface
  * #############################
  */
+
+static inline tx_uc_ctx_t *eth_get_ctx(const pkt_eth_t *eth)
+{
+	const unsigned int tx_index =
+		eth->tx_config.config._.first_dir % NOC_UC_COUNT;
+	return &g_tx_uc_ctx[tx_index];
+}
+
 static int eth_init(void)
 {
 	if (rx_thread_init())
@@ -204,7 +212,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->port_id = port_id;
 	eth->pool = pool;
 	eth->loopback = loopback;
-	eth->nofree = nofree;
+	eth->tx_config.nofree = nofree;
 	odp_spinlock_init(&eth->wlock);
 
 	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
@@ -223,25 +231,26 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	if (pktio_entry->s.param.out_mode != ODP_PKTOUT_MODE_DISABLED) {
 		mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
 						    eth->tx_if,
-						    &eth->config, &eth->header);
+						    &eth->tx_config.config,
+						    &eth->tx_config.header);
 
-		eth->config._.loopback_multicast = 0;
-		eth->config._.cfg_pe_en = 1;
-		eth->config._.cfg_user_en = 1;
-		eth->config._.write_pe_en = 1;
-		eth->config._.write_user_en = 1;
-		eth->config._.decounter_id = 0;
-		eth->config._.decounted = 0;
-		eth->config._.payload_min = 6;
-		eth->config._.payload_max = 32;
-		eth->config._.bw_current_credit = 0xff;
-		eth->config._.bw_max_credit     = 0xff;
-		eth->config._.bw_fast_delay     = 0x00;
-		eth->config._.bw_slow_delay     = 0x00;
+		eth->tx_config.config._.loopback_multicast = 0;
+		eth->tx_config.config._.cfg_pe_en = 1;
+		eth->tx_config.config._.cfg_user_en = 1;
+		eth->tx_config.config._.write_pe_en = 1;
+		eth->tx_config.config._.write_user_en = 1;
+		eth->tx_config.config._.decounter_id = 0;
+		eth->tx_config.config._.decounted = 0;
+		eth->tx_config.config._.payload_min = 6;
+		eth->tx_config.config._.payload_max = 32;
+		eth->tx_config.config._.bw_current_credit = 0xff;
+		eth->tx_config.config._.bw_max_credit     = 0xff;
+		eth->tx_config.config._.bw_fast_delay     = 0x00;
+		eth->tx_config.config._.bw_slow_delay     = 0x00;
 
-		eth->header._.multicast = 0;
-		eth->header._.tag = eth->tx_tag;
-		eth->header._.valid = 1;
+		eth->tx_config.header._.multicast = 0;
+		eth->tx_config.header._.tag = eth->tx_tag;
+		eth->tx_config.header._.valid = 1;
 	}
 
 	return ret;
@@ -271,28 +280,7 @@ static int eth_close(pktio_entry_t * const pktio_entry)
 	};
 
 	/* Free packets being sent by DMA */
-	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
-	tx_uc_ctx_t * ctx = &g_tx_uc_ctx[tx_index];
-	const uint64_t head = tx_uc_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
-
-	for (int slot_id = 0; slot_id < MAX_JOB_PER_UC; ++slot_id) {
-		tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
-		mOS_uc_transaction_t * const trs =
-			&_scoreboard_start.SCB_UC.trs[ctx->dnoc_uc_id][slot_id];
-		for (unsigned i = 0; i < MAX_PKT_PER_UC; ++i ){
-			trs->parameter.array[2 * i + 0] = 0;
-			trs->parameter.array[2 * i + 1] = 0;
-		}
-		trs->notify._word = 0;
-		trs->desc.tx_set = 0;
-#if MOS_UC_VERSION == 1
-		trs->desc.param_set = 0xff;
-		trs->desc.pointer_set = 0;
-#endif
-		job->pkt_count = 0;
-		job->nofree = 1;
-	}
-	tx_uc_commit(ctx, head, MAX_JOB_PER_UC);
+	tx_uc_flush(eth_get_ctx(eth));
 
 	odp_rpc_do_query(odp_rpc_get_ioeth_dma_id(slot_id, cluster_id),
 			 odp_rpc_get_ioeth_tag_id(slot_id, cluster_id),
@@ -358,61 +346,6 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return n_packet;
 }
 
-static inline int
-eth_send_packets(pkt_eth_t *eth, odp_packet_t pkt_table[], int pkt_count, int *err)
-{
-	const unsigned int tx_index = eth->config._.first_dir % NOC_UC_COUNT;
-	tx_uc_ctx_t *ctx = &g_tx_uc_ctx[tx_index];
-
-	const uint64_t head = tx_uc_alloc_uc_slots(ctx, 1);
-	const unsigned slot_id = head % MAX_JOB_PER_UC;
-	tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
-	mOS_uc_transaction_t * const trs =
-		&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
-	const odp_packet_hdr_t * pkt_hdr;
-
-	*err = 0;
-	job->nofree = eth->nofree;
-	for (int i = 0; i < pkt_count; ++i ){
-		job->pkt_table[i] = pkt_table[i];
-		pkt_hdr = odp_packet_hdr(pkt_table[i]);
-
-		if (pkt_hdr->frame_len > eth->mtu) {
-			pkt_count = i;
-			*err = EINVAL;
-			break;
-		}
-
-		trs->parameter.array[2 * i + 0] =
-			pkt_hdr->frame_len / sizeof(uint64_t);
-		trs->parameter.array[2 * i + 1] =
-			pkt_hdr->frame_len % sizeof(uint64_t);
-
-		trs->pointer.array[i] = (unsigned long)
-			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
-			 - (uint8_t*)&_data_start);
-	}
-	for (int i = pkt_count; i < 4; ++i) {
-		trs->parameter.array[2 * i + 0] = 0;
-		trs->parameter.array[2 * i + 1] = 0;
-	}
-
-	trs->path.array[ctx->dnoc_tx_id].header = eth->header;
-	trs->path.array[ctx->dnoc_tx_id].config = eth->config;
-#if MOS_UC_VERSION == 1
-	trs->notify._word = 0;
-	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
-	trs->desc.param_set = 0xff;
-	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
-#endif
-
-	job->pkt_count = pkt_count;
-
-	tx_uc_commit(ctx, head, 1);
-
-	return pkt_count;
-}
-
 static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
@@ -420,6 +353,7 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	int pkt_count;
 
+	tx_uc_ctx_t *ctx = eth_get_ctx(eth);
 
 	while(sent < (int)len) {
 		int ret, uc_sent;
@@ -427,7 +361,9 @@ static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
 			(len - sent);
 
-		uc_sent = eth_send_packets(eth, &pkt_table[sent], pkt_count, &ret);
+		uc_sent = tx_uc_send_packets(&eth->tx_config, ctx,
+					     &pkt_table[sent], pkt_count,
+					     eth->mtu, &ret);
 		sent += uc_sent;
 		if (ret) {
 			if (!sent) {

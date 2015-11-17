@@ -47,6 +47,15 @@ extern "C" {
 struct pktio_if_ops;
 
 typedef struct {
+	mppa_dnoc_header_t header;
+	mppa_dnoc_channel_config_t config;
+
+	struct {
+		uint8_t nofree : 1;
+	};
+} pkt_tx_uc_config;
+
+typedef struct {
 	int clus_id;			/**< Cluster ID */
 	odp_pool_t pool; 		/**< pool to alloc packets from */
 	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
@@ -76,7 +85,6 @@ typedef struct {
 	uint16_t mtu;                   /**< Interface MTU */
 	struct {
 		uint8_t loopback : 1;
-		uint8_t nofree : 1;
 	};
 
 	/* Rx Data */
@@ -92,8 +100,7 @@ typedef struct {
 	uint16_t tx_tag;                /**< Remote DMA tag to forward to
 					 *   Eth Egress */
 
-	mppa_dnoc_header_t header;
-	mppa_dnoc_channel_config_t config;
+	pkt_tx_uc_config tx_config;
 } pkt_eth_t;
 
 typedef struct {
