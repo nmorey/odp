@@ -680,7 +680,7 @@ odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 		char bytes[4];
 	} data;
 
-	for (unsigned i = 0; i < len; ++i){
+	for (int i = 0; i < len; ++i){
 		if (!nbytes) {
 			data.word = rand();
 			nbytes += 4;
