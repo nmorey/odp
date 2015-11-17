@@ -758,6 +758,21 @@ void crypto_test_alg_hmac_sha256(void)
 			 NULL, 0,
 			 hmac_sha256_reference_digest[i],
 			 HMAC_SHA256_128_CHECK_LEN);
+
+		/* Now "decode" to validate the auth check function */
+		alg_test(ODP_CRYPTO_OP_DECODE,
+			 ODP_CIPHER_ALG_NULL,
+			 iv,
+			 iv.data,
+			 cipher_key,
+			 ODP_AUTH_ALG_SHA256_128,
+			 auth_key,
+			 NULL, NULL,
+			 hmac_sha256_reference_plaintext[i],
+			 hmac_sha256_reference_length[i],
+			 NULL, 0,
+			 hmac_sha256_reference_digest[i],
+			 HMAC_SHA256_128_CHECK_LEN);
 	}
 }
 
