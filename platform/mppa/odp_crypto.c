@@ -672,6 +672,24 @@ int odp_crypto_term_global(void)
 int32_t
 odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 {
+#ifdef K1B_EXPLORER
+	/* Fake generator for explorer */
+	int nbytes = 0;
+	union {
+		int word;
+		char bytes[4];
+	} data;
+
+	for (unsigned i = 0; i < len; ++i){
+		if (!nbytes) {
+			data.word = rand();
+			nbytes += 4;
+		}
+		buf[i] = data.bytes[--nbytes];
+	}
+	return len;
+#endif
+
 	ODP_ASSERT((unsigned)len <= sizeof(((odp_rpc_inl_data_t*)0)->data) );
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
