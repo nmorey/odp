@@ -82,6 +82,10 @@ static int rnd_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload
 
 void  __attribute__ ((constructor)) __rnd_rpc_constructor()
 {
+#ifdef K1B_EXPLORER
+	/* No RND on explorer */
+	return;
+#endif
 	odp_rnd_gen_init();
 	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
 		__rpc_handlers[__n_rpc_handlers++] = rnd_rpc_handler;
