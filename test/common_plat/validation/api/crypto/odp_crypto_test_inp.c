@@ -188,6 +188,11 @@ static void alg_test(odp_crypto_op_t op,
 	memcpy(data_addr, plaintext, plaintext_len);
 	data_off = 0;
 
+	if (op == ODP_CRYPTO_OP_DECODE && auth_alg != ODP_AUTH_ALG_NULL) {
+		/* Copy the digest at the end of the message */
+		memcpy(data_addr + plaintext_len, digest, digest_len);
+	}
+
 	/* Prepare input/output params */
 	memset(&op_params, 0, sizeof(op_params));
 	op_params.session = session;
