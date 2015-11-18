@@ -151,7 +151,7 @@ AC_ARG_WITH([platform],
     [AS_HELP_STRING([--with-platform=platform],
 	[select platform to be used, default linux-generic])],
     [],
-    [with_platform=linux-generic
+    [AC_MSG_ERROR([No platform specified. Use --with-platform])
     ])
 
 AC_SUBST([with_platform])
