@@ -1,5 +1,30 @@
 #! /bin/sh
 set -x
+
+# Auto generate the platform list
+PLATFORMS=$(ls platform/*/m4/configure.m4 | awk -F '/' '{ print $2}')
+GEN_M4="m4/platforms.m4"
+
+prefix=""
+echo "# Auto-Generated platform list" > $GEN_M4
+for platform in $PLATFORMS; do
+	cat << EOF >> $GEN_M4
+${prefix}if test "\${with_platform}" == "${platform}";
+then
+	m4_include([./platform/${platform}/m4/configure.m4])
+EOF
+	if [ -f test/${platform}/m4/configure.m4 ]; then
+	    echo "	m4_include([./test/${platform}/m4/configure.m4])" >> $GEN_M4
+	fi
+	prefix="el"
+done
+cat << EOF >> $GEN_M4
+else
+    echo "UNSUPPORTED PLATFORM: \${with_platform}"
+    exit 1
+fi
+EOF
+
 aclocal -I config -I m4
 libtoolize --copy
 autoheader
