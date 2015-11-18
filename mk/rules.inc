@@ -41,7 +41,7 @@ $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 
 $(1)-odp-install: $(1)-odp-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
-		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install-strip; \
+		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install; \
 	else true; fi
 	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf && \
