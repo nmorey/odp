@@ -89,16 +89,7 @@ netmap_support=no
 ##########################################################################
 # Run platform specific checks and settings
 ##########################################################################
-if test "${with_platform}" == "linux-generic";
-then
-    m4_include([./platform/linux-generic/m4/configure.m4])
-elif test "${with_platform}" == "mppa";
-then
-    m4_include([./platform/mppa/m4/configure.m4])
-else
-    echo "UNSUPPORTED PLATFORM: ${with_platform}"
-    exit 1
-fi
+m4_include([m4/platforms.m4])
 
 ##########################################################################
 # Set conditionals as computed within platform specific files
