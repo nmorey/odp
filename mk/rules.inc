@@ -77,18 +77,18 @@ define FIRMWARE_RULE
 #$(2) Firmware type
 $(eval $(1)-$(2)-ENV := CC="$($(1)_CC)" CFLAGS="$($(1)_CFLAGS)" \
 	 LDFLAGS="$($(1)_LDFLAGS)" INSTDIR="$($(1)_INSTDIR)")
-firmware-$(1)-$(2)-configure: firmware/$(2)/Makefile
-firmware-$(1)-$(2)-build: firmware/$(2)/Makefile
+firmware-$(2)-$(1)-configure: firmware/$(2)/Makefile
+firmware-$(2)-$(1)-build: firmware/$(2)/Makefile
 	mkdir -p $(ARCH_DIR)/$(2)/$(1)
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile all $($(1)-$(2)-ENV)
 
-firmware-$(1)-$(2)-install: firmware-$(1)-$(2)-build
+firmware-$(2)-$(1)-install: firmware-$(2)-$(1)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
-firmware-$(1)-$(2)-valid: firmware-$(1)-$(2)-build
+firmware-$(2)-$(1)-valid: firmware-$(2)-$(1)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
-firmware-$(1)-$(2)-long: firmware-$(1)-$(2)-build
+firmware-$(2)-$(1)-long: firmware-$(2)-$(1)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile long $($(1)-$(2)-ENV)
-firmware-$(1)-$(2)-clean:
+firmware-$(2)-$(1)-clean:
 	rm -Rf $(ARCH_DIR)/$(2)/$(1)
 endef
 
@@ -100,8 +100,8 @@ define SUB_RULES
 # $(1) = RULE
 # Generate per config rules (clean/build/etc) for each firmware type
 $(foreach FIRMWARE, $(FIRMWARES),
-firmware-$(FIRMWARE)-$(1): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(CONFIG)-$(FIRMWARE)-$(1))
-CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(CONFIG)-$(FIRMWARE)-$(1))
+firmware-$(FIRMWARE)-$(1): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(FIRMWARE)-$(CONFIG)-$(1))
+CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(FIRMWARE)-$(CONFIG)-$(1))
 )
 
 firmware-$(1): $(foreach FIRMWARE, $(FIRMWARES), firmware-$(FIRMWARE)-$(1))
