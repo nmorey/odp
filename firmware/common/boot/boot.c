@@ -11,7 +11,7 @@
 #include "rpc-server.h"
 #include "boot.h"
 
-#define MAX_ARGS                       10
+#define MAX_ARGS                       256
 #define MAX_CLUS_NAME                  256
 
 #define PCIE_ETH_INTERFACE_COUNT	1
@@ -88,6 +88,29 @@ void  __attribute__ ((constructor)) __sync_rpc_constructor()
 	}
 }
 
+
+void boot_set_nb_clusters(int nb_clusters) {
+	clus_count = nb_clusters;
+}
+int boot_cluster(int clus_id, const char bin_file[], const char * argv[] ) {
+	struct clus_bin_boot *clus = &clus_bin_boots[clus_id];
+	clus->bin = strdup(bin_file);
+	clus->id = clus_id;
+	clus->argv[0] = clus->bin;
+	clus->argc = 1;
+	clus->pid =
+	  mppa_power_base_spawn(clus->id,
+				  bin_file,
+				  argv,
+				  NULL,
+				  MPPA_POWER_SHUFFLING_DISABLED);
+	if (clus->pid < 0) {
+		fprintf(stderr, "Failed to spawn cluster %d\n", clus->pid);
+		return -1;
+	}
+	return 0;
+}
+
 int boot_clusters(int argc, char * const argv[])
 {
 	unsigned int i;
@@ -108,10 +131,14 @@ int boot_clusters(int argc, char * const argv[])
 			break;
 		case 'a':
 			{
-				struct clus_bin_boot *clus =
-					&clus_bin_boots[clus_count - 1];
-				clus->argv[clus->argc] = strdup(optarg);
-				clus->argc++;
+				char *pch = strtok(strdup(optarg), " ");
+				while ( pch != NULL ) {
+					struct clus_bin_boot *clus =
+					  &clus_bin_boots[clus_count - 1];
+					clus->argv[clus->argc] = pch;
+					clus->argc++;
+					pch = strtok(NULL, " ");
+				}
 			}
 			break;
 		default: /* '?' */
