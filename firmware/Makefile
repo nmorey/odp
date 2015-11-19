@@ -36,4 +36,7 @@ $(INSTBIN): $(BIN)
 
 valid:
 long:
+
+clean:
+	rm -f $(OBJFILES) $(BIN)
 endif
