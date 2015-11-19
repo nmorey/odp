@@ -39,10 +39,12 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcu
 $(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
 	$(MAKE) -C$(ARCH_DIR)/$(1)/ V=1 all
 
-$(1)-odp-install: $(1)-odp-build
+$(1)-odp-install-lib: $(1)-odp-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install; \
 	else true; fi
+
+$(1)-odp-install-doc: $(1)-odp-build
 	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf && \
 		mkdir -p $(K1ST_DIR)/doc/ODP/ && \
@@ -51,6 +53,8 @@ $(1)-odp-install: $(1)-odp-build
 		mkdir -p $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
 		cp -Rf $(ARCH_DIR)/$(1)/doc/output/html/* $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
 	else true; fi
+
+$(1)-odp-install: $(1)-odp-install-lib $(1)-odp-install-doc
 
 $(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
 	$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check
