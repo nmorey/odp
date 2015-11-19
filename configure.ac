@@ -82,21 +82,9 @@ AC_SUBST([platform_with_platform], ["platform/${with_platform}"])
 AC_SUBST([platform_with_platform_test], ["platform/${with_platform}/test"])
 
 ##########################################################################
-# Prepare default values for platform specific optional features
-##########################################################################
-netmap_support=no
-
-##########################################################################
 # Run platform specific checks and settings
 ##########################################################################
 m4_include([m4/platforms.m4])
-
-##########################################################################
-# Set conditionals as computed within platform specific files
-##########################################################################
-AM_CONDITIONAL([netmap_support], [test x$netmap_support = xyes ])
-AM_CONDITIONAL([HAVE_PCAP], [test $have_pcap = yes])
-
 
 AC_ARG_WITH([sdk-install-path],
 AC_HELP_STRING([--with-sdk-install-path=DIR path to external libs and headers],
