@@ -107,11 +107,34 @@ CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(
 firmware-$(1): $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(1))
 CHECK_LIST += $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(1))
 
+app-$(1): $(foreach APP, $(APPS), app-$(APP)-$(1))
+CHECK_LIST += $(foreach APP, $(APPS), app-$(APP)-$(1))
+
 # Generate per config rules (clean/build/etc) for each arch specific component
 $(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \
 $(ARCH_COMPONENT)-$(1): $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(1))
 CHECK_LIST += $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(1))
 )
+endef
+
+#
+# Define all rules for a given app
+#
+define APP_RULE
+#$(1) APP
+$(eval $(1)-ENV := CC="$($(1)_CC)" CFLAGS="$($(1)_CFLAGS)" \
+	 LDFLAGS="$($(1)_LDFLAGS)")
+
+app-$(1)-configure: apps/$(1)/Makefile
+app-$(1)-install:
+app-$(1)-long:
+app-$(1)-valid:
+
+app-$(1)-build: apps/$(1)/Makefile
+	mkdir -p $(ARCH_DIR)/apps/$(1)
+	cd $(ARCH_DIR)/apps/$(1) && $(MAKE) -f $(TOP_DIR)/apps/$(1)/Makefile all
+app-$(1)-clean:
+	rm -Rf $(ARCH_DIR)/apps/$(1)
 endef
 
 #

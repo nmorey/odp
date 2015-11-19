@@ -17,6 +17,7 @@ MAKE_M4S:= $(shell find $(TOP_DIR) -name "*.m4")
 MAKE_DEPS:= $(MAKE_AMS) $(MAKE_M4S) $(TOP_DIR)/Makefile $(wildcard $(TOP_DIR)/mk/*.inc)
 
 FIRMWARES := $(patsubst firmware/%/Makefile, %, $(wildcard firmware/*/Makefile))
+APPS      := $(patsubst apps/%/Makefile, %, $(wildcard apps/*/Makefile))
 RULE_LIST_SERIAL   :=  install valid long
 RULE_LIST_PARALLEL := clean configure build
 RULE_LIST := $(RULE_LIST_SERIAL) $(RULE_LIST_PARALLEL)
@@ -49,6 +50,12 @@ $(foreach CONFIG, $(_CONFIGS) $(CONFIGS), \
 $(foreach FIRMWARE, $(FIRMWARES), \
 	$(foreach CONFIG, $(_$(FIRMWARE)_CONFIGS) $($(FIRMWARE)_CONFIGS), \
 		$(eval $(call FIRMWARE_RULE,$(CONFIG),$(FIRMWARE)))))
+
+#
+# Define firmware rules for all firmwares and all their targets
+#
+$(foreach APP, $(APPS), \
+		$(eval $(call APP_RULE,$(APP))))
 
 #
 # Documentation rules

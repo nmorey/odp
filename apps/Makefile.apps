@@ -1,0 +1,59 @@
+O ?= ./output
+
+project-name := odp
+
+TOPDIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+ODP_SRC_DIR ?= $(TOPDIR)/..
+ODP_ARCH ?= k1b-kalray-mos
+
+include $(ODP_SRC_DIR)/mk/platforms.inc
+
+INCLUDE_DIR=$($(ODP_ARCH)_INC_DIR)
+# Kalray internal system name
+SYSTEM_NAME = $(subst -kalray,,$(ODP_ARCH))
+CORE_ARCH = $(firstword $(subst -, ,$(ODP_ARCH)))
+OS_BOARD_NAME = $(lastword $(subst -, ,$(ODP_ARCH)))
+
+# -mos option according to real os name
+OS_mos := bare
+OS_nodeos := nodeos
+OS_rtems := rtems
+BOARD_simu := developer
+BOARD_explorer := explorer
+
+# extract OS name and board name
+REAL_OS_NAME = $(firstword $(subst _, ,$(OS_BOARD_NAME)))
+OS_NAME = $(OS_$(REAL_OS_NAME))
+BOARD_NAME = $(if $(findstring _,$(OS_BOARD_NAME)),$(BOARD_$(lastword $(subst _, ,$(OS_BOARD_NAME)))),developer)
+
+cluster-system := $(OS_NAME)
+arch = $(CORE_ARCH)
+board = $(BOARD_NAME)
+
+cflags := -Wall -Werror -Wextra . -std=gnu11
+LIB_NOC_LFLAGS :=  -lmppapower -lmpparouting -lmppanoc
+
+ifeq ($(MAKELEVEL),0)
+$(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
+endif
+
+ifeq ($(USE_PACKAGES),1)
+  ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
+else
+ ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
+endif
+
+FIRMWARE_DIR = $(ODP_INSTALL_DIR)/share/odp/firmware/
+
+cluster-cflags := -I$(ODP_INSTALL_DIR)/$(INCLUDE_DIR)/include
+cluster-lflags := -L$(ODP_INSTALL_DIR)/lib/$(ODP_ARCH)/
+cluster-lflags += -lodphelper -lodp -lcrypto  $(LIB_NOC_LFLAGS) $($(ODP_ARCH)_LDFLAGS) -Wl,--gc-sections
+
+# Empty direct assignement to allows += to work in included Makefiles
+io-bin :=
+mppa-bin :=
+cluster-bin :=
+cluster-tests :=
+mppa-tests :=
+sim-runner-opts := --mboard=mppa64
+
