@@ -22,7 +22,7 @@ RULE_LIST_SERIAL   :=  install valid long
 RULE_LIST_PARALLEL := clean configure build
 RULE_LIST := $(RULE_LIST_SERIAL) $(RULE_LIST_PARALLEL)
 ARCH_COMPONENTS := odp cunit
-COMPONENTS := extra doc $(ARCH_COMPONENTS) $(FIRMWARES)
+COMPONENTS := extra doc $(ARCH_COMPONENTS) firmware
 CHECK_LIST :=
 
 install_DEPS := build
@@ -82,7 +82,7 @@ extra-build: $(INST_DIR)/lib64/libodp_syscall.so
 extra-valid:
 extra-install: $(INST_DIR)/lib64/libodp_syscall.so example-install
 extra-long:
-example-install: x86_64-unknown-linux-gnu-odp-build
+example-install: odp-x86_64-unknown-linux-gnu-build
 	mkdir -p $(K1ST_DIR)/doc/ODP/example/packet
 	install example/example_debug.h platform/mppa/test/pktio/pktio_env \
 		example/packet/{odp_pktio.c,Makefile.k1b-kalray-nodeos_simu} \

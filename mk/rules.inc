@@ -3,7 +3,7 @@
 #
 define CONFIG_RULE
 #Arg1 = machine name
-$(1)-cunit-configure: $(TOP_DIR)/cunit/build/$(1)/Makefile
+cunit-$(1)-configure: $(TOP_DIR)/cunit/build/$(1)/Makefile
 
 $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
@@ -11,20 +11,20 @@ $(TOP_DIR)/cunit/build/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	 $$< --srcdir=$(TOP_DIR)/cunit --prefix=$(CUNIT_INST_DIR)/$(1) \
 	--enable-debug --enable-automated --enable-basic --host=$(1)
 
-$(1)-cunit-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
+cunit-$(1)-build: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/Makefile
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1
 
-$(1)-cunit-install: $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a
+cunit-$(1)-install: $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a
 $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a: $(TOP_DIR)/cunit/build/$(1)/CUnit/Sources/.libs/libcunit.a
 	$(MAKE) -C$(TOP_DIR)/cunit/build/$(1) V=1 install
 
-$(1)-cunit-valid:
-$(1)-cunit-long:
-$(1)-cunit-clean:
+cunit-$(1)-valid:
+cunit-$(1)-long:
+cunit-$(1)-clean:
 	rm -Rf $(TOP_DIR)/cunit/build/$(1) $(CUNIT_INST_DIR)/$(1)
 
-$(1)-odp-configure: $(ARCH_DIR)/$(1)/Makefile
+odp-$(1)-configure: $(ARCH_DIR)/$(1)/Makefile
 $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a $(MAKE_DEPS)
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
@@ -36,15 +36,15 @@ $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcu
 	--includedir=$(K1ST_DIR)$($(1)_INC_DIR)/include \
 	--enable-test-perf $(DEBUG_FLAGS) $($(1)_CONF_OPTS) --disable-debug-print $(DEBUG_CONF_FLAGS)
 
-$(1)-odp-build: $(ARCH_DIR)/$(1)/Makefile
+odp-$(1)-build: $(ARCH_DIR)/$(1)/Makefile
 	$(MAKE) -C$(ARCH_DIR)/$(1)/ V=1 all
 
-$(1)-odp-install-lib: $(1)-odp-build
+odp-$(1)-install-lib: odp-$(1)-build
 	if [ "$($(1)_INSTALL)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 install; \
 	else true; fi
 
-$(1)-odp-install-doc: $(1)-odp-build
+odp-$(1)-install-doc: odp-$(1)-build
 	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/$(1) V=1 doxygen-pdf && \
 		mkdir -p $(K1ST_DIR)/doc/ODP/ && \
@@ -54,17 +54,17 @@ $(1)-odp-install-doc: $(1)-odp-build
 		cp -Rf $(ARCH_DIR)/$(1)/doc/output/html/* $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
 	else true; fi
 
-$(1)-odp-install: $(1)-odp-install-lib $(1)-odp-install-doc
+odp-$(1)-install: odp-$(1)-install-lib odp-$(1)-install-doc
 
-$(1)-odp-valid: $(1)-odp-build $(INST_DIR)/lib64/libodp_syscall.so
+odp-$(1)-valid: odp-$(1)-build $(INST_DIR)/lib64/libodp_syscall.so
 	$(MAKE) -C$(ARCH_DIR)/$(1)/test/validation $($(1)_MAKE_VALID) check
 	$(MAKE) -C$(ARCH_DIR)/$(1)/platform/$($(1)_PLATFORM)/test/ check
 	$(MAKE) -C$(ARCH_DIR)/$(1)/test/performance $($(1)_MAKE_VALID) check
 
-$(1)-odp-clean:
+odp-$(1)-clean:
 	rm -Rf $(ARCH_DIR)/$(1)
 
-$(1)-odp-long:
+odp-$(1)-long:
 	$(error)
 	$(MAKE) -C$(TOP_DIR)/long ODP_ARCH=$(1) O=$(ARCH_DIR)/long_$(1)/
 endef
@@ -77,18 +77,18 @@ define FIRMWARE_RULE
 #$(2) Firmware type
 $(eval $(1)-$(2)-ENV := CC="$($(1)_CC)" CFLAGS="$($(1)_CFLAGS)" \
 	 LDFLAGS="$($(1)_LDFLAGS)" INSTDIR="$($(1)_INSTDIR)")
-$(1)-$(2)-configure: firmware/$(2)/Makefile
-$(1)-$(2)-build: firmware/$(2)/Makefile
+firmware-$(1)-$(2)-configure: firmware/$(2)/Makefile
+firmware-$(1)-$(2)-build: firmware/$(2)/Makefile
 	mkdir -p $(ARCH_DIR)/$(2)/$(1)
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile all $($(1)-$(2)-ENV)
 
-$(1)-$(2)-install: $(1)-$(2)-build
+firmware-$(1)-$(2)-install: firmware-$(1)-$(2)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile install $($(1)-$(2)-ENV)
-$(1)-$(2)-valid: $(1)-$(2)-build
+firmware-$(1)-$(2)-valid: firmware-$(1)-$(2)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile valid $($(1)-$(2)-ENV)
-$(1)-$(2)-long: $(1)-$(2)-build
+firmware-$(1)-$(2)-long: firmware-$(1)-$(2)-build
 	cd $(ARCH_DIR)/$(2)/$(1) && $(MAKE) -f $(TOP_DIR)/firmware/$(2)/Makefile long $($(1)-$(2)-ENV)
-$(1)-$(2)-clean:
+firmware-$(1)-$(2)-clean:
 	rm -Rf $(ARCH_DIR)/$(2)/$(1)
 endef
 
@@ -100,20 +100,20 @@ define SUB_RULES
 # $(1) = RULE
 # Generate per config rules (clean/build/etc) for each firmware type
 $(foreach FIRMWARE, $(FIRMWARES),
-$(FIRMWARE)-$(1): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(1))
-CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), $(CONFIG)-$(FIRMWARE)-$(1))
+firmware-$(FIRMWARE)-$(1): $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(CONFIG)-$(FIRMWARE)-$(1))
+CHECK_LIST += $(foreach CONFIG, $($(FIRMWARE)_CONFIGS), firmware-$(CONFIG)-$(FIRMWARE)-$(1))
 )
 
-firmware-$(1): $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(1))
-CHECK_LIST += $(foreach FIRMWARE, $(FIRMWARES), $(FIRMWARE)-$(1))
+firmware-$(1): $(foreach FIRMWARE, $(FIRMWARES), firmware-$(FIRMWARE)-$(1))
+CHECK_LIST += $(foreach FIRMWARE, $(FIRMWARES), firmware-$(FIRMWARE)-$(1))
 
-app-$(1): $(foreach APP, $(APPS), app-$(APP)-$(1))
+apps-$(1): $(foreach APP, $(APPS), app-$(APP)-$(1))
 CHECK_LIST += $(foreach APP, $(APPS), app-$(APP)-$(1))
 
 # Generate per config rules (clean/build/etc) for each arch specific component
 $(foreach ARCH_COMPONENT, $(ARCH_COMPONENTS), \
-$(ARCH_COMPONENT)-$(1): $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(1))
-CHECK_LIST += $(foreach CONFIG, $(CONFIGS), $(CONFIG)-$(ARCH_COMPONENT)-$(1))
+$(ARCH_COMPONENT)-$(1): $(foreach CONFIG, $(CONFIGS), $(ARCH_COMPONENT)-$(CONFIG)-$(1))
+CHECK_LIST += $(foreach CONFIG, $(CONFIGS), $(ARCH_COMPONENT)-$(CONFIG)-$(1))
 )
 endef
 
