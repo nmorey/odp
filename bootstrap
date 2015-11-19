@@ -7,6 +7,7 @@ GEN_M4="m4/platforms.m4"
 
 prefix=""
 echo "# Auto-Generated platform list" > $GEN_M4
+
 for platform in $PLATFORMS; do
 	cat << EOF >> $GEN_M4
 ${prefix}if test "\${with_platform}" == "${platform}";
@@ -24,6 +25,17 @@ else
     exit 1
 fi
 EOF
+
+echo "# Include conditionals definitions if the platform has any" >> $GEN_M4
+for platform in $PLATFORMS; do
+	if [ ! -f platform/${platform}/m4/conditionals.m4 ]; then
+		continue
+	fi
+	cat << EOF >> $GEN_M4
+# Include conditional definitions for platform '${platform}'
+m4_include([./platform/${platform}/m4/conditionals.m4])
+EOF
+done;
 
 aclocal -I config -I m4
 libtoolize --copy
