@@ -1,3 +1,4 @@
+FIRMDIR    := $(shell basename $(SRCDIR))
 BUILDDIR   := $(shell pwd)
 MAKEFILE   := $(lastword $(MAKEFILE_LIST))
 TOP_SRCDIR := $(realpath $(dir $(MAKEFILE))/..)
@@ -5,6 +6,9 @@ SRCFILES   += $(shell find $(SRCDIRS) -name "[^.]*.c")
 HDRFILES   += $(shell find $(SRCDIRS) -name "[^.]*.h")
 OBJFILES   += $(patsubst $(TOP_SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCFILES))
 
+ODP_INCDIR  = $(TOP_SRCDIR)/platform/mppa/include
+ODP_SRCDIR  = $(TOP_SRCDIR)/platform/mppa/
+_CFLAGS    += -I$(ODP_INCDIR) -I$(TOP_SRCDIR)/include
 _CFLAGS    += $(CFLAGS) -g3 -Wall -Wextra -Werror -std=gnu99 $(patsubst %, -I%, $(SRCDIRS))
 _LDFLAGS   += $(LDFLAGS)
 
