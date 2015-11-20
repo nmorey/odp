@@ -19,6 +19,7 @@
 #include "odp_pool_internal.h"
 #include "odp_rpc_internal.h"
 #include "odp_rx_internal.h"
+#include "odp_tx_uc_internal.h"
 #include "ucode_fw/ucode_pcie.h"
 
 
@@ -29,10 +30,7 @@ _ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
 
 #define N_RX_P_PCIE 12
 
-#define NOC_PCI_UC_COUNT	2
-#define MAX_PKT_PER_UC		8
-/* must be > greater than max_threads */
-#define MAX_JOB_PER_UC          32
+#define NOC_PCIE_UC_COUNT	2
 #define DNOC_CLUS_IFACE_ID	0
 
 #define PKTIO_PKT_MTU	1500
@@ -40,13 +38,20 @@ _ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 
-static tx_uc_ctx_t g_pcie_tx_uc_ctx[NOC_PCIE_UC_COUNT] = {{0}};
-
 /**
  * #############################
  * PKTIO Interface
  * #############################
  */
+
+static tx_uc_ctx_t g_pcie_tx_uc_ctx[NOC_PCIE_UC_COUNT] = {{0}};
+
+static inline tx_uc_ctx_t *pcie_get_ctx(const pkt_pcie_t *pcie)
+{
+	const unsigned int tx_index =
+		pcie->tx_config.config._.first_dir % NOC_PCIE_UC_COUNT;
+	return &g_pcie_tx_uc_ctx[tx_index];
+}
 
 static int pcie_init(void)
 {
@@ -120,6 +125,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	int nRx = N_RX_P_PCIE;
 	int rr_policy = -1;
 	int port_id, slot_id;
+	int nofree = 0;
 
 	/*
 	 * Check device name and extract slot/port
@@ -171,6 +177,9 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 				return -1;
 			}
 			pptr = eptr;
+		} else if (!strncmp(pptr, "nofree", strlen("nofree"))){
+			pptr += strlen("nofree");
+			nofree = 1;
 		} else {
 			/* Unknown parameter */
 			ODP_ERR("Invalid option %s\n", pptr);
@@ -188,7 +197,12 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 #endif
 
 
-	tx_uc_init(g_pcie_tx_uc_ctx, NOC_PCIE_UC_COUNT, ucode_pcie);
+	uintptr_t ucode;
+#if MOS_UC_VERSION == 1
+	ucode = (uintptr_t)ucode_pcie;
+#else
+	ucode = (uintptr_t)ucode_pcie_v2;
+#endif
 
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
@@ -197,38 +211,47 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->pcie_eth_if_id = port_id;
 	pcie->pool = pool;
 	odp_spinlock_init(&pcie->wlock);
+	pcie->tx_config.nofree = nofree;
 
 	/* Setup Rx threads */
-	pcie->rx_config.dma_if = 0;
-	pcie->rx_config.pool = pool;
-	pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id +
-		MAX_RX_ETH_IF;
-	/* FIXME */
-	pcie->rx_config.header_sz = sizeof(uint32_t);
-	rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
+	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
+		pcie->rx_config.dma_if = 0;
+		pcie->rx_config.pool = pool;
+		pcie->rx_config.pktio_id = slot_id * MAX_PCIE_INTERFACES + port_id +
+			MAX_RX_ETH_IF;
+		/* FIXME */
+		pcie->rx_config.header_sz = sizeof(uint32_t);
+		rx_thread_link_open(&pcie->rx_config, nRx, rr_policy);
+	}
 
 	ret = pcie_rpc_send_pcie_open(pcie);
 
-	mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(), pcie->tx_if,
-					    &pcie->config, &pcie->header);
+	if (pktio_entry->s.param.out_mode != ODP_PKTOUT_MODE_DISABLED) {
+		tx_uc_init(g_pcie_tx_uc_ctx, NOC_PCIE_UC_COUNT, ucode);
 
-	pcie->config._.loopback_multicast = 0;
-	pcie->config._.cfg_pe_en = 1;
-	pcie->config._.cfg_user_en = 1;
-	pcie->config._.write_pe_en = 1;
-	pcie->config._.write_user_en = 1;
-	pcie->config._.decounter_id = 0;
-	pcie->config._.decounted = 0;
-	pcie->config._.payload_min = 1;
-	pcie->config._.payload_max = 32;
-	pcie->config._.bw_current_credit = 0xff;
-	pcie->config._.bw_max_credit     = 0xff;
-	pcie->config._.bw_fast_delay     = 0x00;
-	pcie->config._.bw_slow_delay     = 0x00;
+		mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
+						    pcie->tx_if,
+						    &pcie->tx_config.config,
+						    &pcie->tx_config.header);
 
-	pcie->header._.multicast = 0;
-	pcie->header._.tag = pcie->tx_tag;
-	pcie->header._.valid = 1;
+		pcie->tx_config.config._.loopback_multicast = 0;
+		pcie->tx_config.config._.cfg_pe_en = 1;
+		pcie->tx_config.config._.cfg_user_en = 1;
+		pcie->tx_config.config._.write_pe_en = 1;
+		pcie->tx_config.config._.write_user_en = 1;
+		pcie->tx_config.config._.decounter_id = 0;
+		pcie->tx_config.config._.decounted = 0;
+		pcie->tx_config.config._.payload_min = 1;
+		pcie->tx_config.config._.payload_max = 32;
+		pcie->tx_config.config._.bw_current_credit = 0xff;
+		pcie->tx_config.config._.bw_max_credit     = 0xff;
+		pcie->tx_config.config._.bw_fast_delay     = 0x00;
+		pcie->tx_config.config._.bw_slow_delay     = 0x00;
+
+		pcie->tx_config.header._.multicast = 0;
+		pcie->tx_config.header._.tag = pcie->tx_tag;
+		pcie->tx_config.header._.valid = 1;
+	}
 
 	return ret;
 }
@@ -255,6 +278,9 @@ static int pcie_close(pktio_entry_t * const pktio_entry)
 		.flags = 0,
 		.inl_data = close_cmd.inl_data
 	};
+
+	/* Free packets being sent by DMA */
+	tx_uc_flush(pcie_get_ctx(pcie));
 
 	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(slot_id, cluster_id),
 			 odp_rpc_get_ioddr_tag_id(slot_id, cluster_id),
@@ -314,96 +340,15 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 	return n_packet;
 }
 
-static inline int
-pcie_send_packets(pkt_pcie_t *pcie, odp_packet_t pkt_table[], unsigned int pkt_count)
-{
-	mppa_noc_dnoc_uc_configuration_t uc_conf =
-		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-	mppa_noc_uc_program_run_t program_run = {{1, 1}};
-	mppa_noc_ret_t nret;
-	odp_packet_hdr_t * pkt_hdr;
-	unsigned int i;
-	mppa_noc_uc_pointer_configuration_t uc_pointers = {{0}};
-	unsigned int tx_index = pcie->pcie_eth_if_id % NOC_UC_COUNT;
-	unsigned int size;
-
-	for (i = 0; i < pkt_count; i++) {
-		pkt_hdr = odp_packet_hdr(pkt_table[i]);
-		size = pkt_hdr->frame_len / sizeof(uint64_t);
-		/* Setup parameters and pointers */
-		if ((pkt_hdr->frame_len % sizeof(uint64_t)) != 0)
-			size++;
-
-		uc_conf.parameters[i] = size;
-		uc_pointers.thread_pointers[i] =
-			(uintptr_t) packet_map(pkt_hdr, 0, NULL) -
-			(uintptr_t) &_data_start;
-	}
-	for (i = pkt_count; i < MAX_PKT_PER_UC; i++) {
-		uc_conf.parameters[i] = 0;
-		uc_pointers.thread_pointers[i] = 0;
-	}
-
-	odp_spinlock_lock(&pcie->wlock);
-	INVALIDATE(g_uc_ctx);
-	{
-		pcie_uc_ctx_t * ctx = &g_uc_ctx[tx_index];
-		unsigned job_id = ctx->job_id++;
-		pcie_uc_job_ctx_t *job = &ctx->job_ctxs[job_id % MAX_JOB_PER_UC];
-
-		/* Wait for previous run(s) to complete */
-		while(ctx->joined_jobs + MAX_JOB_PER_UC <= job_id) {
-			int ev_counter = mppa_noc_wait_clear_event(DNOC_CLUS_IFACE_ID,
-								   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-								   ctx->dnoc_tx_id);
-			for(i = ctx->joined_jobs; i < ctx->joined_jobs + ev_counter; ++i) {
-				pcie_uc_job_ctx_t * joined_job = &ctx->job_ctxs[i % MAX_JOB_PER_UC];
-				joined_job->is_running = 0;
-				/* Free previous packets */
-				packet_free_multi(joined_job->pkt_table,
-						  joined_job->pkt_count);
-			}
-			ctx->joined_jobs += ev_counter;
-		}
-		memcpy(job->pkt_table, pkt_table, pkt_count * sizeof(*pkt_table));
-
-		uc_conf.pointers = &uc_pointers;
-		uc_conf.event_counter = 0;
-
-		nret = mppa_noc_dnoc_uc_configure(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						  uc_conf, pcie->header, pcie->config);
-		if (nret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-		job->pkt_count = pkt_count;
-		job->is_running = 1;
-
-		mppa_noc_dnoc_uc_set_program_run(DNOC_CLUS_IFACE_ID, ctx->dnoc_uc_id,
-						 program_run);
-	}
-	odp_spinlock_unlock(&pcie->wlock);
-
-	return 0;
-}
 
 static int pcie_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	unsigned int sent = 0;
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
-	unsigned int pkt_count;
+	tx_uc_ctx_t *ctx = pcie_get_ctx(pcie);
 
-
-	while(sent < len) {
-		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
-			(len - sent);
-
-		pcie_send_packets(pcie, &pkt_table[sent], pkt_count);
-		sent += pkt_count;
-	}
-
-
-	return sent;
+	return tx_uc_send_aligned_packets(&pcie->tx_config, ctx,
+					  pkt_table, len, PKTIO_PKT_MTU);
 }
 
 static int pcie_promisc_mode_set(pktio_entry_t *const pktio_entry ODP_UNUSED,
