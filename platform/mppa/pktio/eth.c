@@ -359,32 +359,12 @@ static int eth_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 static int eth_send(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 		    unsigned len)
 {
-	int sent = 0;
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
-	int pkt_count;
-
 	tx_uc_ctx_t *ctx = eth_get_ctx(eth);
 
-	while(sent < (int)len) {
-		int ret, uc_sent;
-
-		pkt_count = (len - sent) > MAX_PKT_PER_UC ? MAX_PKT_PER_UC :
-			(len - sent);
-
-		uc_sent = tx_uc_send_packets(&eth->tx_config, ctx,
-					     &pkt_table[sent], pkt_count,
-					     eth->mtu, &ret);
-		sent += uc_sent;
-		if (ret) {
-			if (!sent) {
-				__odp_errno = ret;
-				return -1;
-			}
-			return sent;
-		}
-	}
-
-	return sent;
+	return tx_uc_send_packets(&eth->tx_config, ctx,
+				  pkt_table, len,
+				  eth->mtu);
 }
 
 static int eth_promisc_mode_set(pktio_entry_t *const pktio_entry,

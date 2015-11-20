@@ -131,9 +131,9 @@ int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx, uintptr_t ucode)
 	return 0;
 }
 
-int tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
-		       tx_uc_ctx_t *ctx, odp_packet_t pkt_table[],
-		       int pkt_count, int mtu, int *err)
+static int _tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
+			       tx_uc_ctx_t *ctx, odp_packet_t pkt_table[],
+			       int pkt_count, int mtu, int *err)
 {
 	const uint64_t head = tx_uc_alloc_uc_slots(ctx, 1);
 	const unsigned slot_id = head % MAX_JOB_PER_UC;
@@ -181,6 +181,35 @@ int tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
 
 	tx_uc_commit(ctx, head, 1);
 	return pkt_count;
+}
+
+int tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
+		       tx_uc_ctx_t *ctx, odp_packet_t pkt_table[],
+		       int len, int mtu)
+{
+	int sent = 0;
+	int pkt_count;
+
+	while(sent < (int)len) {
+		int ret, uc_sent;
+
+		pkt_count = (len - sent) > 4 ? 4 :
+			(len - sent);
+
+		uc_sent = _tx_uc_send_packets(tx_config, ctx,
+						&pkt_table[sent], pkt_count,
+						mtu, &ret);
+		sent += uc_sent;
+		if (ret) {
+			if (!sent) {
+				__odp_errno = ret;
+				return -1;
+			}
+			return sent;
+		}
+	}
+
+	return sent;
 }
 
 void tx_uc_flush(tx_uc_ctx_t *ctx)
