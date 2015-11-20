@@ -59,15 +59,18 @@ int odp_rpc_client_term(void){
 }
 
 static const char * rpc_cmd_names[ODP_RPC_CMD_N_CMD] = {
-	[ODP_RPC_CMD_BAS_INVL] = "INVALID",
-	[ODP_RPC_CMD_BAS_PING] = "PING",
-	[ODP_RPC_CMD_BAS_SYNC] = "SYNC",
-	[ODP_RPC_CMD_ETH_OPEN] = "ETH OPEN",
-	[ODP_RPC_CMD_ETH_CLOS] = "ETH CLOSE",
+	[ODP_RPC_CMD_BAS_INVL]    = "INVALID",
+	[ODP_RPC_CMD_BAS_PING]    = "PING",
+	[ODP_RPC_CMD_BAS_SYNC]    = "SYNC",
+	[ODP_RPC_CMD_ETH_OPEN]    = "ETH OPEN",
+	[ODP_RPC_CMD_ETH_CLOS]    = "ETH CLOSE",
 	[ODP_RPC_CMD_ETH_PROMISC] = "ETH PROMISC",
-	[ODP_RPC_CMD_PCIE_OPEN] = "PCIE OPEN",
-	[ODP_RPC_CMD_PCIE_CLOS] = "PCIE CLOSE",
-	[ODP_RPC_CMD_RND_GET] =   "RANDOM GET",
+	[ODP_RPC_CMD_PCIE_OPEN]   = "PCIE OPEN",
+	[ODP_RPC_CMD_PCIE_CLOS]   = "PCIE CLOSE",
+	[ODP_RPC_CMD_C2C_OPEN]    = "C2C OPEN",
+	[ODP_RPC_CMD_C2C_CLOS]    = "C2C CLOSE",
+	[ODP_RPC_CMD_C2C_QUERY]   = "C2C QUERY",
+	[ODP_RPC_CMD_RND_GET]     = "RANDOM GET",
 };
 void odp_rpc_print_msg(const odp_rpc_t * cmd)
 {
@@ -130,6 +133,24 @@ void odp_rpc_print_msg(const odp_rpc_t * cmd)
 			printf("\t\tifId: %d\n", clos.ifId);
 		}
 		break;
+	case ODP_RPC_CMD_C2C_OPEN:
+		{
+			odp_rpc_cmd_c2c_open_t open = { .inl_data = cmd->inl_data };
+			printf("\t\tdstClus: %d\n"
+				"\t\tRx(s): [%d:%d]\n"
+				"\t\tMTU: %d\n",
+			       open.cluster_id,
+			       open.min_rx, open.max_rx,
+			       open.mtu);
+		}
+		break;
+	case ODP_RPC_CMD_C2C_CLOS:
+		{
+			odp_rpc_cmd_c2c_clos_t clos = { .inl_data = cmd->inl_data };
+			printf("\t\tdstClus: %d\n", clos.cluster_id);
+		}
+		break;
+
 	case ODP_RPC_CMD_RND_GET:
 		{
 			int i;

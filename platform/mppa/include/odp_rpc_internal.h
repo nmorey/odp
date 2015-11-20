@@ -34,11 +34,18 @@ typedef enum {
 	ODP_RPC_CMD_BAS_INVL = 0 /**< BASE: Invalid command. Skip */,
 	ODP_RPC_CMD_BAS_PING     /**< BASE: Ping command. server sends back ack = 0 */,
 	ODP_RPC_CMD_BAS_SYNC     /**< SYNC: Sync command. server wait for every clusters to make a sync before sending ack */,
+
 	ODP_RPC_CMD_ETH_OPEN     /**< ETH: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_ETH_CLOS     /**< ETH: Stop forwarding Rx trafic to a cluster */,
 	ODP_RPC_CMD_ETH_PROMISC  /**< ETH: KSet/Clear promisc mode */,
+
 	ODP_RPC_CMD_PCIE_OPEN    /**< PCIe: Forward Rx traffic to a cluster */,
 	ODP_RPC_CMD_PCIE_CLOS    /**< PCIe: Stop forwarding Rx trafic to a cluster */,
+
+	ODP_RPC_CMD_C2C_OPEN    /**< Cluster2Cluster: Declare as ready to receive message */,
+	ODP_RPC_CMD_C2C_CLOS    /**< Cluster2Cluster: Declare as not ready to receive message */,
+	ODP_RPC_CMD_C2C_QUERY   /**< Cluster2Cluster: Query the amount of creadit available for tx */,
+
 	ODP_RPC_CMD_RND_GET      /**< RND: Get a buffer with random data generated on IO cluster */,
 	ODP_RPC_CMD_N_CMD        /**< Number of commands */
 } odp_rpc_cmd_e;
@@ -106,6 +113,34 @@ _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_rnd_t) == sizeof(odp_rpc_inl_data_t), "ODP
 
 typedef union {
 	struct {
+		uint8_t cluster_id : 8;
+		uint8_t min_rx     : 8;
+		uint8_t max_rx     : 8;
+		uint8_t rx_enabled : 1;
+		uint8_t tx_enabled : 1;
+		uint8_t cnoc_rx    : 8;
+		uint16_t mtu       :16;
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_c2c_open_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_c2c_open_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_C2C_OPEN_T__SIZE_ERROR");
+
+typedef union {
+	struct {
+		uint8_t cluster_id : 8;
+	};
+	odp_rpc_inl_data_t inl_data;
+} odp_rpc_cmd_c2c_clos_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_c2c_clos_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_C2C_CLOS_T__SIZE_ERROR");
+
+typedef odp_rpc_cmd_c2c_clos_t odp_rpc_cmd_c2c_query_t;
+/** @internal Compile time assert */
+_ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_c2c_query_t) == sizeof(odp_rpc_inl_data_t), "ODP_RPC_CMD_C2C_QUERY_T__SIZE_ERROR");
+
+typedef union {
+	struct {
 		uint8_t status;
 		union {
 			uint8_t foo;                    /* Dummy entry for init */
@@ -121,6 +156,14 @@ typedef union {
 				uint8_t  mac[ETH_ALEN];
 				uint16_t mtu;
 			} pcie_open;
+			struct {
+				uint8_t closed  : 1;
+				uint8_t eacces  : 1;
+				uint8_t min_rx  : 8;
+				uint8_t max_rx  : 8;
+				uint8_t cnoc_rx : 8;
+				uint16_t mtu    : 16;
+			} c2c_query;
 		} cmd;
 	};
 	odp_rpc_inl_data_t inl_data;
