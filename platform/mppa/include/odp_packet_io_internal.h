@@ -120,8 +120,7 @@ typedef struct {
 	uint16_t tx_tag;                /**< Remote DMA tag to forward to
 					 *   Eth Egress */
 
-	mppa_dnoc_header_t header;
-	mppa_dnoc_channel_config_t config;
+	pkt_tx_uc_config tx_config;
 } pkt_pcie_t;
 
 struct pktio_entry {

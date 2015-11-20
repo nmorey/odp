@@ -29,7 +29,7 @@ _ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
 
 #define N_RX_P_PCIE 12
 
-#define NOC_UC_COUNT		2
+#define NOC_PCI_UC_COUNT	2
 #define MAX_PKT_PER_UC		8
 /* must be > greater than max_threads */
 #define MAX_JOB_PER_UC          32
@@ -40,72 +40,13 @@ _ODP_STATIC_ASSERT(MAX_PCIE_INTERFACES * MAX_PCIE_SLOTS <= MAX_RX_PCIE_IF,
 #include <mppa_noc.h>
 #include <mppa_routing.h>
 
-extern char _heap_end;
-static int tx_init = 0;
-
-typedef struct pcie_uc_job_ctx {
-	bool is_running;
-	odp_packet_t pkt_table[MAX_PKT_PER_UC];
-	unsigned int pkt_count;
-} pcie_uc_job_ctx_t;
-
-typedef struct pcie_uc_ctx {
-	unsigned int dnoc_tx_id;
-	unsigned int dnoc_uc_id;
-
-	unsigned joined_jobs;
-	unsigned int job_id;
-	pcie_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
-} pcie_uc_ctx_t;
-
-static pcie_uc_ctx_t g_uc_ctx[NOC_UC_COUNT] = {{0}};
+static tx_uc_ctx_t g_pcie_tx_uc_ctx[NOC_PCIE_UC_COUNT] = {{0}};
 
 /**
  * #############################
  * PKTIO Interface
  * #############################
  */
-
-static int pcie_init_dnoc_tx(void)
-{
-	int i;
-	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_uc_configuration_t uc_conf =
-		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
-
-	uc_conf.program_start = (uintptr_t)ucode_pcie;
-	uc_conf.buffer_base = (uintptr_t)&_data_start;
-	uc_conf.buffer_size = (uintptr_t)&_heap_end - (uintptr_t)&_data_start;
-
-	for (i = 0; i < NOC_UC_COUNT; i++) {
-
-		/* DNoC */
-		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_tx_id,
-						  MPPA_NOC_BLOCKING);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_uc_ctx[i].dnoc_uc_id,
-						  MPPA_NOC_BLOCKING);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-
-		/* We will only use events */
-		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
-						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_uc_ctx[i].dnoc_uc_id);
-
-		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
-					    g_uc_ctx[i].dnoc_uc_id,
-					    g_uc_ctx[i].dnoc_tx_id, uc_conf);
-		if (ret != MPPA_NOC_RET_SUCCESS)
-			return 1;
-	}
-
-	return 0;
-}
 
 static int pcie_init(void)
 {
@@ -246,13 +187,9 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	return 1;
 #endif
 
-	if (!tx_init) {
-		if(pcie_init_dnoc_tx()) {
-			ODP_ERR("Not enough DMA Tx for PCIE send setup\n");
-			return 1;
-		}
-		tx_init = 1;
-	}
+
+	tx_uc_init(g_pcie_tx_uc_ctx, NOC_PCIE_UC_COUNT, ucode_pcie);
+
 
 	pkt_pcie_t *pcie = &pktio_entry->s.pkt_pcie;
 
