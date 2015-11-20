@@ -27,9 +27,13 @@ _ODP_STATIC_ASSERT(MAX_ETH_PORTS * MAX_ETH_SLOTS <= MAX_RX_ETH_IF,
 		   "MAX_RX_ETH_IF__ERROR");
 
 #define N_RX_P_ETH 12
+#define NOC_ETH_UC_COUNT 2
 
 #include <mppa_noc.h>
 #include <mppa_routing.h>
+
+#include "ucode_fw/ucode_eth.h"
+#include "ucode_fw/ucode_eth_v2.h"
 
 /**
  * #############################
@@ -37,11 +41,13 @@ _ODP_STATIC_ASSERT(MAX_ETH_PORTS * MAX_ETH_SLOTS <= MAX_RX_ETH_IF,
  * #############################
  */
 
+static tx_uc_ctx_t g_eth_tx_uc_ctx[NOC_ETH_UC_COUNT] = {{0}};
+
 static inline tx_uc_ctx_t *eth_get_ctx(const pkt_eth_t *eth)
 {
 	const unsigned int tx_index =
-		eth->tx_config.config._.first_dir % NOC_UC_COUNT;
-	return &g_tx_uc_ctx[tx_index];
+		eth->tx_config.config._.first_dir % NOC_ETH_UC_COUNT;
+	return &g_eth_tx_uc_ctx[tx_index];
 }
 
 static int eth_init(void)
@@ -201,8 +207,13 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	return 1;
 #endif
 
-
-	tx_uc_init();
+	uintptr_t ucode;
+#if MOS_UC_VERSION == 1
+	ucode = (uintptr_t)ucode_eth;
+#else
+	ucode = (uintptr_t)ucode_eth_v2;
+#endif
+	tx_uc_init(g_eth_tx_uc_ctx, NOC_ETH_UC_COUNT, ucode);
 
 	pkt_eth_t *eth = &pktio_entry->s.pkt_eth;
 	/*

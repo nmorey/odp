@@ -12,12 +12,7 @@
 #include "odp_pool_internal.h"
 #include "odp_tx_uc_internal.h"
 
-#include "ucode_fw/ucode_eth.h"
-#include "ucode_fw/ucode_eth_v2.h"
-
 extern char _heap_end;
-static int tx_init = 0;
-tx_uc_ctx_t g_tx_uc_ctx[NOC_UC_COUNT] = {{0}};
 
 uint64_t tx_uc_alloc_uc_slots(tx_uc_ctx_t *ctx,
 			      unsigned int count)
@@ -77,39 +72,33 @@ void tx_uc_commit(tx_uc_ctx_t *ctx, uint64_t slot,
 #endif
 }
 
-int tx_uc_init(void)
+int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx, uintptr_t ucode)
 {
 	int i;
 	mppa_noc_ret_t ret;
 	mppa_noc_dnoc_uc_configuration_t uc_conf =
 		MPPA_NOC_DNOC_UC_CONFIGURATION_INIT;
 
-	if (tx_init)
-		return -1;
-
-#if MOS_UC_VERSION == 1
-	uc_conf.program_start = (uintptr_t)ucode_eth;
-#else
-	uc_conf.program_start = (uintptr_t)ucode_eth_v2;
-#endif
+	uc_conf.program_start = ucode;
 	uc_conf.buffer_base = (uintptr_t)&_data_start;
 	uc_conf.buffer_size = (uintptr_t)&_heap_end - (uintptr_t)&_data_start;
 
-	for (i = 0; i < NOC_UC_COUNT; i++) {
-
-		odp_atomic_init_u64(&g_tx_uc_ctx[i].head, 0);
+	for (i = 0; i < n_uc_ctx; i++) {
+		if (uc_ctx_table[i].init)
+			continue;
+		odp_atomic_init_u64(&uc_ctx_table[i].head, 0);
 #if MOS_UC_VERSION == 1
-		odp_atomic_init_u64(&g_tx_uc_ctx[i].commit_head, 0);
+		odp_atomic_init_u64(&uc_ctx_table[i].commit_head, 0);
 #endif
 		/* DNoC */
 		ret = mppa_noc_dnoc_tx_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_tx_uc_ctx[i].dnoc_tx_id,
+						  &uc_ctx_table[i].dnoc_tx_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
 		ret = mppa_noc_dnoc_uc_alloc_auto(DNOC_CLUS_IFACE_ID,
-						  &g_tx_uc_ctx[i].dnoc_uc_id,
+						  &uc_ctx_table[i].dnoc_uc_id,
 						  MPPA_NOC_BLOCKING);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
@@ -117,28 +106,28 @@ int tx_uc_init(void)
 		/* We will only use events */
 		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
 						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   g_tx_uc_ctx[i].dnoc_uc_id);
+						   uc_ctx_table[i].dnoc_uc_id);
 
 
 		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
-					    g_tx_uc_ctx[i].dnoc_uc_id,
-					    g_tx_uc_ctx[i].dnoc_tx_id, uc_conf);
+					    uc_ctx_table[i].dnoc_uc_id,
+					    uc_ctx_table[i].dnoc_tx_id, uc_conf);
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
 #if MOS_UC_VERSION == 2
 		for (int j = 0; j < MOS_NB_UC_TRS; j++) {
 			mOS_uc_transaction_t  * trs =
-				& _scoreboard_start.SCB_UC.trs[g_tx_uc_ctx[i].dnoc_uc_id][j];
+				& _scoreboard_start.SCB_UC.trs[uc_ctx_table[i].dnoc_uc_id][j];
 			trs->notify._word = 0;
-			trs->desc.tx_set = 1 << g_tx_uc_ctx[i].dnoc_tx_id;
+			trs->desc.tx_set = 1 << uc_ctx_table[i].dnoc_tx_id;
 			trs->desc.param_count = 8;
 			trs->desc.pointer_count = 4;
 		}
 #endif
+		uc_ctx_table[i].init = 1;
 	}
 
-	tx_init = 1;
 	return 0;
 }
 
