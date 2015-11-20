@@ -213,7 +213,6 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	eth->pool = pool;
 	eth->loopback = loopback;
 	eth->tx_config.nofree = nofree;
-	odp_spinlock_init(&eth->wlock);
 
 	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
 		/* Setup Rx threads */
