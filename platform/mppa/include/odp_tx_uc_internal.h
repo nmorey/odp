@@ -18,14 +18,24 @@ extern "C" {
 #define MAX_JOB_PER_UC          MOS_NB_UC_TRS
 #define DNOC_CLUS_IFACE_ID	0
 
+typedef union {
+	struct {
+		uint16_t pkt_size;
+	};
+	uint64_t dword;
+} tx_uc_header_t;
+
 typedef struct eth_uc_job_ctx {
 	odp_packet_t pkt_table[MAX_PKT_PER_UC];
 	unsigned int pkt_count;
-	unsigned char nofree;
+	struct {
+		uint8_t nofree : 1;
+	};
 } tx_uc_job_ctx_t;
 
 typedef struct {
 	uint8_t init;
+	uint8_t add_header;
 	unsigned int dnoc_tx_id;
 	unsigned int dnoc_uc_id;
 	odp_atomic_u64_t head;
@@ -35,7 +45,8 @@ typedef struct {
 	tx_uc_job_ctx_t job_ctxs[MAX_JOB_PER_UC];
 } tx_uc_ctx_t;
 
-int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx, uintptr_t ucode);
+int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx,
+	       uintptr_t ucode, int add_header);
 uint64_t tx_uc_alloc_uc_slots(tx_uc_ctx_t *ctx,
 			      unsigned int count);
 

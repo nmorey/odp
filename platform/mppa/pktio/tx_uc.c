@@ -72,7 +72,8 @@ void tx_uc_commit(tx_uc_ctx_t *ctx, uint64_t slot,
 #endif
 }
 
-int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx, uintptr_t ucode)
+int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx,
+	       uintptr_t ucode, int add_header)
 {
 	int i;
 	mppa_noc_ret_t ret;
@@ -125,6 +126,7 @@ int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx, uintptr_t ucode)
 			trs->desc.pointer_count = 4;
 		}
 #endif
+		uc_ctx_table[i].add_header = add_header;
 		uc_ctx_table[i].init = 1;
 	}
 
@@ -148,20 +150,28 @@ static int _tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
 		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 
-		if (pkt_hdr->frame_len > mtu) {
+		int len = pkt_hdr->frame_len;
+		uint8_t * base_addr = (uint8_t*)pkt_hdr->buf_hdr.addr +
+			pkt_hdr->headroom;
+
+		if (len > mtu) {
 			pkt_count = i;
 			*err = EINVAL;
 			break;
 		}
+		if (ctx->add_header){
+			tx_uc_header_t info = { .dword = 0ULL };
+			info.pkt_size = len;
+			base_addr -= sizeof(info);
+			((tx_uc_header_t*)base_addr)->dword = info.dword;
+			len += sizeof(info);
+		}
 
-		trs->parameter.array[2 * i + 0] =
-			pkt_hdr->frame_len / sizeof(uint64_t);
-		trs->parameter.array[2 * i + 1] =
-			pkt_hdr->frame_len % sizeof(uint64_t);
+		trs->parameter.array[2 * i + 0] = len / sizeof(uint64_t);
+		trs->parameter.array[2 * i + 1] = len % sizeof(uint64_t);
 
-		trs->pointer.array[i] = (unsigned long)
-			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
-			 - (uint8_t*)&_data_start);
+		trs->pointer.array[i] =
+			(unsigned long)(base_addr - (uint8_t*)&_data_start);
 	}
 	for (int i = pkt_count; i < 4; ++i) {
 		trs->parameter.array[2 * i + 0] = 0;
@@ -229,21 +239,33 @@ static int _tx_uc_send_aligned_packets(const pkt_tx_uc_config *tx_config,
 		job->pkt_table[i] = pkt_table[i];
 		pkt_hdr = odp_packet_hdr(pkt_table[i]);
 
-		if (pkt_hdr->frame_len > mtu) {
+		int len = pkt_hdr->frame_len;
+		uint8_t * base_addr = (uint8_t*)pkt_hdr->buf_hdr.addr +
+			pkt_hdr->headroom;
+
+		if (len > mtu) {
 			pkt_count = i;
 			*err = EINVAL;
 			break;
 		}
+		if (ctx->add_header){
+			tx_uc_header_t info = { .dword = 0ULL };
+			info.pkt_size = len;
+			base_addr -= sizeof(info);
+			((tx_uc_header_t*)base_addr)->dword = info.dword;
+			len += sizeof(info);
+		}
+		/* ROund up to superior multiple of 8B */
+		if (len % sizeof(uint64_t)) {
+			len -= len % sizeof(uint64_t);
+			len += sizeof(uint64_t);
+		}
+		trs->parameter.array[i] = len / sizeof(uint64_t);
 
-		trs->parameter.array[i] =
-			pkt_hdr->frame_len / sizeof(uint64_t);
-		if (pkt_hdr->frame_len % sizeof(uint64_t))
-			trs->parameter.array[i]++;
-
-		trs->pointer.array[i] = (unsigned long)
-			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
-			 - (uint8_t*)&_data_start);
+		trs->pointer.array[i] =
+			(unsigned long)(base_addr - (uint8_t*)&_data_start);
 	}
+
 	for (int i = pkt_count; i < 8; ++i) {
 		trs->parameter.array[i] = 0;
 	}

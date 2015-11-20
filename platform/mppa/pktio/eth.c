@@ -238,7 +238,7 @@ static int eth_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	ret = eth_rpc_send_eth_open(&pktio_entry->s.param, eth);
 
 	if (pktio_entry->s.param.out_mode != ODP_PKTOUT_MODE_DISABLED) {
-		tx_uc_init(g_eth_tx_uc_ctx, NOC_ETH_UC_COUNT, ucode);
+		tx_uc_init(g_eth_tx_uc_ctx, NOC_ETH_UC_COUNT, ucode, 0);
 
 		mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id(),
 						    eth->tx_if,
