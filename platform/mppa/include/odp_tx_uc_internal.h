@@ -14,7 +14,7 @@ extern "C" {
 #include <odp_packet_io_internal.h>
 #include <mppa_noc.h>
 
-#define MAX_PKT_PER_UC		4
+#define MAX_PKT_PER_UC		8
 #define MAX_JOB_PER_UC          MOS_NB_UC_TRS
 #define DNOC_CLUS_IFACE_ID	0
 

@@ -212,6 +212,86 @@ int tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
 	return sent;
 }
 
+static int _tx_uc_send_aligned_packets(const pkt_tx_uc_config *tx_config,
+				       tx_uc_ctx_t *ctx, odp_packet_t pkt_table[],
+				       int pkt_count, int mtu, int *err)
+{
+	const uint64_t head = tx_uc_alloc_uc_slots(ctx, 1);
+	const unsigned slot_id = head % MAX_JOB_PER_UC;
+	tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
+	mOS_uc_transaction_t * const trs =
+		&_scoreboard_start.SCB_UC.trs [ctx->dnoc_uc_id][slot_id];
+	const odp_packet_hdr_t * pkt_hdr;
+
+	*err = 0;
+	job->nofree = tx_config->nofree;
+	for (int i = 0; i < pkt_count; ++i ){
+		job->pkt_table[i] = pkt_table[i];
+		pkt_hdr = odp_packet_hdr(pkt_table[i]);
+
+		if (pkt_hdr->frame_len > mtu) {
+			pkt_count = i;
+			*err = EINVAL;
+			break;
+		}
+
+		trs->parameter.array[i] =
+			pkt_hdr->frame_len / sizeof(uint64_t);
+		if (pkt_hdr->frame_len % sizeof(uint64_t))
+			trs->parameter.array[i]++;
+
+		trs->pointer.array[i] = (unsigned long)
+			(((uint8_t*)pkt_hdr->buf_hdr.addr + pkt_hdr->headroom)
+			 - (uint8_t*)&_data_start);
+	}
+	for (int i = pkt_count; i < 8; ++i) {
+		trs->parameter.array[i] = 0;
+	}
+
+	trs->path.array[ctx->dnoc_tx_id].header = tx_config->header;
+	trs->path.array[ctx->dnoc_tx_id].config = tx_config->config;
+#if MOS_UC_VERSION == 1
+	trs->notify._word = 0;
+	trs->desc.tx_set = 1 << ctx->dnoc_tx_id;
+	trs->desc.param_set = 0xff;
+	trs->desc.pointer_set = (0x1 <<  pkt_count) - 1;
+#endif
+
+	job->pkt_count = pkt_count;
+
+	tx_uc_commit(ctx, head, 1);
+	return pkt_count;
+}
+
+int tx_uc_send_aligned_packets(const pkt_tx_uc_config *tx_config,
+			       tx_uc_ctx_t *ctx, odp_packet_t pkt_table[],
+			       int len, int mtu)
+{
+	int sent = 0;
+	int pkt_count;
+
+	while(sent < (int)len) {
+		int ret, uc_sent;
+
+		pkt_count = (len - sent) > 8 ? 8 :
+			(len - sent);
+
+		uc_sent = _tx_uc_send_aligned_packets(tx_config, ctx,
+						      &pkt_table[sent], pkt_count,
+						      mtu, &ret);
+		sent += uc_sent;
+		if (ret) {
+			if (!sent) {
+				__odp_errno = ret;
+				return -1;
+			}
+			return sent;
+		}
+	}
+
+	return sent;
+}
+
 void tx_uc_flush(tx_uc_ctx_t *ctx)
 {
 	const uint64_t head = tx_uc_alloc_uc_slots(ctx, MAX_JOB_PER_UC);
@@ -220,9 +300,8 @@ void tx_uc_flush(tx_uc_ctx_t *ctx)
 		tx_uc_job_ctx_t * job = &ctx->job_ctxs[slot_id];
 		mOS_uc_transaction_t * const trs =
 			&_scoreboard_start.SCB_UC.trs[ctx->dnoc_uc_id][slot_id];
-		for (unsigned i = 0; i < MAX_PKT_PER_UC; ++i ){
-			trs->parameter.array[2 * i + 0] = 0;
-			trs->parameter.array[2 * i + 1] = 0;
+		for (unsigned i = 0; i < 8; ++i ){
+			trs->parameter.array[i] = 0;
 		}
 		trs->notify._word = 0;
 		trs->desc.tx_set = 0;
