@@ -411,6 +411,10 @@ static void *_rx_thread_start(void *arg)
 int rx_thread_link_open(rx_config_t *rx_config, int n_ports, int rr_policy)
 {
 	const int dma_if = 0;
+	if (rx_config->pktio_id >= MAX_RX_IF) {
+		ODP_ERR("Pktio ID too large\n");
+		return -1;
+	}
 	if (n_ports > MAX_RX) {
 		ODP_ERR("asking for too many Rx port");
 		return -1;
