@@ -157,6 +157,10 @@ static int eth_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload
 
 void  __attribute__ ((constructor)) __eth_rpc_constructor()
 {
+#if defined(MAGIC_SCALL)
+	return;
+#endif
+
 	eth_init();
 	if(__n_rpc_handlers < MAX_RPC_HANDLERS) {
 		__rpc_handlers[__n_rpc_handlers++] = eth_rpc_handler;

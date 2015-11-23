@@ -85,6 +85,9 @@ static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 
 int mppa_pcie_eth_init(int if_count)
 {
+#if defined(MAGIC_SCALL)
+	return 0;
+#endif
 	unsigned int i;
 	struct mppa_pcie_eth_ring_buff_desc *desc_ptr;
 	g_if_count = if_count;

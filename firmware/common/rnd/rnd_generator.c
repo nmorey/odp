@@ -82,7 +82,7 @@ static int rnd_rpc_handler(unsigned remoteClus, odp_rpc_t *msg, uint8_t *payload
 
 void  __attribute__ ((constructor)) __rnd_rpc_constructor()
 {
-#ifdef K1B_EXPLORER
+#if defined (K1B_EXPLORER) || defined(MAGIC_SCALL)
 	/* No RND on explorer */
 	return;
 #endif
