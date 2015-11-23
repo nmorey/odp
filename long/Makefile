@@ -31,6 +31,7 @@ arch = $(CORE_ARCH)
 board = $(BOARD_NAME)
 
 cflags := -Wall -Werror -Wextra
+BOARD_EXT := $(if $(findstring explorer,$(BOARD_NAME)),_explorer,)$(if $(findstring simu,$(OS_BOARD_NAME)),_simu,)
 
 ifeq ($(MAKELEVEL),0)
 $(info --- Building for arch $(arch), os $(OS_NAME), board $(BOARD_NAME) ---)
@@ -41,18 +42,18 @@ LIB_NOC_LFLAGS :=  -lmppapower -lmpparouting -lmppanoc
 ifeq ($(USE_PACKAGES),1)
   ODP_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)
   CUNIT_INSTALL_DIR = $(K1_TOOLCHAIN_DIR)/kalray_internal/cunit/$(ODP_ARCH)
-  IOPCIE_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)/iopcie.kelf
+  IOPCIE_ELF := $(ODP_INSTALL_DIR)/share/odp/firmware/$(CORE_ARCH)$(BOARD_EXT)/iopcie.kelf
 else
   ODP_INSTALL_DIR = $(ODP_SRC_DIR)/install/local/k1tools/
   CUNIT_INSTALL_DIR = $(ODP_SRC_DIR)/cunit/install/local/k1tools/kalray_internal/cunit/$(ODP_ARCH)/
-	
+
   # Build the ioddr boot firmware to avoid additionnal build/install steps...
   INCLUDING_FIRMWARE := 1
   include $(ODP_SRC_DIR)/firmware/iopcie/Makefile
   iopcie-srcs := $(SRCFILES)
   iopcie-system := bare
-  iopcie-lflags := $($(CORE_ARCH)-kalray-ioddr$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)_LDFLAGS) $(_LDFLAGS)
-  iopcie-cflags := $($(CORE_ARCH)-kalray-ioddr$(if $(findstring explorer,$(BOARD_NAME)),_explorer,)_CFLAGS) $(_CFLAGS)
+  iopcie-lflags := $($(CORE_ARCH)-kalray-ioddr$(BOARD_EXT)_LDFLAGS) $(_LDFLAGS)
+  iopcie-cflags := $($(CORE_ARCH)-kalray-ioddr$(BOARD_EXT)_CFLAGS) $(_CFLAGS)
   IOPCIE_ELF := iopcie
 endif
 
