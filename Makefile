@@ -1,10 +1,11 @@
 all: build
 
+_DEBUG_CONF_FLAGS := --enable-debug-print --enable-debug
 ifdef VERBOSE
 DEBUG_CONF_FLAGS := --enable-debug-print
 endif
 ifdef DEBUG
-DEBUG_CONF_FLAGS := --enable-debug-print --enable-debug
+DEBUG_CONF_FLAGS := $(_DEBUG_CONF_FLAGS)
 endif
 
 TOP_DIR := $(shell readlink -f $$(pwd))
