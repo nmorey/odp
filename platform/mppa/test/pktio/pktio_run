@@ -35,10 +35,10 @@ run_test()
 
 	case "$BOARD_TYPE" in
 		"ab01")
-			IFLIST="loop e0:loop e1:loop e0p0:loop e1p1:loop"
+			IFLIST="loop e0:loop e1:loop e0p0:loop e1p1:loop cluster0:tags=100"
 			;;
 		"explorer")
-			IFLIST="loop e1:loop e1p1:loop"
+			IFLIST="loop e1:loop e1p1:loop cluster0:tags=100"
 			;;
 		"")
 			IFLIST="loop"
