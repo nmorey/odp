@@ -48,7 +48,7 @@ static int setup_test()
 
 	/* Just take the next or the previous one as pair */
 	remote_cluster = (__k1_get_cluster_id() % 2) == 0 ? __k1_get_cluster_id() + 1 : __k1_get_cluster_id() - 1;
-	sprintf(pktio_name, "cluster:%d", remote_cluster);
+	sprintf(pktio_name, "cluster%d", remote_cluster);
 	memset(&pktio_param, 0, sizeof(pktio_param));
 	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 

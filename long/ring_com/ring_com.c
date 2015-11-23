@@ -52,8 +52,8 @@ static int setup_test()
 	remote_cluster_out = (__k1_get_cluster_id() + 1) % BSP_NB_CLUSTER_MAX;
 	remote_cluster_in = (__k1_get_cluster_id() == 0) ? BSP_NB_CLUSTER_MAX - 1 : __k1_get_cluster_id() - 1;
 	
-	sprintf(pktio_name_in, "cluster:%d", remote_cluster_in);
-	sprintf(pktio_name_out, "cluster:%d", remote_cluster_out);
+	sprintf(pktio_name_in, "cluster%d", remote_cluster_in);
+	sprintf(pktio_name_out, "cluster%d", remote_cluster_out);
 	memset(&pktio_param, 0, sizeof(pktio_param));
 	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
 

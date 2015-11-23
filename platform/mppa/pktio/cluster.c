@@ -226,11 +226,11 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	int rr_policy = -1;
 	int nofree = 0;
 
-	/* String should in the following format: "cluster:<cluster_id>" */
-	if(strncmp("cluster:", devname, strlen("cluster:")))
+	/* String should in the following format: "cluster<cluster_id>" */
+	if(strncmp("cluster", devname, strlen("cluster")))
 		return -1;
 
-	pptr +=	strlen("cluster:");
+	pptr +=	strlen("cluster");
 	cluster_id = strtoul(pptr, &eptr, 10);
 	if (eptr == pptr || cluster_id < 0 || cluster_id > 15){
 		ODP_ERR("Invalid cluster name %s\n", devname);
