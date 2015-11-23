@@ -16,7 +16,7 @@
 
 #include <mppa_power.h>
 
-#define PKT_BUF_NUM            8
+#define PKT_BUF_NUM            64
 #define PKT_BUF_SIZE           (2 * 1024)
 
 #define PKT_SIZE		64
