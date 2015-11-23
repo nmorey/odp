@@ -87,9 +87,7 @@ Kalray Hypervisor
 
 \subsection{k1b-kalray-nodeos\_simu}
 
-This ports targets one Bostan MPPA cluster in simulation. It is
-compiled for the large\_memory board to remove the 2MB memory limit
-during the development phase.
+This ports targets one Bostan MPPA cluster in simulation.
 
 Using the simulator, this ports allows simulated ODP applications to
 have transparent access to the x86 network interfaces.
@@ -116,11 +114,6 @@ LDFLAGS += -L$($(K1_TOOLCHAIN_DIR)/lib/<port> -lodp
 \end{lstlisting}
 where port is replaced with one of the available K1-ODP port.
 
-Note that when building with \texttt{k1b-kalray-nodeos\_simu}, it is
-required to use the
-
- \texttt{-mboard=large\_memory} flag.
-
 \section{Running}
 
 Running K1-ODP applications is done the same way a standard K1 single
@@ -141,7 +134,7 @@ or in simulation using:
 Running a \texttt{k1b-kalray-nodeos\_simu} application, must be done in
 simulation using this command:
 \begin{lstlisting}
-k1-cluster   --functional  --mboard=large_memory --user-syscall=/usr/local/k1tools/lib64/libodp_syscall.so -- <executable name> <args>
+k1-cluster   --functional  --mboard=mppa64 --user-syscall=/usr/local/k1tools/lib64/libodp_syscall.so -- <executable name> <args>
 \end{lstlisting}
 
 \end{document}
