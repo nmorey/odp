@@ -594,11 +594,7 @@ int odp_queue_enq_multi(odp_queue_t handle, const odp_event_t ev[], int num)
 {
 	queue_entry_t *queue;
 
-	if (num > QUEUE_MULTI_MAX)
-		num = QUEUE_MULTI_MAX;
-
 	queue = queue_to_qentry(handle);
-
 	return queue->s.enqueue_multi(queue, (odp_buffer_hdr_t **)ev, num, 1);
 }
 
@@ -732,11 +728,7 @@ int odp_queue_deq_multi(odp_queue_t handle, odp_event_t events[], int num)
 	queue_entry_t *queue;
 	int ret;
 
-	if (num > QUEUE_MULTI_MAX)
-		num = QUEUE_MULTI_MAX;
-
 	queue = queue_to_qentry(handle);
-
 	ret = queue->s.dequeue_multi(queue, (odp_buffer_hdr_t **)events, num);
 
 	return ret;
