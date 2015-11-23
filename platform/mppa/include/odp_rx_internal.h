@@ -16,7 +16,8 @@ extern "C" {
 #define N_EV_MASKS 4
 #define MAX_RX_ETH_IF 8
 #define MAX_RX_PCIE_IF 8
-#define MAX_RX_IF (MAX_RX_ETH_IF + MAX_RX_PCIE_IF)
+#define MAX_RX_C2C_IF 16
+#define MAX_RX_IF (MAX_RX_ETH_IF + MAX_RX_PCIE_IF + MAX_RX_C2C_IF)
 
 typedef enum {
 	RX_IF_TYPE_ETH,

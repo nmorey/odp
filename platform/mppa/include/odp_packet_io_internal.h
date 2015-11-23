@@ -56,14 +56,26 @@ typedef struct {
 } pkt_tx_uc_config;
 
 typedef struct {
+	int cnoc_rx;
+	int min_rx;
+	int max_rx;
+	int n_credits;
+	int pkt_count;
+} pkt_c2c_cfg_t;
+
+typedef struct {
 	int clus_id;			/**< Cluster ID */
 	odp_pool_t pool; 		/**< pool to alloc packets from */
-	size_t max_frame_len; 		/**< max frame len = buf_size - sizeof(pkt_hdr) */
-	size_t buf_size; 		/**< size of buffer payload in 'pool' */
-	uint64_t sent_pkt_count;	/**< Count of packet sent to the clusters */
-	uint64_t recv_pkt_count;	/**< Count of packet received */
-	mppa_dnoc_header_t header;	/**< Preconfigured header */
-	mppa_dnoc_channel_config_t config;	/**< Preconfigured config */
+	odp_bool_t promisc;		/**< promiscuous mode state */
+
+	pkt_c2c_cfg_t local;
+	pkt_c2c_cfg_t remote;
+
+	int mtu;
+
+	odp_spinlock_t wlock;
+	rx_config_t rx_config;
+	pkt_tx_uc_config tx_config;
 } pkt_cluster_t;
 
 typedef struct {
