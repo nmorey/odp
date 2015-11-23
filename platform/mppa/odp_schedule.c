@@ -251,7 +251,8 @@ int odp_schedule_term_local(void)
 static odp_queue_t pri_set(int prio)
 {
 	odp_spinlock_lock(&sched->mask_lock);
-	sched->pri_count[prio]++;
+	int count = LOAD_U32(sched->pri_count[prio]);
+	STORE_U32(sched->pri_count[prio], count + 1);
 	odp_spinlock_unlock(&sched->mask_lock);
 
 	return sched->pri_queue[prio];
@@ -262,7 +263,8 @@ static void pri_clr(int prio)
 	odp_spinlock_lock(&sched->mask_lock);
 
 	/* Clear mask bit when last queue is removed*/
-	sched->pri_count[prio]--;
+	int count = LOAD_U32(sched->pri_count[prio]);
+	STORE_U32(sched->pri_count[prio], count - 1);
 
 	odp_spinlock_unlock(&sched->mask_lock);
 }
