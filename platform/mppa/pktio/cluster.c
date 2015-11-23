@@ -287,6 +287,7 @@ static int cluster_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pkt_cluster->mtu = odp_buffer_pool_segment_size(pool) -
 		odp_buffer_pool_headroom(pool);
 	odp_spinlock_init(&pkt_cluster->wlock);
+	odp_spinlock_init(&pkt_cluster->rlock);
 
 	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {
 		/* Setup Rx threads */
@@ -431,9 +432,13 @@ static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
 					     (odp_buffer_hdr_t **)pkt_table,
 					     len, NULL);
 
+	odp_spinlock_lock(&clus->rlock);
 	clus->remote.pkt_count += n_packet;
-	if (cluster_send_recv_pkt_count(clus) != 0)
+	if (cluster_send_recv_pkt_count(clus) != 0) {
+		odp_spinlock_unlock(&clus->rlock);
 		return 1;
+	}
+	odp_spinlock_unlock(&clus->rlock);
 
 	for (int i = 0; i < n_packet; ++i) {
 		odp_packet_t pkt = pkt_table[i];
