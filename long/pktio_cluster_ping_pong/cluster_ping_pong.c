@@ -124,7 +124,7 @@ static int run_ping_pong()
 		test_assert_ret(buf[i] == i);
 	}
 
-	odp_packet_free(packet);
+	odp_packet_free(recv_pkts[0]);
 
 	return 0;
 }
