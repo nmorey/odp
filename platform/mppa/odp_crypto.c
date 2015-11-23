@@ -672,7 +672,7 @@ int odp_crypto_term_global(void)
 int32_t
 odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 {
-#ifdef K1B_EXPLORER
+#if defined(K1B_EXPLORER) || defined(MAGIC_SCALL)
 	/* Fake generator for explorer */
 	int nbytes = 0;
 	union {
