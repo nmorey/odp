@@ -38,6 +38,8 @@ $(ARCH_DIR)/debug-$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib
 
 odp-debug-$(1)-build: $(ARCH_DIR)/debug-$(1)/Makefile
 	$(MAKE) -C$(ARCH_DIR)/debug-$(1)/ V=1 all
+odp-debug-$(1)-clean:
+	rm -Rf $(ARCH_DIR)/debug-$(1)
 
 odp-$(1)-configure: $(ARCH_DIR)/$(1)/Makefile
 $(ARCH_DIR)/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/libcunit.a $(MAKE_DEPS)
