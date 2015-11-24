@@ -84,8 +84,12 @@ int odp_init_global(const odp_init_t *params,
 	}
 
 	/* We need to sync only when spawning from another IO */
-	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN)
-		cluster_iopcie_sync();
+	if (__k1_spawn_type() == __MPPA_MPPA_SPAWN) {
+		if (cluster_iopcie_sync()) {
+			ODP_ERR("ODP failed to sync with boot cluster.\n");
+			return -1;
+		}
+	}
 
 	if (odp_pktio_init_global()) {
 		ODP_ERR("ODP packet io init failed.\n");
