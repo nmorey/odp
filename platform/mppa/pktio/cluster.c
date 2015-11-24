@@ -421,9 +421,9 @@ static int cluster_send_recv_pkt_count(pkt_cluster_t *pktio_clus)
 }
 
 
-static int cluster_recv(pktio_entry_t *const pktio_entry ODP_UNUSED,
-			odp_packet_t pkt_table[] ODP_UNUSED,
-			unsigned len ODP_UNUSED)
+static int cluster_recv(pktio_entry_t *const pktio_entry,
+			odp_packet_t pkt_table[],
+			unsigned len)
 {
 	int n_packet;
 	pkt_cluster_t *clus = &pktio_entry->s.pkt_cluster;
