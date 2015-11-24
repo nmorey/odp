@@ -68,7 +68,7 @@ if ENV["label"].to_s() != "" then
         # Validate nothing.
         valid_configs = [ ]
     when "centos7-64"
-        valid_configs = [ ] # "k1b-kalray-nodeos_simu", "k1b-kalray-mos_simu" ]
+        valid_configs = "k1b-kalray-nodeos_simu", "k1b-kalray-mos_simu"
         valid_type = "sim"
     when /MPPAExplorers_k1b*/
         valid_configs = [ "k1b-kalray-nodeos_explorer", "k1b-kalray-mos_explorer" ]
