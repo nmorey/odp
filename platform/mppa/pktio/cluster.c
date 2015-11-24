@@ -432,6 +432,9 @@ static int cluster_recv(pktio_entry_t *const pktio_entry,
 					     (odp_buffer_hdr_t **)pkt_table,
 					     len, NULL);
 
+	if (!n_packet)
+		return 0;
+
 	odp_spinlock_lock(&clus->rlock);
 	clus->remote.pkt_count += n_packet;
 	if (cluster_send_recv_pkt_count(clus) != 0) {
