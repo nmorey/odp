@@ -12,10 +12,10 @@ case "$RUN_TARGET" in
 		FIRMWARES=""
 		case "$BOARD_TYPE" in
 			"ab01")
-				FIRMWARES="--exec-file IODDR0:${TOP_BUILDDIR}/../iounified/k1b-kalray-iounified/iounified.kelf --exec-file IODDR1:${TOP_BUILDDIR}/../iounified/k1b-kalray-iounified/iounified.kelf "
+				FIRMWARES="--exec-file IODDR0:${TOP_BUILDDIR}/../firmware/iounified/k1b-kalray-iounified/iounified.kelf --exec-file IODDR1:${TOP_BUILDDIR}/../firmware/iounified/k1b-kalray-iounified/iounified.kelf "
 				;;
 			"explorer")
-				FIRMWARES="--exec-file IOETH1:${TOP_BUILDDIR}/../ioeth/k1b-kalray-ioeth530/ioeth.kelf"
+				FIRMWARES="--exec-file IOETH1:${TOP_BUILDDIR}/../firmware/ioeth/k1b-kalray-ioeth530/ioeth.kelf"
 				;;
 			"")
 				;;
