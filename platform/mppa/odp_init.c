@@ -10,7 +10,7 @@
 #include <odp_debug_internal.h>
 #include <odp_rpc_internal.h>
 
-#include "HAL/hal/hal.h"
+#include <HAL/hal/hal.h>
 
 int cluster_iopcie_sync(void);
 

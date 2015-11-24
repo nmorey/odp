@@ -1,7 +1,7 @@
 #ifndef __HAL_ETH_I2C_H__
 #define __HAL_ETH_I2C_H__
 
-#include "HAL/hal/hal.h"
+#include <HAL/hal/hal.h>
 #include <stdint.h>
 
 #define UNUSED(x) (void)(x)

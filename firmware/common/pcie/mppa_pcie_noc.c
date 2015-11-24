@@ -5,7 +5,7 @@
 #include "mppa_pcie_noc.h"
 #include "mppa_pcie_eth.h"
 #include "mppa_pcie_buf_alloc.h"
-#include "HAL/hal/hal.h"
+#include <HAL/hal/hal.h>
 
 #define DDR_BASE_ADDR			0x80000000
 #define DIRECTORY_SIZE			(32 * 1024 * 1024)

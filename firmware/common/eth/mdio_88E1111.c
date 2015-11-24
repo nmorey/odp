@@ -1,5 +1,5 @@
 #include "mdio_88E1111.h"
-#include "HAL/hal/hal.h"
+#include <HAL/hal/hal.h>
 #ifdef VERBOSE
 #include <stdio.h>
 #else

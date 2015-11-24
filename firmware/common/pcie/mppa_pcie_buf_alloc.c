@@ -1,4 +1,4 @@
-#include "HAL/hal/hal.h"
+#include <HAL/hal/hal.h>
 #include "mppa_pcie_buf_alloc.h"
 
 static inline int atomic_u32_cmp_xchg_strong_mm(
