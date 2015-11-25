@@ -7,7 +7,8 @@ cluster-bin += $(TEST_NAME)
 $(TEST_NAME)_multibin-objs := $(IOPCIE_ELF) $(TEST_NAME)
 mppa-bin += $(TEST_NAME)_multibin
 
-$(TEST_NAME)-sim-cmd := $(IOPCIE_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME)
+# Unimplemented MPPA_DNOC_DECR_NOTIF_RELOAD_ETH mode
+#$(TEST_NAME)-sim-cmd := $(IOPCIE_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME)
 ifeq ($(board),$(BOARD_explorer))
 
 else
