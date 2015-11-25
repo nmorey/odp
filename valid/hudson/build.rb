@@ -122,7 +122,7 @@ b.target("long") do
     b.run(:cmd => "make long #{make_opt} CONFIGS='#{valid_configs.join(" ")}'")
 
     valid_configs.each(){|conf|
-        cd File.join(odp_path, "build", "long_" + conf, "bin")
+        cd File.join(odp_path, "build", "long", conf, "bin")
         b.ctest( {
                      :ctest_args => "-L #{valid_type}",
                      :fail_msg => "Failed to validate #{conf}",
