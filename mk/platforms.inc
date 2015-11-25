@@ -117,7 +117,7 @@ iopcie_CONFIGS += k1b-kalray-ioddr
 k1b-kalray-ioddr_simu_CC          := k1-gcc
 k1b-kalray-ioddr_simu_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr -mprocessing=single -DMAGIC_SCALL
 k1b-kalray-ioddr_simu_LDFLAGS     :=
-k1b-kalray-ioddr_simu_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+k1b-kalray-ioddr_simu_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_simu
 iopcie_CONFIGS += k1b-kalray-ioddr_simu
 
 k1b-kalray-ioddr_explorer_CC          := k1-gcc
