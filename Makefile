@@ -12,6 +12,7 @@ TOP_DIR := $(shell readlink -f $$(pwd))
 ARCH_DIR:= $(TOP_DIR)/build/
 INST_DIR:= $(TOP_DIR)/install
 K1ST_DIR:= $(INST_DIR)/local/k1tools/
+APST_DIR:= $(K1ST_DIR)/share/odp/apps/
 CUNIT_INST_DIR:= $(INST_DIR)/local/k1tools/kalray_internal/cunit/
 MAKE_AMS:= $(shell find $(TOP_DIR) -name Makefile.am)
 MAKE_M4S:= $(shell find $(TOP_DIR) -name "*.m4")

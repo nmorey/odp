@@ -57,3 +57,8 @@ cluster-tests :=
 mppa-tests :=
 sim-runner-opts := --mboard=developer --march=bostan
 
+
+install: all
+		 @if [ "$(APST_DIR)" == "" ]; then echo "ERROR: APST_DIR" not set; exit 1; fi
+		 mkdir -p $(APST_DIR)/$(TEST_NAME)
+		 install $(addprefix output/bin/,$($(TEST_NAME)-multibinary)) $($(TEST_NAME)-extras) $(APST_DIR)/$(TEST_NAME)

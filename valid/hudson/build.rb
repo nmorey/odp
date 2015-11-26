@@ -42,15 +42,20 @@ clean = Target.new("clean", repo, [])
 build = ParallelTarget.new("build", repo, [])
 valid = ParallelTarget.new("valid", repo, [build])
 
+long = nil
+apps = nil
+
 install = Target.new("install", repo, [build])
 if local_valid then
         long = Target.new("long", repo, [install])
+        apps = Target.new("apps", repo, [install])
 else
         long = Target.new("long", repo, [])
+        apps = Target.new("apps", repo, [])
 end
-package = Target.new("package", repo, [install])
+package = Target.new("package", repo, [install, apps])
 
-b = Builder.new("odp", options, [clean, build, valid, long, package, install])
+b = Builder.new("odp", options, [clean, build, valid, long, apps, package, install])
 
 b.logsession = "odp"
 
@@ -132,6 +137,19 @@ b.target("long") do
     }
 end
 
+b.target("apps") do
+    b.logtitle = "Report for odp apps."
+    cd odp_path
+
+    make_opt = ""
+    if not local_valid then
+        make_opt = "USE_PACKAGES=1"
+    end
+
+    b.run(:cmd => "make apps-install #{make_opt}")
+
+end
+
 b.target("install") do
 
     b.logtitle = "Report for odp install."
@@ -147,6 +165,7 @@ b.target("package") do
 
     b.run(:cmd => "cd install/; tar cf ../odp.tar local/k1tools/lib/ local/k1tools/share/odp/firmware local/k1tools/k1*/include local/k1tools/doc/ local/k1tools/lib64", :env => env)
     b.run(:cmd => "cd install/; tar cf ../odp-tests.tar local/k1tools/share/odp/*/tests", :env => env)
+    b.run(:cmd => "cd install/; tar cf ../odp-apps-internal.tar local/k1tools/share/odp/apps", :env => env)
     b.run(:cmd => "cd install/; tar cf ../odp-cunit.tar local/k1tools/kalray_internal/cunit", :env => env)
 
     (version,releaseID,sha1) = repo.describe()
@@ -176,7 +195,17 @@ b.target("package") do
                            depends, "/usr", workspace)
     b.create_package(tar_package, pinfo)
 
-    #K1 ODP Tests
+    #K1 ODP Apps Internal
+    tar_package = File.expand_path("odp-apps-internal.tar")
+    depends = []
+    depends.push b.depends_info_struct.new("k1-odp","=", release_info.full_version)
+    package_description = "K1 ODP Internal Application and Demo  (k1-odp-apps-internal-#{version}-#{releaseID} sha1 #{sha1})."
+    pinfo = b.package_info("k1-odp-apps-internal", release_info,
+                           package_description, 
+                           depends, "/usr", workspace)
+    b.create_package(tar_package, pinfo)
+
+    #K1 ODP CUnit
     tar_package = File.expand_path("odp-cunit.tar")
     depends = []
     depends.push b.depends_info_struct.new("k1-odp-cunit","=", release_info.full_version)
