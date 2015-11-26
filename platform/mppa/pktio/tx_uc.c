@@ -104,12 +104,6 @@ int tx_uc_init(tx_uc_ctx_t *uc_ctx_table, int n_uc_ctx,
 		if (ret != MPPA_NOC_RET_SUCCESS)
 			return 1;
 
-		/* We will only use events */
-		mppa_noc_disable_interrupt_handler(DNOC_CLUS_IFACE_ID,
-						   MPPA_NOC_INTERRUPT_LINE_DNOC_TX,
-						   uc_ctx_table[i].dnoc_uc_id);
-
-
 		ret = mppa_noc_dnoc_uc_link(DNOC_CLUS_IFACE_ID,
 					    uc_ctx_table[i].dnoc_uc_id,
 					    uc_ctx_table[i].dnoc_tx_id, uc_conf);
