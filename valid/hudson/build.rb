@@ -62,7 +62,7 @@ valid_configs = options["valid-configs"].split()
 valid_type = "sim"
 if ENV["label"].to_s() != "" then
     case ENV["label"]
-    when /MPPADevelopers-ab01b*/, /MPPAEthDevelopers-ab01b*/
+    when /MPPADevelopers-ab01b*/, /MPPAEthDevelopers-ab01b*/, /KONIC80Developers*/
         valid_configs = [ "k1b-kalray-nodeos", "k1b-kalray-mos" ]
         valid_type = "jtag"
     when "fedora19-64","fedora17-64","debian6-64","debian7-64", /MPPADevelopers*/, /MPPAEthDevelopers*/
