@@ -3,25 +3,38 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <string.h>
+#include <mppa_bsp.h>
 
 #include "lib_trng.h"
 #include "odp_rpc_internal.h"
 #include "odp_macros_internal.h"
 #include "rpc-server.h"
 
-#if 0	//	AB01
-#define TRNG_PARAM_NOISE 12
-#define TRNG_PARAM_DIV   4
-#define TRNG_PARAM_CYCLE 8
-#else	//	KONIC
-#define TRNG_PARAM_NOISE 12
-#define TRNG_PARAM_DIV   15
-#define TRNG_PARAM_CYCLE 4
-#endif
+#define TRNG_AB01_PARAM_NOISE 12
+#define TRNG_AB01_PARAM_DIV   4
+#define TRNG_AB01_PARAM_CYCLE 8
+
+#define TRNG_KONIC80_PARAM_NOISE 12
+#define TRNG_KONIC80_PARAM_DIV   15
+#define TRNG_KONIC80_PARAM_CYCLE 4
 
 void
 odp_rnd_gen_init() {
-	mppa_trng_config_simple(TRNG_PARAM_NOISE, TRNG_PARAM_DIV, TRNG_PARAM_CYCLE);
+	switch (__bsp_flavour) {
+	case BSP_KONIC80:
+		mppa_trng_config_simple(TRNG_KONIC80_PARAM_NOISE,
+					TRNG_KONIC80_PARAM_DIV,
+					TRNG_KONIC80_PARAM_CYCLE);
+		break;
+	case BSP_DEVELOPER:
+		mppa_trng_config_simple(TRNG_AB01_PARAM_NOISE,
+					TRNG_AB01_PARAM_DIV,
+					TRNG_AB01_PARAM_CYCLE);
+		break;
+	default:
+		/* Not supported, do nothing */
+		return;
+	}
 	mppa_trng_enable();
 }
 
@@ -35,7 +48,21 @@ odp_rnd_gen_get(char *buf, unsigned len) {
 		mppa_trng_rnd_data_t random_data = {{0}};
 		if (mppa_trng_failure_event()) {
 			printf("failure detected\n");
-			mppa_trng_repare_failure(TRNG_PARAM_NOISE, TRNG_PARAM_DIV, TRNG_PARAM_CYCLE);
+			switch (__bsp_flavour) {
+			case BSP_KONIC80:
+				mppa_trng_repare_failure(TRNG_KONIC80_PARAM_NOISE,
+							 TRNG_KONIC80_PARAM_DIV,
+							 TRNG_KONIC80_PARAM_CYCLE);
+				break;
+			case BSP_DEVELOPER:
+				mppa_trng_repare_failure(TRNG_AB01_PARAM_NOISE,
+							 TRNG_AB01_PARAM_DIV,
+							 TRNG_AB01_PARAM_CYCLE);
+				break;
+			default:
+				/* Not supported, do nothing */
+				return 0;
+			}
 		}
 		while (!mppa_trng_data_ready()) {};
 

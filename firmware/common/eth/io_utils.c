@@ -20,10 +20,10 @@ enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
 	case BSP_EXPLORER:
 		return MPPA_ETH_MAC_ETHMODE_1G;
 		break;
-	case BSP_DEVELOPER:
-#ifdef KONIC
+	case BSP_KONIC80:
 		return MPPA_ETH_MAC_ETHMODE_40G;
-#else
+		break;
+	case BSP_DEVELOPER:
 		if (__k1_get_cluster_id() >= 192) {
 			/* IO(DDR|ETH)1 */
 			if(lane_id == 0 || lane_id == 1)
@@ -34,7 +34,6 @@ enum mppa_eth_mac_ethernet_mode_e mac_get_default_mode(unsigned lane_id)
 			/* IO(DDR|ETH)0 => EXB03 */
 			return MPPA_ETH_MAC_ETHMODE_40G;
 		}
-#endif
 		break;
 	default:
 		return -1;
@@ -256,12 +255,12 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 				printf("Opening lane %d @ 40G\n", lane_id);
 #endif
 
-#ifndef KONIC
-				__k1_phy_polarity_reverse(mac_mode_to_phy_mode(mode), 0x0f, 0x0f);
-				ethernet_i2c_master = setup_i2c_master(1, 1, I2C_BITRATE, GPIO_RATE);
-#else
-				ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
-#endif
+				if (__bsp_flavour == BSP_KONIC80){
+					ethernet_i2c_master = setup_i2c_master(0, 1, I2C_BITRATE, GPIO_RATE);
+				} else {
+					__k1_phy_polarity_reverse(mac_mode_to_phy_mode(mode), 0x0f, 0x0f);
+					ethernet_i2c_master = setup_i2c_master(1, 1, I2C_BITRATE, GPIO_RATE);
+				}
 				qsfp_select_page(ethernet_i2c_master,3);
 				qsfp_write_reg(ethernet_i2c_master, 238, 0x00);
 				qsfp_select_page(ethernet_i2c_master,3);
