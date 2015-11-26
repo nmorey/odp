@@ -72,7 +72,7 @@ mppa-bin :=
 cluster-bin :=
 cluster-tests :=
 mppa-tests :=
-sim-runner-opts := --mboard=mppa64
+sim-runner-opts := --mboard=developer --march=bostan
 
 # Subdirectories
 SUB_DIRS := $(wildcard */Makefile) 
