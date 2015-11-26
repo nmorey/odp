@@ -3,13 +3,29 @@
 
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
+#include "mppa_pcie_buf_alloc.h"
 
 #define MPPA_PCIE_ETH_IF_MAX 4
+
+
+/**
+ * PKT size
+ */
+#define MPPA_PCIE_MULTIBUF_PKT_SIZE	(9*1024)
+/**
+ * 4 packets per multi buffer
+ */
+#define MPPA_PCIE_MULTIBUF_PKT_COUNT	4
+#define MPPA_PCIE_MULTIBUF_SIZE		(MPPA_PCIE_MULTIBUF_PKT_COUNT * MPPA_PCIE_MULTIBUF_PKT_SIZE)
+
+#define MPPA_PCIE_MULTIBUF_COUNT	64
+
+extern buffer_ring_t g_free_buf_pool;
+extern buffer_ring_t g_full_buf_pool;
 
 struct mppa_pcie_eth_dnoc_tx_cfg {
 	int opened;
 	unsigned int cluster;
-	unsigned int rx_id;
 	unsigned int mtu;
 	volatile void *fifo_addr;
 	unsigned int pcie_eth_if;
@@ -24,5 +40,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_close(unsigned remoteClus, odp_rpc_t * msg);
 int mppa_pcie_eth_handler();
 int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg);
 extern struct mppa_pcie_eth_control g_pcie_eth_control;
+
+int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id);
 
 #endif

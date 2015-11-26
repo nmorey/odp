@@ -14,18 +14,6 @@
 
 #define MPPA_PCIE_ETH_NOC_PKT_COUNT	16
 
-/**
- *
- */
-#define MPPA_PCIE_MULTIBUF_PKT_SIZE	(9*1024)
-/**
- * 4 packets per multi buffer
- */
-#define MPPA_PCIE_MULTIBUF_PKT_COUNT	4
-#define MPPA_PCIE_MULTIBUF_SIZE		(MPPA_PCIE_MULTIBUF_PKT_COUNT * MPPA_PCIE_MULTIBUF_PKT_SIZE)
-
-
-#define MPPA_PCIE_MULTIBUF_COUNT	64
 
 /**
  * Maximum count of usable interface
@@ -41,7 +29,15 @@ static void *g_pkt_base_addr = (void *) DDR_BUFFER_BASE_ADDR;
 
 struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
 
-buffer_ring_t g_buf_pool;
+/**
+ * Pool of buffer available for rx 
+ */
+buffer_ring_t g_free_buf_pool;
+
+/**
+ * Buffer ready to be sent to host
+ */
+buffer_ring_t g_full_buf_pool;
 
 /**
  * Stacks for RX_RM
@@ -88,7 +84,7 @@ mppa_pcie_noc_start_rx_rm()
 }
 
 
-int mppa_pcie_noc_init_buff_pool()
+int mppa_pcie_noc_init_buff_pools()
 {
 	mppa_pcie_noc_rx_buf_t **buf_pool;
 	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT];
@@ -101,7 +97,8 @@ int mppa_pcie_noc_init_buff_pool()
 		return 1;
 	}
 
-	buffer_ring_init(&g_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+	buffer_ring_init(&g_free_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+	buffer_ring_init(&g_full_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
 
 	for (i = 0; i < MPPA_PCIE_MULTIBUF_COUNT; i++) {
 		bufs[i] = (mppa_pcie_noc_rx_buf_t *) g_pkt_base_addr;
@@ -111,7 +108,7 @@ int mppa_pcie_noc_init_buff_pool()
 		g_pkt_base_addr += MPPA_PCIE_MULTIBUF_SIZE;
 	}
 
-	buffer_ring_push_multi(&g_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &buf_left);
+	buffer_ring_push_multi(&g_free_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &buf_left);
 	printf("Allocation done\n");
 	return 0;
 }
@@ -123,7 +120,7 @@ int mppa_pcie_eth_noc_init()
 	for(i = 0; i < BSP_NB_DMA_IO_MAX; i++)
 		mppa_noc_interrupt_line_disable(i, MPPA_NOC_INTERRUPT_LINE_DNOC_TX);
 
-	mppa_pcie_noc_init_buff_pool();
+	mppa_pcie_noc_init_buff_pools();
 
 	mppa_pcie_noc_start_rx_rm();
 
@@ -165,39 +162,13 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 	return 0;
 }
 
-static int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
-{
-	unsigned int buf_size = MPPA_PCIE_ETH_DEFAULT_MTU * MPPA_PCIE_ETH_NOC_PKT_COUNT;
-	mppa_noc_ret_t ret;
-	mppa_noc_dnoc_rx_configuration_t conf = MPPA_NOC_DNOC_RX_CONFIGURATION_INIT;
-
-	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, rx_id, MPPA_NOC_NON_BLOCKING);
-	if(ret) {
-		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
-		return 1;
-	}
-
-	conf.buffer_base = DDR_BASE_ADDR;
-	conf.buffer_size = buf_size;
-	g_pkt_base_addr += buf_size;
-
-	conf.reload_mode = MPPA_NOC_RX_RELOAD_MODE_INCR_DATA_NOTIF;
-	conf.activation = MPPA_NOC_ACTIVATED;
-
-	ret = mppa_noc_dnoc_rx_configure(if_id, *rx_id, conf);
-	if (ret)
-		return 1;
-
-	return 0;
-}
-
 odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 {
 	odp_rpc_cmd_pcie_open_t open_cmd = {.inl_data = msg->inl_data};
 	odp_rpc_cmd_ack_t ack = ODP_RPC_CMD_ACK_INITIALIZER;
 	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
 	int if_id = remoteClus % MPPA_PCIE_USABLE_DNOC_IF;
-	unsigned int tx_id, rx_id;
+	unsigned int tx_id, rx_id = 0;
 
 	printf("Received request to open PCIe\n");
 	int ret = mppa_pcie_eth_setup_tx(if_id, &tx_id, remoteClus, open_cmd.min_rx);
@@ -213,7 +184,6 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	tx_cfg = &g_mppa_pcie_tx_cfg[if_id][tx_id];
 	tx_cfg->opened = 1; 
 	tx_cfg->cluster = remoteClus;
-	tx_cfg->rx_id = rx_id;
 	tx_cfg->fifo_addr = &mppa_dnoc[if_id]->tx_ports[tx_id].push_data;
 	tx_cfg->pcie_eth_if = open_cmd.pcie_eth_if_id; 
 	tx_cfg->mtu = open_cmd.pkt_size;
@@ -222,7 +192,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	if (ret)
 		return ack;
 
-	ack.cmd.pcie_open.tx_tag = rx_id;
+	ack.cmd.pcie_open.tx_tag = rx_id; /* RX ID ! */
 	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
 	/* FIXME, we send the same MTU as the one received */
 	ack.cmd.pcie_open.mtu = open_cmd.pkt_size;
