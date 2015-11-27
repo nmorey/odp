@@ -7,7 +7,12 @@
 
 #define MPPA_PCIE_ETH_IF_MAX 4
 
+#define MPPA_PCIE_RM_COUNT		4
 
+#define RX_RM_START		1
+#define RX_RM_COUNT		2
+
+#define MPPA_PCIE_USABLE_DNOC_IF	4
 /**
  * PKT size
  */

@@ -18,11 +18,6 @@
 /**
  * Maximum count of usable interface
  */
-#define MPPA_PCIE_USABLE_DNOC_IF	4
-#define MPPA_PCIE_RM_COUNT		4
-
-#define RX_RM_START		1
-#define RX_RM_COUNT		2
 #define RX_RM_STACK_SIZE	(0x2000 / (sizeof(uint64_t)))
 
 static void *g_pkt_base_addr = (void *) DDR_BUFFER_BASE_ADDR;
