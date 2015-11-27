@@ -21,7 +21,7 @@ ODP_MODULES = buffer \
 	      system
 
 if crypto
-  ODP_MODULES  +=  random
+  ODP_MODULES  += crypto random
 endif
 
 
