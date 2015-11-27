@@ -20,6 +20,7 @@ mppa-bin += $(TEST_NAME)
 $(TEST_NAME)-sim-cmd := $(IOPCIE_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME) -c $(TEST_NAME)
 $(TEST_NAME)-multibinary := $(TEST_NAME).mpk
 mppa-tests += $(TEST_NAME)
+$(TEST_NAME)-scripts := run.sh
 
 pre-build-hooks := build-firmware
 clean-hooks := clean-firmware
