@@ -203,6 +203,7 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 
 		break;
 	case BSP_DEVELOPER:
+	case BSP_KONIC80:
 		/* Only 1G is working for the moment */
 		switch(mode)
 			{
@@ -280,6 +281,9 @@ uint32_t init_mac(int lane_id, enum mppa_eth_mac_ethernet_mode_e mode)
 		break;
 
 	default:
+#ifdef VERBOSE
+		printf("Unsupported board type\n");
+#endif
 		return -EINVAL;
 		break;
 	}
