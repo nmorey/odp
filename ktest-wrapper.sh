@@ -16,6 +16,7 @@ case "$RUN_TARGET" in
 				;;
 			"konic80")
 				FIRMWARES="--exec-file IODDR0:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified_konic80/iounified.kelf --exec-file IODDR1:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified_konic80/iounified.kelf "
+				;;
 			"explorer")
 				FIRMWARES="--exec-file IOETH1:${TOP_BUILDDIR}/../../firmware/ioeth/k1b-kalray-ioeth530/ioeth.kelf"
 				;;
