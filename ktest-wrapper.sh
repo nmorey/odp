@@ -11,9 +11,11 @@ case "$RUN_TARGET" in
 		BOARD_TYPE=$(cat /mppa/board0/type)
 		FIRMWARES=""
 		case "$BOARD_TYPE" in
-			"ab01"|"konic80")
+			"ab01")
 				FIRMWARES="--exec-file IODDR0:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified/iounified.kelf --exec-file IODDR1:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified/iounified.kelf "
 				;;
+			"konic80")
+				FIRMWARES="--exec-file IODDR0:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified_konic80/iounified.kelf --exec-file IODDR1:${TOP_BUILDDIR}/../../firmware/iounified/k1b-kalray-iounified_konic80/iounified.kelf "
 			"explorer")
 				FIRMWARES="--exec-file IOETH1:${TOP_BUILDDIR}/../../firmware/ioeth/k1b-kalray-ioeth530/ioeth.kelf"
 				;;

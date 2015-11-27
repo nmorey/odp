@@ -113,7 +113,6 @@ k1b-kalray-ioddr_LDFLAGS     :=
 k1b-kalray-ioddr_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 iopcie_CONFIGS += k1b-kalray-ioddr
 
-
 k1b-kalray-ioddr_simu_CC          := k1-gcc
 k1b-kalray-ioddr_simu_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr -mprocessing=single -DMAGIC_SCALL
 k1b-kalray-ioddr_simu_LDFLAGS     :=
@@ -139,11 +138,25 @@ k1b-kalray-iounified_LDFLAGS     :=
 k1b-kalray-iounified_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 iounified_CONFIGS += k1b-kalray-iounified
 
+k1b-kalray-iounified_konic80_CC          := k1-gcc
+k1b-kalray-iounified_konic80_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioddr -mos=bare \
+										 	-mboard=konic80
+k1b-kalray-iounified_konic80_LDFLAGS     :=
+k1b-kalray-iounified_konic80_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_konic80
+iounified_CONFIGS += k1b-kalray-iounified_konic80
+
 k1b-kalray-iounified-nopcie_CC          := k1-gcc
 k1b-kalray-iounified-nopcie_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioddr -mos=bare
 k1b-kalray-iounified-nopcie_LDFLAGS     :=
 k1b-kalray-iounified-nopcie_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 _iounified-nopcie_CONFIGS += k1b-kalray-iounified-nopcie
+
+k1b-kalray-iounified-nopcie_konic80_CC          := k1-gcc
+k1b-kalray-iounified-nopcie_konic80_CFLAGS      := -march=k1b -DK1_BARE -mcore=k1bio -mcluster=ioddr -mos=bare \
+												   -mboard=konic80
+k1b-kalray-iounified-nopcie_konic80_LDFLAGS     :=
+k1b-kalray-iounified-nopcie_konic80_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b_konic80
+_iounified-nopcie_CONFIGS += k1b-kalray-iounified-nopcie_konic80
 
 k1b-kalray-iounified-boot_CC          := k1-gcc
 k1b-kalray-iounified-boot_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr -mprocessing=single
