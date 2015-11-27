@@ -42,14 +42,20 @@ static int io_check_cluster_sync_status(void)
 	unsigned int clus;
 	odp_rpc_cmd_ack_t ack = {.status = 0 };
 
+	unsigned n_synced = 0;
 	/* Check that all clusters have synced */
-	for (clus = 0; clus < clus_count; clus++) {
-		if (clus_bin_boots[clus].sync_status == 0)
-			return 0;
+	for (clus = 0; clus < BSP_NB_CLUSTER_MAX; clus++) {
+		if (clus_bin_boots[clus].sync_status == 1)
+			n_synced++;;
 	}
+	if (n_synced != clus_count)
+		return 0;
 
 	/* If so ack them */
-	for (clus = 0; clus < clus_count; clus++) {
+	for (clus = 0; clus < BSP_NB_CLUSTER_MAX; clus++) {
+		if (clus_bin_boots[clus].sync_status == 0)
+			continue;
+
 		clus_bin_boots[clus].sync_status = 0;
 		/* printf("sending ack to %d\n", clus); */
 		odp_rpc_server_ack(&clus_bin_boots[clus].msg, ack);
