@@ -13,7 +13,13 @@ if [ -d ${ROOTDIR}/.git ]; then
 		dirty=-dirty
 	fi
 
-	echo -n "'${CUSTOM_STR}' (${hash}${dirty})">${ROOTDIR}/.scmversion
+	SCMVERSION="'${CUSTOM_STR}' (${hash}${dirty})"
+	echo -n $SCMVERSION >${ROOTDIR}/.scmversion
+	echo -n $SCMVERSION
+elif [ -e ${ROOTDIR}/.scmversion ]; then
+	cat ${ROOTDIR}/.scmversion
+else
+	echo "should be called with a path"
+	exit
 fi
 
-cat ${ROOTDIR}/.scmversion
