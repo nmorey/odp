@@ -460,6 +460,14 @@ odp_buffer_t odp_buffer_alloc(odp_pool_t pool_hdl)
 	return buf;
 }
 
+
+int odp_buffer_alloc_multi(odp_pool_t pool_hdl, odp_buffer_t buf[], int num)
+{
+	size_t buf_size = odp_pool_to_entry(pool_hdl)->s.params.buf.size;
+
+	return buffer_alloc(pool_hdl, buf_size, (odp_buffer_hdr_t **)buf, num);
+}
+
 void odp_buffer_free(odp_buffer_t buf)
 {
 	odp_buffer_hdr_t *buf_hdr = odp_buf_to_hdr(buf);
@@ -471,7 +479,7 @@ void odp_buffer_free(odp_buffer_t buf)
 		ret_local_buf(&local_cache[pool->s.pool_id], buf_hdr, buf_hdr);
 }
 
-void buffer_free_multi(odp_buffer_t _buf_tbl[], int num)
+void odp_buffer_free_multi(const odp_buffer_t _buf_tbl[], int num)
 {
 	odp_buffer_hdr_t ** buf_tbl = (odp_buffer_hdr_t**)_buf_tbl;
 	int offset = 0;

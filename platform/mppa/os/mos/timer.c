@@ -49,7 +49,7 @@ void _odp_timer_init(odp_timer_pool *tp)
 	utask_timer64_create(timer_notify);
 
 	uint64_t res  = tp->param.res_ns;
-	uint64_t n_cycles = odp_time_ns_to_cycles(res);
+	uint64_t n_cycles = odp_time_to_u64(res);
 	utask_timer64_set_time(n_cycles);
 	return;
 }

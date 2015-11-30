@@ -651,7 +651,8 @@ int rx_thread_link_close(uint8_t pktio_id)
 			while ((nbufs = odp_buffer_ring_get_multi(&ifce->ring,
 								  buffers, 10,
 								  NULL)) > 0) {
-				buffer_free_multi((odp_buffer_t*)buffers, nbufs);
+				odp_buffer_free_multi((odp_buffer_t*)buffers,
+						      nbufs);
 			}
 			free(ifce->ring.buf_ptrs);
 

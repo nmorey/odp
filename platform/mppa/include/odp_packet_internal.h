@@ -225,7 +225,7 @@ static inline int packet_parse_not_complete(odp_packet_hdr_t *pkt_hdr)
 
 static inline void packet_free_multi(odp_packet_t pkt_tbl[], unsigned len)
 {
-	buffer_free_multi((odp_buffer_t *)pkt_tbl, len);
+	odp_buffer_free_multi((odp_buffer_t *)pkt_tbl, len);
 }
 
 /* Forward declarations */

@@ -41,9 +41,15 @@
 
 #define CHAOS_NUM_QUEUES 6
 #define CHAOS_NUM_BUFS_PER_QUEUE 6
+
+#ifdef MAGIC_SCALL
+#define CHAOS_NUM_ROUNDS 500
+#define CHAOS_DEBUG (CHAOS_NUM_ROUNDS < 100)
+#else
 #define CHAOS_NUM_ROUNDS 50000
-#define CHAOS_NUM_EVENTS (CHAOS_NUM_QUEUES * CHAOS_NUM_BUFS_PER_QUEUE)
 #define CHAOS_DEBUG (CHAOS_NUM_ROUNDS < 1000)
+#endif
+#define CHAOS_NUM_EVENTS (CHAOS_NUM_QUEUES * CHAOS_NUM_BUFS_PER_QUEUE)
 #define CHAOS_PTR_TO_NDX(p) ((uint64_t)(uint32_t)(uintptr_t)p)
 #define CHAOS_NDX_TO_PTR(n) ((void *)(uintptr_t)n)
 
@@ -422,6 +428,7 @@ static void *chaos_thread(void *arg)
 		CU_ASSERT_FATAL(ev != ODP_EVENT_INVALID);
 		cbuf = odp_buffer_addr(odp_buffer_from_event(ev));
 		CU_ASSERT_FATAL(cbuf != NULL);
+		INVALIDATE(cbuf);
 		if (CHAOS_DEBUG)
 			printf("Thread %d received event %" PRIu64
 			       " seq %" PRIu64

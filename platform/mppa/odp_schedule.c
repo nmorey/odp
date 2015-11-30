@@ -81,7 +81,7 @@ typedef struct {
 	uint32_t num;
 	uint32_t index;
 	uint32_t pause;
-
+	int ignore_ordered_context;
 } sched_local_t;
 
 /* Global scheduler context */
@@ -510,10 +510,10 @@ static int schedule_loop(odp_queue_t *out_queue, uint64_t wait,
 			 odp_event_t out_ev[],
 			 unsigned int max_num, unsigned int max_deq)
 {
-	uint64_t start_cycle, cycle, diff;
+	odp_time_t start_time, time, diff;
 	int ret;
 
-	start_cycle = 0;
+	start_time = ODP_TIME_NULL;
 
 	while (1) {
 		ret = schedule(out_queue, out_ev, max_num, max_deq);
@@ -527,15 +527,15 @@ static int schedule_loop(odp_queue_t *out_queue, uint64_t wait,
 		if (wait == ODP_SCHED_NO_WAIT)
 			break;
 
-		if (start_cycle == 0) {
-			start_cycle = odp_time_cycles();
+		if (!odp_time_cmp(ODP_TIME_NULL, start_time)) {
+			start_time = odp_time_local();
 			continue;
 		}
 
-		cycle = odp_time_cycles();
-		diff  = odp_time_diff_cycles(start_cycle, cycle);
+		time = odp_time_local();
+		diff = odp_time_diff(time, start_time);
 
-		if (wait < diff)
+		if (odp_time_cmp(wait, diff) < 0)
 			break;
 	}
 
@@ -576,7 +576,7 @@ void odp_schedule_resume(void)
 
 uint64_t odp_schedule_wait_time(uint64_t ns)
 {
- 	return odp_time_ns_to_cycles(ns);
+ 	return odp_time_to_u64(odp_time_local_from_ns(ns));
 }
 
 
@@ -731,8 +731,13 @@ void sched_enq_called(void)
 
 void get_sched_order(queue_entry_t **origin_qe, uint64_t *order)
 {
-	*origin_qe = sched_local.origin_qe;
-	*order     = sched_local.order;
+	if (sched_local.ignore_ordered_context) {
+		sched_local.ignore_ordered_context = 0;
+		*origin_qe = NULL;
+	} else {
+		*origin_qe = sched_local.origin_qe;
+		*order     = sched_local.order;
+	}
 }
 
 void get_sched_sync(queue_entry_t **origin_qe, uint64_t **sync, uint32_t ndx)
@@ -746,4 +751,10 @@ void sched_order_resolved(odp_buffer_hdr_t *buf_hdr)
 	if (buf_hdr)
 		buf_hdr->origin_qe = NULL;
 	sched_local.origin_qe = NULL;
+}
+
+int schedule_queue(const queue_entry_t *qe)
+{
+	sched_local.ignore_ordered_context = 1;
+	return odp_queue_enq(qe->s.pri_queue, qe->s.cmd_ev);
 }

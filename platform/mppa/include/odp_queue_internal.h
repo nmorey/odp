@@ -93,6 +93,7 @@ union queue_entry_u {
 
 
 int queue_enq(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr, int sustain);
+
 odp_buffer_hdr_t *queue_deq(queue_entry_t *queue);
 
 int queue_enq_internal(odp_buffer_hdr_t *buf_hdr);
@@ -147,6 +148,26 @@ static inline int queue_prio(queue_entry_t *qe)
 	return qe->s.param.sched.prio;
 }
 
+static inline odp_buffer_hdr_t *get_buf_tail(odp_buffer_hdr_t *buf_hdr)
+{
+	odp_buffer_hdr_t *buf_link = buf_hdr->link;
+	odp_buffer_hdr_t *buf_tail;
+
+	if (!buf_link) {
+		buf_tail = buf_hdr;
+	} else {
+		buf_tail = buf_link;
+		buf_hdr->next = buf_link;
+		buf_hdr->link = NULL;
+	}
+
+	odp_buffer_hdr_t *buf_next;
+	while ((buf_next = buf_tail->next) != NULL)
+		buf_tail = buf_next;
+
+	return buf_tail;
+}
+
 static inline void reorder_enq(queue_entry_t *queue,
 			       uint64_t order,
 			       queue_entry_t *origin_qe,
@@ -179,7 +200,8 @@ static inline void order_release(queue_entry_t *origin_qe, int count)
 	uint64_t sync;
 	uint32_t i;
 
-	origin_qe->s.order_out += count;
+	int order_out = origin_qe->s.order_out;
+	origin_qe->s.order_out = order_out + count;
 
 	for (i = 0; i < origin_qe->s.param.sched.lock_count; i++) {
 		sync = odp_atomic_load_u64(&origin_qe->s.sync_out[i]);
@@ -191,14 +213,13 @@ static inline void order_release(queue_entry_t *origin_qe, int count)
 
 static inline int reorder_deq(queue_entry_t *queue,
 			      queue_entry_t *origin_qe,
-			      odp_buffer_hdr_t **reorder_buf_return,
-			      odp_buffer_hdr_t **reorder_prev_return,
+			      odp_buffer_hdr_t **reorder_tail_return,
 			      odp_buffer_hdr_t **placeholder_buf_return,
 			      int *release_count_return,
 			      int *placeholder_count_return)
 {
 	odp_buffer_hdr_t *reorder_buf     = origin_qe->s.reorder_head;
-	odp_buffer_hdr_t *reorder_prev    = NULL;
+	odp_buffer_hdr_t *reorder_tail    = NULL;
 	odp_buffer_hdr_t *placeholder_buf = NULL;
 	odp_buffer_hdr_t *next_buf;
 	int               deq_count = 0;
@@ -237,14 +258,15 @@ static inline int reorder_deq(queue_entry_t *queue,
 				reorder_buf->link;
 
 			if (reorder_link) {
+				odp_buffer_hdr_t *next;
 				reorder_buf->next = reorder_link;
 				reorder_buf->link = NULL;
-				while (reorder_link->next)
-					reorder_link = reorder_link->next;
+				while ((next = reorder_link->next) != NULL)
+					reorder_link = next;
 				reorder_link->next = next_buf;
-				reorder_prev = reorder_link;
+				reorder_tail = reorder_link;
 			} else {
-				reorder_prev = reorder_buf;
+				reorder_tail = reorder_buf;
 			}
 
 			deq_count++;
@@ -252,8 +274,8 @@ static inline int reorder_deq(queue_entry_t *queue,
 				release_count++;
 			reorder_buf = next_buf;
 		} else if (!reorder_buf->target_qe) {
-			if (reorder_prev)
-				reorder_prev->next = next_buf;
+			if (reorder_tail)
+				reorder_tail->next = next_buf;
 			else
 				origin_qe->s.reorder_head = next_buf;
 
@@ -267,8 +289,7 @@ static inline int reorder_deq(queue_entry_t *queue,
 		}
 	}
 
-	*reorder_buf_return = reorder_buf;
-	*reorder_prev_return = reorder_prev;
+	*reorder_tail_return = reorder_tail;
 	*placeholder_buf_return = placeholder_buf;
 	*release_count_return = release_count;
 	*placeholder_count_return = placeholder_count;
@@ -279,8 +300,7 @@ static inline int reorder_deq(queue_entry_t *queue,
 static inline void reorder_complete(queue_entry_t *origin_qe,
 				    odp_buffer_hdr_t **reorder_buf_return,
 				    odp_buffer_hdr_t **placeholder_buf,
-				    int placeholder_append,
-				    int order_released)
+				    int placeholder_append)
 {
 	odp_buffer_hdr_t *reorder_buf = origin_qe->s.reorder_head;
 	odp_buffer_hdr_t *next_buf;
@@ -295,17 +315,17 @@ static inline void reorder_complete(queue_entry_t *origin_qe,
 
 		if (!reorder_buf->target_qe) {
 			origin_qe->s.reorder_head = next_buf;
-			reorder_buf->next         = *placeholder_buf;
+			reorder_buf->next = *placeholder_buf;
 			*placeholder_buf          = reorder_buf;
 
 			reorder_buf = next_buf;
 			order_release(origin_qe, 1);
-		} else if (!order_released && reorder_buf->flags.sustain) {
+		} else if (reorder_buf->flags.sustain) {
 			reorder_buf = next_buf;
 		} else {
 			*reorder_buf_return = origin_qe->s.reorder_head;
 			origin_qe->s.reorder_head =
-				origin_qe->s.reorder_head->next;
+				(*reorder_buf_return)->next;
 			break;
 		}
 	}
