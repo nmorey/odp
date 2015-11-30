@@ -29,17 +29,17 @@ clean-hooks := clean-firmware
 include $(TOPDIR)/../mk/Makefile.kalray
 
 build-firmware:
-	mkdir -p ./firmware-ab01 && cd ./firmware-ab01 && \
-	make -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_CC)" CFLAGS="$(k1b-kalray-iounified_CFLAGS)" \
+	+mkdir -p ./firmware-ab01 && cd ./firmware-ab01 && \
+	$(MAKE) -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_CC)" CFLAGS="$(k1b-kalray-iounified_CFLAGS)" \
 	 LDFLAGS="$(k1b-kalray-iounified_LDFLAGS)" all
-	mkdir -p ./firmware-konic80 && cd ./firmware-konic80 && \
-	make -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_konic80_CC)" CFLAGS="$(k1b-kalray-iounified_konic80_CFLAGS)" \
+	+mkdir -p ./firmware-konic80 && cd ./firmware-konic80 && \
+	$(MAKE) -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_konic80_CC)" CFLAGS="$(k1b-kalray-iounified_konic80_CFLAGS)" \
 	 LDFLAGS="$(k1b-kalray-iounified_konic80_LDFLAGS)" all
 clean-firmware:
 	if [ -d ./firmware-ab01 ]; then \
-	make -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_CC)" CFLAGS="$(k1b-kalray-iounified_CFLAGS)" \
+	$(MAKE) -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_CC)" CFLAGS="$(k1b-kalray-iounified_CFLAGS)" \
 	 LDFLAGS="$(k1b-kalray-iounified_LDFLAGS)" clean; else true; fi
 	if [ -d ./firmware-konic80 ]; then \
-	make -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_konic80_CC)" CFLAGS="$(k1b-kalray-iounified_konic80_CFLAGS)" \
+	$(MAKE) -f $(APP_DIR)/firmware/Makefile CC="$(k1b-kalray-iounified_konic80_CC)" CFLAGS="$(k1b-kalray-iounified_konic80_CFLAGS)" \
 	 LDFLAGS="$(k1b-kalray-iounified_konic80_LDFLAGS)" clean; else true; fi
 
