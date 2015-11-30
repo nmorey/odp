@@ -34,9 +34,7 @@ static int setup_test()
 {
 	odp_pool_param_t params;
 	char pktio_name[] = "p0p0:tags=120";
-	char pktio_invalid_name[] = "p0p16";
 	odp_pktio_param_t pktio_param = {0};
-	odp_pktio_t tmp;
 
 	memset(&params, 0, sizeof(params));
 	params.pkt.seg_len = PKT_BUF_SIZE;
@@ -51,9 +49,6 @@ static int setup_test()
 	}
 
 	pktio_param.in_mode = ODP_PKTIN_MODE_POLL;
-
-	tmp = odp_pktio_open(pktio_invalid_name, pool, &pktio_param);
-	test_assert_ret(tmp == ODP_PKTIO_INVALID);
 
 	pktio = odp_pktio_open(pktio_name, pool, &pktio_param);
 	test_assert_ret(pktio != ODP_PKTIO_INVALID);
@@ -86,7 +81,7 @@ static int run_pcie_simple()
 		if (ret == 1)
 			break;
 	}
-
+	printf("Received packet\n");
 	test_assert_ret(odp_packet_is_valid(packet) == 1);
 
 	odp_packet_free(packet);
