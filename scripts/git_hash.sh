@@ -6,20 +6,22 @@ if [ -z ${1} ]; then
 fi
 ROOTDIR=${1}
 
-CUSTOM_STR=${CUSTOM_STR:-https://git.linaro.org/lng/odp.git}
-if [ -d ${ROOTDIR}/.git ]; then
+if [ -e ${ROOTDIR}/.git ]; then
 	hash=$(git --git-dir=${ROOTDIR}/.git describe | tr -d "\n")
-	if git --git-dir=${ROOTDIR}/.git diff-index --name-only HEAD &>/dev/null ; then
-		dirty=-dirty
+	if [[ $(git --git-dir=${ROOTDIR}/.git diff --shortstat 2> /dev/null \
+		| tail -n1) != "" ]]; then
+		dirty=.dirty
 	fi
+	echo -n "${hash}${dirty}">${ROOTDIR}/.scmversion
 
-	SCMVERSION="'${CUSTOM_STR}' (${hash}${dirty})"
-	echo -n $SCMVERSION >${ROOTDIR}/.scmversion
-	echo -n $SCMVERSION
-elif [ -e ${ROOTDIR}/.scmversion ]; then
-	cat ${ROOTDIR}/.scmversion
-else
-	echo "should be called with a path"
-	exit
+	sed -i "s|-|.git|" ${ROOTDIR}/.scmversion
+	sed -i "s|-|.|g" ${ROOTDIR}/.scmversion
+	sed -i "s|^v||g" ${ROOTDIR}/.scmversion
+elif [ ! -e ${ROOTDIR}/.git -a ! -f ${ROOTDIR}/.scmversion ]; then
+	echo -n "File ROOTDIR/.scmversion not found, "
+	echo "and not inside a git repository"
+	echo "Bailing out! Not recoverable!"
+	exit 1
 fi
 
+cat ${ROOTDIR}/.scmversion

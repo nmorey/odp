@@ -167,7 +167,7 @@ static void classification_test_pmr_term_tcp_dport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(retqueue == queue);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
@@ -184,7 +184,7 @@ static void classification_test_pmr_term_tcp_dport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == defqueue);
@@ -256,7 +256,7 @@ static void classification_test_pmr_term_tcp_sport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == queue);
@@ -271,7 +271,7 @@ static void classification_test_pmr_term_tcp_sport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == defqueue);
@@ -343,7 +343,7 @@ static void classification_test_pmr_term_udp_dport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == queue);
@@ -359,7 +359,7 @@ static void classification_test_pmr_term_udp_dport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == defqueue);
@@ -431,7 +431,7 @@ static void classification_test_pmr_term_udp_sport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == queue);
@@ -446,7 +446,7 @@ static void classification_test_pmr_term_udp_sport(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == defqueue);
@@ -514,7 +514,7 @@ static void classification_test_pmr_term_ipproto(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == queue);
@@ -527,7 +527,7 @@ static void classification_test_pmr_term_ipproto(void)
 
 	enqueue_pktio_interface(pkt, pktio);
 
-	pkt = receive_packet(&retqueue, ODP_TIME_SEC);
+	pkt = receive_packet(&retqueue, ODP_TIME_SEC_IN_NS);
 	CU_ASSERT(pkt != ODP_PACKET_INVALID);
 	CU_ASSERT(seqno == cls_pkt_get_seq(pkt));
 	CU_ASSERT(retqueue == defqueue);

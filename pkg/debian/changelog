@@ -1,3 +1,72 @@
+opendataplane (1.5.0.0-1) unstable; urgency=low
+   * API:
+       - api: buffer: add functions to alloc/free multiple buffers at once
+       - api: cpu: change order of arguments for diff function
+       - api: crypto: add AES128-CBC encrypt/decrypt methods
+       - api: crypto: add HMAC-SHA-256-128 support
+       - api: crypto: move enums from platform types to odp and rename to fit the API format
+       - api: packet: add functions to alloc/free multiple packets at once
+       - api: queue: add odp_queue_info() function to retrieve queue information
+       - api: time: change order of arguments for diff function
+       - api: time: unbind CPU cycles from time API
+   * Validation
+       - performance: odp_pktio_perf: fix potential overflow in wait loop
+       - test/example: avoid "cycle" word usage
+       - ability to specify test install directory
+       - buffer: add tests for buffer alloc/free multi functions
+       - crypto: add test for AES128 CBC
+       - crypto: add test for HMAC-SHA-256-128
+       - crypto: limit packet size to maximum supported by platform
+       - packet: add tests for packet alloc/free multi functions
+       - queue: api validation tests for odp_queue_info()
+       - remove strict dependency on CUnit 2.1-3
+       - scheduler: add missing ticketlock unlock
+   * General:
+       - rpm packaging support
+       - linux-generic: config: increase ODP_CONFIG_SCHED_GRPS to 256
+       - linux-generic: cpumask: warn that CPU0 is used by control and worker thread
+       - linux-generic: packet: add implementation for packet alloc/free multi
+       - linux-generic: pool: add buffer_alloc_multi function
+       - linux-generic: pool: add implementation for buffer alloc/free multi
+       - linux-generic: queue: add odp_queue_info() function
+       - linux-generic: validation: add run-test script for post install testing
+       - platform: move list of API files to Makefile.inc so it is common to all platforms
+
+ -- Maxim Uvarov <maxim.uvarov@linaro.org>  Mon, 30 Nov 2015 13:08:43 +0300
+
+opendataplane (1.4.1.0-1) unstable; urgency=low
+   * Validation
+       - pktio: test transmit error recovery
+       - schedule: add chaos test
+       - check return code from odp_queue_lock_count()
+       - scheduler: test ordered queue reorder processing
+       - pktio: initialize queue parameters correctly
+       - pktio: test for transmit error handling
+       - pktio: add support for direct receive
+       - pktio: pass interface index rather than name
+       - pktio: fix start_stop test
+       - test: l2fwd: separate rx and tx drop counters
+       - test: l2fwd: increase burst size
+       - test: l2fwd: optimize statistics usage
+       - test: l2fwd: optimize queue mode
+       - test: l2fwd: start pktios after worker thread create
+       - test: l2fwd: added option to disable error check
+       - example/ipsec: Increase ip_data_len for Tunnel mode
+       - example: ipsec: check push_tail return code
+   * General:
+       - linux-generic: pktio: handle transmit errors correctly
+       - pktio socket_mmap: recover from transmit errors but 1890
+       - pktio: increase MTU of loop interface
+       - ordered queues: fix race condition during order release
+         and out of order.
+       - configure: move HAVE_PCAP AM_CONDITIONAL to configure.ac
+   * ODP helper:
+       - linux: checkpatch cleaning for helper/linux.c
+       - linux: examine the cause for child process termination
+       - linux: request SIGTERM if parent process dies
+
+ -- Maxim Uvarov <maxim.uvarov@linaro.org>  Fri, 13 Nov 2015 13:47:22 +0300
+
 opendataplane (1.4.0.0-1) unstable; urgency=low
    * API:
        - ** Classification **
