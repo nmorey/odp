@@ -19,18 +19,30 @@ _CFLAGS    += -O2
 endif
 
 ifndef INCLUDING_FIRMWARE
+
+ifdef BUILD_LIBRARY
+LIB      := $(BUILDDIR)/lib$(FIRMDIR).a
+INSTBIN  := $(INSTDIR)/lib$(FIRMDIR).a
+else
 BIN      := $(BUILDDIR)/$(FIRMDIR).kelf
 INSTBIN  := $(INSTDIR)/$(FIRMDIR).kelf
-all: $(BIN)
+endif
+all: $(BIN) $(LIB)
 
 $(BIN): $(OBJFILES)
 	$(CC) -o $@ $^ $(_CFLAGS) $(_LDFLAGS)
+$(LIB): $(OBJFILES)
+	ar rc $@ $^
+
 $(OBJFILES): $(BUILDDIR)/%.o: $(TOP_SRCDIR)/%.c $(HDRFILES)
 	@mkdir -p $$(dirname $@) || true
 	$(CC) -o $@ -c $< $(_CFLAGS)
 
-install: $(INSTBIN)
+install: $(INSTBIN) $(INSTLIB)
 $(INSTBIN): $(BIN)
+	if [ "$(INSTDIR)" == "" ]; then echo "ERROR: INSTDIR not set" && exit 1; fi
+	install -D $< $@
+$(INSTLIB): $(LIB)
 	if [ "$(INSTDIR)" == "" ]; then echo "ERROR: INSTDIR not set" && exit 1; fi
 	install -D $< $@
 
