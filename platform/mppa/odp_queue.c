@@ -27,12 +27,10 @@
 #ifdef USE_TICKETLOCK
 #include <odp/ticketlock.h>
 #define LOCK(a)      do {				\
-		__k1_wmb();				\
 		odp_ticketlock_lock(&(a)->s.lock);	\
 	} while(0)
 
 #define UNLOCK(a)    do {				\
-		__k1_wmb();				\
 		odp_ticketlock_unlock(&(a)->s.lock);	\
 	}while(0)
 
@@ -42,12 +40,10 @@
 #else
 #include <odp/spinlock.h>
 #define LOCK(a)      do {				\
-		__k1_wmb();				\
 		INVALIDATE(queue);			\
 		odp_spinlock_lock(&(a)->s.lock);	\
 	} while(0)
 #define UNLOCK(a)    do {				\
-		__k1_wmb();				\
 		odp_spinlock_unlock(&(a)->s.lock);	\
 	}while(0)
 #define LOCK_INIT(a) odp_spinlock_init(&(a)->s.lock)
@@ -407,6 +403,27 @@ static int _queue_enq_update(queue_entry_t *queue, odp_buffer_hdr_t *head,
 	return 0;
 }
 
+/* Update queue head and/or tail and schedule status
+ * Return if the queue needs to be reschedule.
+ * Queue must be locked before calling this function
+ */
+static int _cached_queue_enq_update(queue_entry_t *queue,
+				    odp_buffer_hdr_t *head,
+				    odp_buffer_hdr_t *tail, int status){
+
+	odp_buffer_hdr_t ** q_tail = queue->s.tail;
+
+	tail->next = NULL;
+	queue->s.tail = &tail->next;
+	*q_tail = head;
+
+	if (status == QUEUE_STATUS_NOTSCHED) {
+		queue->s.status = QUEUE_STATUS_SCHED;
+		return 1; /* retval: schedule queue */
+	}
+	return 0;
+}
+
 int queue_enq_list(queue_entry_t *queue, odp_buffer_hdr_t *head,
 		   odp_buffer_hdr_t *tail){
 
@@ -477,7 +494,7 @@ static int ordered_queue_enq(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	 */
 
 	if (!origin_qe->s.reorder_head) {
-		_queue_enq_update(queue, buf_hdr, get_buf_tail(buf_hdr), status);
+		_cached_queue_enq_update(queue, buf_hdr, get_buf_tail(buf_hdr), status);
 		free_qe_locks(queue, origin_qe);
 
 		/* Add queue to scheduling */
@@ -498,7 +515,7 @@ static int ordered_queue_enq(queue_entry_t *queue, odp_buffer_hdr_t *buf_hdr,
 	reorder_deq(queue, origin_qe, &reorder_tail, &placeholder_buf,
 		    &release_count, &placeholder_count);
 
-	_queue_enq_update(queue, origin_qe->s.reorder_head, reorder_tail, status);
+	_cached_queue_enq_update(queue, origin_qe->s.reorder_head, reorder_tail, status);
 	origin_qe->s.reorder_head = reorder_tail->next;
 
 	/* Reflect resolved orders in the output sequence */
