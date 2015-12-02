@@ -5,6 +5,8 @@ define CONFIG_RULE
 #Arg1 = machine name
 cunit-$(1)-configure: $(ARCH_DIR)/cunit/$(1)/Makefile
 
+$(eval ODP_$(1)_DOC_INST := $(K1ST_DIR)/doc/ODP/$($(1)_PLATFORM))
+
 $(ARCH_DIR)/cunit/$(1)/Makefile: $(TOP_DIR)/cunit/configure
 	mkdir -p $$$$(dirname $$@) && cd $$$$(dirname $$@) && \
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
@@ -64,11 +66,17 @@ odp-$(1)-install-lib: odp-$(1)-build
 odp-$(1)-install-doc: odp-$(1)-build
 	if [ "$($(1)_INSTALL_DOC)" == "true" ]; then \
 		$(MAKE) -C$(ARCH_DIR)/odp/$(1) V=1 doxygen-pdf && \
-		mkdir -p $(K1ST_DIR)/doc/ODP/ && \
-		install $(ARCH_DIR)/odp/$(1)/doc/output/opendataplane.pdf $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM).pdf && \
-		rm -Rf   $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
-		mkdir -p $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM) && \
-		cp -Rf $(ARCH_DIR)/odp/$(1)/doc/output/html/* $(K1ST_DIR)/doc/ODP/opendataplane-$($(1)_PLATFORM); \
+		mkdir -p $(ODP_$(1)_DOC_INST) && \
+		install $(ARCH_DIR)/odp/$(1)/doc/output/opendataplane.pdf $(ODP_$(1)_DOC_INST)/opendataplane.pdf && \
+		rm -Rf   $(ODP_$(1)_DOC_INST)/opendataplane && \
+		mkdir -p $(ODP_$(1)_DOC_INST)/opendataplane && \
+		cp -Rf $(ARCH_DIR)/odp/$(1)/doc/output/html/* $(ODP_$(1)_DOC_INST)/opendataplane && \
+		$(MAKE) -C$(ARCH_DIR)/odp/$(1)/doc V=1 all && \
+		mkdir -p $(ODP_$(1)_DOC_INST)/images/ && \
+		cp -Rf $(ARCH_DIR)/odp/$(1)/doc/images/*.png $(ODP_$(1)_DOC_INST)/images/ && \
+		mkdir -p $(ODP_$(1)_DOC_INST)/users-guide/ && \
+		cp -Rf $(ARCH_DIR)/odp/$(1)/doc/output/users-guide.html $(ODP_$(1)_DOC_INST)/users-guide/ && \
+		true; \
 	else true; fi
 
 odp-$(1)-install: odp-$(1)-install-lib odp-$(1)-install-doc
