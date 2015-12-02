@@ -112,6 +112,10 @@ static void queue_init(queue_entry_t *queue, const char *name,
 		queue->s.param.sched.group = ODP_SCHED_GROUP_ALL;
 	}
 
+	if (queue->s.param.sched.sync == ODP_SCHED_SYNC_ORDERED) {
+		ODP_UNIMPLEMENTED();
+	}
+
 	switch (type) {
 	case ODP_QUEUE_TYPE_PKTIN:
 		queue->s.enqueue = pktin_enqueue;
