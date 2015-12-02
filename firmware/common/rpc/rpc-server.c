@@ -16,6 +16,7 @@
 
 odp_rpc_handler_t __rpc_handlers[MAX_RPC_HANDLERS];
 int __n_rpc_handlers;
+static uint64_t __rpc_ev_masks[BSP_NB_DMA_IO_MAX][4];
 
 static struct {
 	void    *recv_buf;
@@ -67,6 +68,7 @@ static int cluster_init_dnoc_rx(int clus_id)
 
 	ifId = get_rpc_dma_id(clus_id);
 	rxId = get_rpc_tag_id(clus_id);
+	__rpc_ev_masks[ifId][rxId / 64] |= 1ULL << (rxId % 64);
 
 	/* DNoC */
 	ret = mppa_noc_dnoc_rx_alloc(ifId, rxId);
@@ -114,6 +116,7 @@ static int get_if_rx_id(unsigned interface_id)
 
 	mppa_noc_dnoc_rx_bitmask_t bitmask = mppa_noc_dnoc_rx_get_events_bitmask(interface_id);
 	for (i = 0; i < 3; ++i) {
+		bitmask.bitmask[i] &= __rpc_ev_masks[interface_id][i];
 		if (bitmask.bitmask[i]) {
 			int rx_id = __k1_ctzdl(bitmask.bitmask[i]) + i * 8 * sizeof(bitmask.bitmask[i]);
 			int ev_counter = mppa_noc_dnoc_rx_lac_event_counter(interface_id, rx_id);
