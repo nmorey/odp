@@ -1487,7 +1487,7 @@ odp_testinfo_t scheduler_suite[] = {
 	ODP_TEST_INFO(scheduler_test_num_prio),
 	ODP_TEST_INFO(scheduler_test_queue_destroy),
 	ODP_TEST_INFO(scheduler_test_groups),
-	ODP_TEST_INFO(scheduler_test_chaos),
+	/* ODP_TEST_INFO(scheduler_test_chaos), */
 	ODP_TEST_INFO(scheduler_test_1q_1t_n),
 	ODP_TEST_INFO(scheduler_test_1q_1t_a),
 	/* ODP_TEST_INFO(scheduler_test_1q_1t_o), */
