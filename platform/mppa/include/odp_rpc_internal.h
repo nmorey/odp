@@ -104,6 +104,7 @@ _ODP_STATIC_ASSERT(sizeof(odp_rpc_cmd_pcie_clos_t) == sizeof(odp_rpc_inl_data_t)
 
 typedef union {
 	struct {
+		uint8_t rnd_data[31]; /* Filled with data in response packet */
 		uint8_t rnd_len;  /* lenght of random data to send back */
 	};
 	odp_rpc_inl_data_t inl_data;

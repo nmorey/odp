@@ -690,7 +690,7 @@ odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 	return len;
 #endif
 
-	ODP_ASSERT((unsigned)len <= sizeof(((odp_rpc_inl_data_t*)0)->data) );
+	ODP_ASSERT((unsigned)len <= sizeof(((odp_rpc_cmd_rnd_t*)0)->rnd_data) );
 	unsigned cluster_id = __k1_get_cluster_id();
 	odp_rpc_t *ack_msg;
 
@@ -712,8 +712,10 @@ odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 		fprintf(stderr, "[RND] Query timed out\n");
 		return 1;
 	}
-	memcpy(buf, ack_msg->inl_data.data, len);
-	return len;
+	const odp_rpc_cmd_rnd_t ack = {.inl_data = ack_msg->inl_data};
+
+	memcpy(buf, ack.rnd_data, ack.rnd_len);
+	return ack.rnd_len;
 }
 
 odp_crypto_compl_t odp_crypto_compl_from_event(odp_event_t ev)

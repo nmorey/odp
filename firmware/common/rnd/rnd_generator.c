@@ -88,13 +88,13 @@ odp_rnd_gen_get(char *buf, unsigned len) {
 
 void
 rnd_send_buffer(unsigned remoteClus, odp_rpc_t * msg) {
-	(void)remoteClus;
-	odp_rpc_cmd_rnd_t rnd = (odp_rpc_cmd_rnd_t)msg->inl_data;
-	assert( rnd.rnd_len <= sizeof(msg->inl_data.data));
-	odp_rnd_gen_get((char*)(msg->inl_data.data), rnd.rnd_len);
-
 	unsigned interface = 0;
+	odp_rpc_cmd_rnd_t rnd = {.inl_data = msg->inl_data};
 
+	(void)remoteClus;
+	assert( rnd.rnd_len <= sizeof(rnd.rnd_data));
+
+	rnd.rnd_len = odp_rnd_gen_get((char*)rnd.rnd_data, rnd.rnd_len);
 	odp_rpc_send_msg(interface, msg->dma_id, msg->dnoc_tag, msg, NULL);
 }
 
