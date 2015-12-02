@@ -47,7 +47,9 @@ odp_rnd_gen_get(char *buf, unsigned len) {
 	while ( curr_len < len ) {
 		mppa_trng_rnd_data_t random_data = {{0}};
 		if (mppa_trng_failure_event()) {
-			printf("failure detected\n");
+#ifdef VERBOSE
+			printf("[TRNG] failure detected. Rearming TRNG\n");
+#endif
 			switch (__bsp_flavour) {
 			case BSP_KONIC80:
 				mppa_trng_repare_failure(TRNG_KONIC80_PARAM_NOISE,
@@ -69,9 +71,11 @@ odp_rnd_gen_get(char *buf, unsigned len) {
 		int data_status = mppa_trng_read_data(&random_data);
 
 		if (!data_status) {
-			printf("invalid random data\n");
-			printf("trng int status: %x\n", mppa_trng_read_status());
-			exit(1);
+#ifdef VERBOSE
+			printf("[TRNG] invalid random data\n");
+			printf("[TRNG] int status: %x\n", mppa_trng_read_status());
+#endif
+			return 0;
 		}
 		mppa_trng_ack_data();
 		unsigned copy_len = MIN(len - curr_len, sizeof(random_data.data));
