@@ -47,7 +47,7 @@ $(ARCH_DIR)/odp/$(1)/Makefile: $(TOP_DIR)/configure $(CUNIT_INST_DIR)/$(1)/lib/l
 	$($(1)_CONF_ENV) CPPFLAGS="$($(1)_CFLAGS)" LDFLAGS="$($(1)_LDFLAGS) $($(1)_CFLAGS)" \
 	 $$< --host=$(1) --with-platform=$($(1)_PLATFORM) \
 	--with-cunit-path=$(CUNIT_INST_DIR)/$(1)/ --enable-test-vald \
-	--prefix=$(K1ST_DIR) \
+	--prefix=$(K1ST_DIR) --enable-user-guides \
 	--datarootdir=$(K1ST_DIR)share/odp/$(1)/ \
 	--libdir=$(K1ST_DIR)lib/$(1) \
 	--includedir=$(K1ST_DIR)$($(1)_INC_DIR)/include \
