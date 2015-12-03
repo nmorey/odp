@@ -13,6 +13,7 @@
 #define RX_RM_COUNT		2
 
 #define MPPA_PCIE_USABLE_DNOC_IF	4
+
 /**
  * PKT size
  */
@@ -25,6 +26,8 @@
 
 #define MPPA_PCIE_MULTIBUF_COUNT	64
 
+#define RX_RM_STACK_SIZE	(0x2000 / (sizeof(uint64_t)))
+
 extern buffer_ring_t g_free_buf_pool;
 extern buffer_ring_t g_full_buf_pool;
 
@@ -35,6 +38,9 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 	volatile void *fifo_addr;
 	unsigned int pcie_eth_if;
 };
+
+void
+mppa_pcie_noc_start_rx_rm();
 
 int mppa_pcie_eth_init(int if_count);
 int mppa_pcie_eth_noc_init();

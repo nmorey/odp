@@ -14,12 +14,6 @@
 
 #define MPPA_PCIE_ETH_NOC_PKT_COUNT	16
 
-
-/**
- * Maximum count of usable interface
- */
-#define RX_RM_STACK_SIZE	(0x2000 / (sizeof(uint64_t)))
-
 static void *g_pkt_base_addr = (void *) DDR_BUFFER_BASE_ADDR;
 
 struct mppa_pcie_eth_dnoc_tx_cfg g_mppa_pcie_tx_cfg[BSP_NB_IOCLUSTER_MAX][BSP_DNOC_TX_PACKETSHAPER_NB_MAX] = {{{0}}};
@@ -33,50 +27,6 @@ buffer_ring_t g_free_buf_pool;
  * Buffer ready to be sent to host
  */
 buffer_ring_t g_full_buf_pool;
-
-/**
- * Stacks for RX_RM
- */
-struct rm_rx_ctx {
-	uint64_t stack[RX_RM_STACK_SIZE];
-	volatile uint32_t ready;
-};
-
-static struct rm_rx_ctx g_rm_ctx[MPPA_PCIE_RM_COUNT];
-
-static void
-mppa_pcie_rx_rm_func()
-{
-	g_rm_ctx[__k1_get_cpu_id()].ready = 1;
-	while(1) {
-		
-	};
-}
-
-void
-mppa_pcie_noc_start_rx_rm()
-{
-	unsigned int rm_num;
-	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
-
-		/* Init with scratchpad size */
-		_K1_PE_STACK_ADDRESS[rm_num] = &g_rm_ctx[rm_num].stack[RX_RM_STACK_SIZE - 16];
-		_K1_PE_START_ADDRESS[rm_num] = &mppa_pcie_rx_rm_func;
-		_K1_PE_ARGS_ADDRESS[rm_num] = 0;
-
-		__builtin_k1_dinval();
-		__builtin_k1_wpurge();
-		__builtin_k1_fence();
-
-		printf("Powering RM %d\n", rm_num);
-		__k1_poweron(rm_num);
-	}
-
-	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
-		while(!g_rm_ctx[rm_num].ready);
-		printf("RM %d ready\n", rm_num);
-	}
-}
 
 
 int mppa_pcie_noc_init_buff_pools()
@@ -175,6 +125,8 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	ret = mppa_pcie_eth_setup_rx(if_id, &rx_id);
 	if (ret)
 		return ack;
+
+	printf("Rx %d and if %d allocated for cluster %d\n", rx_id, if_id, remoteClus);
 
 	tx_cfg = &g_mppa_pcie_tx_cfg[if_id][tx_id];
 	tx_cfg->opened = 1; 

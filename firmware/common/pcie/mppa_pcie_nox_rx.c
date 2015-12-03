@@ -7,8 +7,8 @@
 
 
 #define MAX_RX 					(30 * 4)
-#define MAX_RX_IF_PER_THREAD	4
 #define RX_THREAD_COUNT			2
+#define IF_PER_THREAD			(MPPA_PCIE_USABLE_DNOC_IF / RX_THREAD_COUNT)
 #define RX_PER_IF				256
 
 typedef struct rx_cfg {
@@ -19,17 +19,18 @@ typedef struct rx_iface {
 	/* 256 rx per interface */
 	uint64_t ev_mask[4];
 	rx_cfg_t rx_cfgs[RX_PER_IF];
+	int iface_id;
 } rx_iface_t;
 
 typedef struct rx_thread {
-	rx_iface_t iface[MPPA_PCIE_USABLE_DNOC_IF];
-	int iface_idx[MPPA_PCIE_USABLE_DNOC_IF];
+	rx_iface_t iface[IF_PER_THREAD];
 	int th_id;
+	volatile int ready;
 } rx_thread_t;
 
-rx_thread_t rx_threads[RX_THREAD_COUNT];
+rx_thread_t g_rx_threads[RX_THREAD_COUNT];
 
-static int reload_rx(__attribute__((unused))  rx_thread_t *th, int dma_if, int rx_id)
+static int reload_rx(rx_iface_t *iface, int rx_id)
 {
 	mppa_pcie_noc_rx_buf_t *buf;
 	uint32_t left;
@@ -37,16 +38,16 @@ static int reload_rx(__attribute__((unused))  rx_thread_t *th, int dma_if, int r
 	if (ret != 1) {
 		printf("No more free buffer available\n");
 		return -1;
-	}	
+	}
 
-	mppa_dnoc[dma_if]->rx_queues[rx_id].event_lac.hword;
+	mppa_dnoc[iface->iface_id]->rx_queues[rx_id].event_lac.hword;
 
-	typeof(mppa_dnoc[dma_if]->rx_queues[0]) * const rx_queue =
-		&mppa_dnoc[dma_if]->rx_queues[rx_id];
+	typeof(mppa_dnoc[iface->iface_id]->rx_queues[0]) * const rx_queue =
+		&mppa_dnoc[iface->iface_id]->rx_queues[rx_id];
 
 	rx_queue->buffer_base.dword = (uintptr_t) buf->buf_addr;
 
-	/* Rearm the DMA Rx and check for droppped packets */
+	/* Rearm the DMA Rx and check for dropped packets */
 	rx_queue->current_offset.reg = 0ULL;
 	rx_queue->buffer_size.dword = MPPA_PCIE_MULTIBUF_SIZE;
 
@@ -62,18 +63,24 @@ static int reload_rx(__attribute__((unused))  rx_thread_t *th, int dma_if, int r
 			rx_queue->item_counter.reg = 2;
 		for (j = 0; j < 16; ++j)
 			rx_queue->activation.reg = 0x1;
-
 	}
-	
+
+	iface->rx_cfgs[rx_id].mapped_buf = buf;
+
 	return 0;
 }
 
 
-void mppa_pcie_noc_poll_masks(rx_thread_t *th, int dma_if)
+void mppa_pcie_noc_poll_masks(rx_thread_t *th, rx_iface_t *iface)
 {
 	int i;
 	uint64_t mask;
 	int if_mask = 0;
+	iface  = iface;
+	int dma_if = iface->iface_id;
+	
+	
+	printf("Polling if %d\n", iface->iface_id);
 
 	for (i = 0; i < 4; i++) {
 		mask = mppa_dnoc[dma_if]->rx_global.events[i].dword & th->iface[dma_if].ev_mask[i];
@@ -87,7 +94,7 @@ void mppa_pcie_noc_poll_masks(rx_thread_t *th, int dma_if)
 			const int rx_id = mask_bit + i * 64;
 
 			mask = mask ^ (1ULL << mask_bit);
-			if_mask |=  reload_rx(th, dma_if, rx_id);
+			if_mask |=  reload_rx(iface, rx_id);
 		}
 	}
 
@@ -95,12 +102,6 @@ void mppa_pcie_noc_poll_masks(rx_thread_t *th, int dma_if)
 	//~ while (if_mask) {
 		//~ i = __builtin_k1_ctz(if_mask);
 		//~ if_mask ^= (1 << i);
-
-		//~ rx_buffer_list_t * hdr_list =
-			//~ &rx_hdl.th[th_id].ifce[i].hdr_list;
-
-		//~ if (hdr_list->tail == &hdr_list->head)
-			//~ continue;
 
 		//~ hdr_list->head = odp_buffer_ring_push_list(&rx_hdl.ifce[i].ring,
 							   //~ hdr_list->head,
@@ -116,9 +117,61 @@ void mppa_pcie_noc_poll_masks(rx_thread_t *th, int dma_if)
 		//~ }
 	//~ }
 	//~ if_mask = if_mask_incomplete;
-
-	return;
 }
+
+void
+mppa_pcie_rx_rm_func()
+{
+	rx_thread_t *thread = &g_rx_threads[__k1_get_cpu_id() - RX_RM_START];
+	int iface;
+
+	printf("RM %d with thread id %d started\n", __k1_get_cpu_id(), thread->th_id);
+
+	thread->ready = 1;
+	while (1) {
+		for (iface = 0; iface < IF_PER_THREAD; iface++) {
+			mppa_pcie_noc_poll_masks(thread, &thread->iface[iface]);
+		}
+	}
+}
+
+static uint64_t g_stacks[RX_RM_COUNT][RX_RM_STACK_SIZE];
+
+void
+mppa_pcie_noc_start_rx_rm()
+{
+	unsigned int rm_num, if_start = 0;
+	unsigned int i;
+
+	rx_thread_t *thread;
+	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
+		thread = &g_rx_threads[rm_num - RX_RM_START];
+
+		thread->th_id = rm_num - RX_RM_START;
+
+		for( i = 0; i < IF_PER_THREAD; i++) {
+			thread->iface[i].iface_id = if_start++;
+		}
+
+		/* Init with scratchpad size */
+		_K1_PE_STACK_ADDRESS[rm_num] = &g_stacks[thread->th_id][RX_RM_STACK_SIZE - 16];
+		_K1_PE_START_ADDRESS[rm_num] = &mppa_pcie_rx_rm_func;
+		_K1_PE_ARGS_ADDRESS[rm_num] = 0;
+
+		__builtin_k1_dinval();
+		__builtin_k1_wpurge();
+		__builtin_k1_fence();
+
+		printf("Powering RM %d\n", rm_num);
+		__k1_poweron(rm_num);
+	}
+
+	for (rm_num = RX_RM_START; rm_num < RX_RM_START + RX_RM_COUNT; rm_num++ ){
+		while(!g_rx_threads[rm_num - RX_RM_START].ready);
+		printf("RM %d started\n", rm_num);
+	}
+}
+
 
 int mppa_pcie_noc_configure_rx(rx_iface_t *iface, int dma_if, int rx_id)
 {
@@ -161,23 +214,26 @@ int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 {
 	mppa_noc_ret_t ret;
 	int rx_thread_num = if_id % RX_THREAD_COUNT;
-	int iface = if_id / RX_THREAD_COUNT;
-	int rx_mask_off = *rx_id / 64;
+	int th_iface_id = if_id / RX_THREAD_COUNT;
+	int rx_mask_off;
+	rx_iface_t *iface;
 
 	ret = mppa_noc_dnoc_rx_alloc_auto(if_id, rx_id, MPPA_NOC_NON_BLOCKING);
 	if(ret) {
 		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
 		return 1;
 	}
-	
-	if (mppa_pcie_noc_configure_rx(&rx_threads[rx_thread_num].iface[iface], if_id, *rx_id)) {
-		printf("failed to cofnigure noc rx\n");
+	printf("RX %d allocated on iface %d, will use thread %d\n", *rx_id, if_id, rx_thread_num);
+
+	rx_mask_off = *rx_id / 64;
+	iface = &g_rx_threads[rx_thread_num].iface[th_iface_id];
+
+	if (mppa_pcie_noc_configure_rx(iface, if_id, *rx_id)) {
+		printf("failed to configure noc rx\n");
 		return 1;
 	}
 
-	// LOCK
-	rx_threads[rx_thread_num].iface[iface].ev_mask[rx_mask_off] |= (1 << *rx_id);
-	// UNLOCK
+	iface->ev_mask[rx_mask_off] |= (1 << *rx_id);
+
 	return 0;
 }
-
