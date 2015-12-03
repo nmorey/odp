@@ -10,6 +10,7 @@
 
 #include "mppa_pcie_eth.h"
 #include "mppa_pcie_noc.h"
+#include "mppa_pcie_debug.h"
 
 #define MAX_DNOC_TX_PER_PCIE_ETH_IF	16	
 
@@ -140,7 +141,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	if (next_rx_tail == rx_head)
 		return -1;
 
-	//printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
+	//dbg_printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].rx->ring_buffer_entries_addr;
 	entry = &entries[rx_tail];
 
@@ -170,11 +171,11 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	else
 		prev_head = tx_head - 1;
 
-	//printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
+	//dbg_printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
 	entry = &entries[prev_head];
 
-	//printf("Entries: %p, Entry addr: %p\n", entries, entry);
+	//dbg_printf("Entries: %p, Entry addr: %p\n", entries, entry);
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
 	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);
@@ -231,7 +232,7 @@ int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_
 	unsigned int dnoc_tx_count = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
 
 	if (dnoc_tx_count == MAX_DNOC_TX_PER_PCIE_ETH_IF) {
-		printf("Too many forward for this PCIe eth interface\n");
+		dbg_printf("Too many forward for this PCIe eth interface\n");
 		return 1;
 	}
 

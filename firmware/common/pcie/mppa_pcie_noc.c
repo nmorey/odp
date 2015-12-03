@@ -4,6 +4,7 @@
 #include <mppa_routing.h>
 #include "mppa_pcie_noc.h"
 #include "mppa_pcie_eth.h"
+#include "mppa_pcie_debug.h"
 #include "mppa_pcie_buf_alloc.h"
 #include <HAL/hal/hal.h>
 
@@ -38,7 +39,7 @@ int mppa_pcie_noc_init_buff_pools()
 
 	buf_pool = calloc(MPPA_PCIE_MULTIBUF_COUNT, sizeof(mppa_pcie_noc_rx_buf_t *));
 	if (!buf_pool) {
-		printf("Failed to alloc pool descriptor\n");
+		fprintf(stderr, "Failed to alloc pool descriptor\n");
 		return 1;
 	}
 
@@ -50,11 +51,12 @@ int mppa_pcie_noc_init_buff_pools()
 		g_pkt_base_addr += sizeof(mppa_pcie_noc_rx_buf_t);
 		
 		bufs[i]->buf_addr = (void *) g_pkt_base_addr;
+		bufs[i]->pkt_count = 0;
 		g_pkt_base_addr += MPPA_PCIE_MULTIBUF_SIZE;
 	}
 
 	buffer_ring_push_multi(&g_free_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &buf_left);
-	printf("Allocation done\n");
+	dbg_printf("Allocation done\n");
 	return 0;
 }
 
@@ -66,7 +68,7 @@ int mppa_pcie_eth_noc_init()
 		mppa_noc_interrupt_line_disable(i, MPPA_NOC_INTERRUPT_LINE_DNOC_TX);
 
 	mppa_pcie_noc_init_buff_pools();
-
+	mppa_pcie_start_pcie_tx_rm();
 	mppa_pcie_noc_start_rx_rm();
 
 	return 0;
@@ -82,7 +84,7 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 	/* Configure the TX for PCIe */
 	nret = mppa_noc_dnoc_tx_alloc_auto(iface_id, tx_id, MPPA_NOC_NON_BLOCKING);
 	if (nret) {
-		printf("Tx alloc failed\n");
+		dbg_printf("Tx alloc failed\n");
 		return 1;
 	}
 
@@ -90,7 +92,7 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 
 	rret = mppa_routing_get_dnoc_unicast_route(__k1_get_cluster_id() + iface_id, cluster_id, &config, &header);
 	if (rret) {
-		printf("Routing failed\n");
+		dbg_printf("Routing failed\n");
 		return 1;
 	}
 
@@ -100,7 +102,7 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 
 	nret = mppa_noc_dnoc_tx_configure(iface_id, *tx_id, header, config);
 	if (nret) {
-		printf("Tx configure failed\n");
+		dbg_printf("Tx configure failed\n");
 		return 1;
 	}
 
@@ -115,7 +117,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	int if_id = remoteClus % MPPA_PCIE_USABLE_DNOC_IF;
 	unsigned int tx_id, rx_id = 0;
 
-	printf("Received request to open PCIe\n");
+	dbg_printf("Received request to open PCIe\n");
 	int ret = mppa_pcie_eth_setup_tx(if_id, &tx_id, remoteClus, open_cmd.min_rx);
 	if (ret) {
 		fprintf(stderr, "[PCIe] Error: Failed to setup tx on if %d\n", if_id);
@@ -126,7 +128,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	if (ret)
 		return ack;
 
-	printf("Rx %d and if %d allocated for cluster %d\n", rx_id, if_id, remoteClus);
+	dbg_printf("Rx %d and if %d allocated for cluster %d\n", rx_id, if_id, remoteClus);
 
 	tx_cfg = &g_mppa_pcie_tx_cfg[if_id][tx_id];
 	tx_cfg->opened = 1; 

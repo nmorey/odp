@@ -7,11 +7,6 @@
 
 #define MPPA_PCIE_ETH_IF_MAX 4
 
-#define MPPA_PCIE_RM_COUNT		4
-
-#define RX_RM_START		1
-#define RX_RM_COUNT		2
-
 #define MPPA_PCIE_USABLE_DNOC_IF	4
 
 /**
@@ -42,6 +37,9 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 void
 mppa_pcie_noc_start_rx_rm();
 
+void
+mppa_pcie_start_pcie_tx_rm();
+
 int mppa_pcie_eth_init(int if_count);
 int mppa_pcie_eth_noc_init();
 
@@ -53,5 +51,7 @@ int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_
 extern struct mppa_pcie_eth_control g_pcie_eth_control;
 
 int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id);
+
+int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size);
 
 #endif
