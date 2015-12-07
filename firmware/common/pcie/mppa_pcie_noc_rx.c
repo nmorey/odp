@@ -123,7 +123,7 @@ static void mppa_pcie_pcie_tx_sender()
 			__k1_cpu_backoff(10000);
 			continue;
 		}
- 
+
 		dbg_printf("%d buffer ready to be sent\n", ret);
 		for(buf_idx = 0; buf_idx < ret; buf_idx++) {
 			buf = bufs[buf_idx];
@@ -246,8 +246,8 @@ int mppa_pcie_noc_configure_rx(rx_iface_t *iface, int dma_if, int rx_id)
 int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 {
 	mppa_noc_ret_t ret;
-	int rx_thread_num = if_id % RX_THREAD_COUNT;
-	int th_iface_id = if_id / RX_THREAD_COUNT;
+	int rx_thread_num = if_id / RX_THREAD_COUNT;
+	int th_iface_id = if_id % IF_PER_THREAD;
 	int rx_mask_off;
 	rx_iface_t *iface;
 
@@ -256,9 +256,9 @@ int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 		fprintf(stderr, "[PCIe] Error: Failed to find an available Rx on if %d\n", if_id);
 		return 1;
 	}
-	dbg_printf("RX %d allocated on iface %d, will use thread %d\n", *rx_id, if_id, rx_thread_num);
+	dbg_printf("RX %d allocated on iface %d, using thread %d\n", *rx_id, if_id, rx_thread_num);
 
-	rx_mask_off = *rx_id / 64;
+	rx_mask_off = *rx_id / (sizeof(iface->ev_mask[0]) * 8);
 	iface = &g_rx_threads[rx_thread_num].iface[th_iface_id];
 
 	if (mppa_pcie_noc_configure_rx(iface, if_id, *rx_id)) {
