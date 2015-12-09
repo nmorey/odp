@@ -7,8 +7,13 @@ typedef struct {
 	uint8_t if_id;
 	uint8_t mac_addr[MAC_ADDR_LEN];	/*< Mac address */
 	uint16_t mtu;
+	uint32_t flags;
+
 	uint32_t n_rx_entries;
+	uint32_t rx_flags;
+
 	uint32_t n_tx_entries;
+	uint32_t tx_flags;
 } eth_if_cfg_t;
 
 extern struct mppa_pcie_eth_control eth_control;
@@ -27,8 +32,10 @@ netdev_get_tx_ring_buffer(uint8_t if_id){
 
 int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]);
 int netdev_init_interface(const eth_if_cfg_t *cfg);
-int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries);
-int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries);
+int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
+		    uint32_t flags);
+int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
+		    uint32_t flags);
 int netdev_start();
 
 

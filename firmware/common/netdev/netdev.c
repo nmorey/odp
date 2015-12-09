@@ -18,7 +18,8 @@ __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_contro
 	.magic = 0xDEADBEEF,
 };
 
-int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
+int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
+		    uint32_t flags)
 {
 	struct mppa_pcie_eth_ring_buff_desc *rx;
 	struct mppa_pcie_eth_rx_ring_buff_entry *entries;
@@ -48,12 +49,14 @@ int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
 
 	rx->ring_buffer_entries_count = n_entries;
 	rx->ring_buffer_entries_addr = (uintptr_t) entries;
+	rx->flags = flags;
 	cfg->rx_ring_buf_desc_addr = (uint64_t)(unsigned long)rx;
 
 	return 0;
 }
 
-int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
+int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
+		    uint32_t flags)
 {
 	struct mppa_pcie_eth_ring_buff_desc *tx;
 	struct mppa_pcie_eth_tx_ring_buff_entry *entries;
@@ -83,6 +86,7 @@ int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
 
 	tx->ring_buffer_entries_count = n_entries;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
+	tx->flags = flags;
 	cfg->tx_ring_buf_desc_addr = (uint64_t)(unsigned long)tx;
 
 	return 0;
@@ -98,13 +102,14 @@ int netdev_init_interface(const eth_if_cfg_t *cfg)
 
 	if_cfg = &eth_control.configs[cfg->if_id];
 	if_cfg->mtu = cfg->mtu;
+	if_cfg->flags = cfg->flags;
 	memcpy(if_cfg->mac_addr, cfg->mac_addr, MAC_ADDR_LEN);
 
-	ret = netdev_setup_rx(if_cfg, cfg->n_rx_entries);
+	ret = netdev_setup_rx(if_cfg, cfg->n_rx_entries, cfg->rx_flags);
 	if (ret)
 		return ret;
 
-	ret = netdev_setup_tx(if_cfg, cfg->n_tx_entries);
+	ret = netdev_setup_tx(if_cfg, cfg->n_tx_entries, cfg->tx_flags);
 	if (ret)
 		return ret;
 	return 0;
