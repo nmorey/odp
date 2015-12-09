@@ -506,6 +506,7 @@ static int cluster_send(pktio_entry_t *const pktio_entry,
 				__odp_errno = 0;
 				break;
 			}
+			odp_spinlock_unlock(&pkt_cluster->wlock);
 			return ret;
 		}
 
