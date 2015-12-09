@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <inttypes.h>
 
 #include <mppa/osconfig.h>
@@ -13,76 +14,124 @@
 
 static uintptr_t g_current_pkt_addr = DDR_BUFFER_BASE_ADDR;
 
-struct mppa_pcie_eth_ring_buff_desc *g_netdev_rx[IF_COUNT];
-struct mppa_pcie_eth_ring_buff_desc *g_netdev_tx[IF_COUNT];
-
 __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_control = {
 	.magic = 0xDEADBEEF,
 };
 
-static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
+int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
 {
+	struct mppa_pcie_eth_ring_buff_desc *rx;
 	struct mppa_pcie_eth_rx_ring_buff_entry *entries;
-	int i;
+	uint32_t i;
 
-	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_rx_ring_buff_entry));
-	if(!entries)
-		assert(0);
+	if (cfg->mtu == 0) {
+		fprintf(stderr, "[netdev] MTU not configured\n");
+		return -1;
+	}
+	rx = calloc (1, sizeof(*rx));
+	if (!rx)
+		return -1;
 
-	for(i = 0; i < RING_BUFFER_ENTRIES; i++) {
+	entries = calloc(n_entries, sizeof(*entries));
+	if(!entries) {
+		free(rx);
+		return -1;
+	}
+
+	for(i = 0; i < n_entries; i++) {
 		entries[i].pkt_addr = g_current_pkt_addr;
+		g_current_pkt_addr += cfg->mtu;
+#ifdef VERBOSE
 		printf("RX Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
-		g_current_pkt_addr += MPPA_PCIE_ETH_DEFAULT_MTU;
+#endif
 	}
 
-	rx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
+	rx->ring_buffer_entries_count = n_entries;
 	rx->ring_buffer_entries_addr = (uintptr_t) entries;
+	cfg->rx_ring_buf_desc_addr = (uint64_t)(unsigned long)rx;
+
+	return 0;
 }
 
-static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
+int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries)
 {
+	struct mppa_pcie_eth_ring_buff_desc *tx;
 	struct mppa_pcie_eth_tx_ring_buff_entry *entries;
-	int i;
+	uint32_t i;
 
-	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_tx_ring_buff_entry));
-	if(!entries)
-		assert(0);
+	if (cfg->mtu == 0) {
+		fprintf(stderr, "[netdev] MTU not configured\n");
+		return -1;
+	}
+	tx = calloc (1, sizeof(*tx));
+	if (!tx)
+		return -1;
 
-	for(i = 0; i < RING_BUFFER_ENTRIES; i++) {
-		entries[i].pkt_addr = g_current_pkt_addr;
-		printf("TX Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
-		g_current_pkt_addr += MPPA_PCIE_ETH_DEFAULT_MTU;
+	entries = calloc(n_entries, sizeof(*entries));
+	if(!entries) {
+		free(tx);
+		return -1;
 	}
 
-	tx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
+	for(i = 0; i < n_entries; i++) {
+		entries[i].pkt_addr = g_current_pkt_addr;
+		g_current_pkt_addr += cfg->mtu;
+#ifdef VERBOSE
+		printf("TX Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
+#endif
+	}
+
+	tx->ring_buffer_entries_count = n_entries;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
+	cfg->tx_ring_buf_desc_addr = (uint64_t)(unsigned long)tx;
+
+	return 0;
 }
 
-int netdev_init_configs()
+int netdev_init_interface(const eth_if_cfg_t *cfg)
 {
-	int i;
-	struct mppa_pcie_eth_ring_buff_desc *desc_ptr;
+	struct mppa_pcie_eth_if_config *if_cfg;
+	int ret;
 
-	for(i = 0; i < IF_COUNT; i++) {
-		eth_control.configs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
+	if (cfg->if_id >= MPPA_PCIE_ETH_MAX_INTERFACE_COUNT)
+		return -1;
 
-		desc_ptr = calloc(2, sizeof(struct mppa_pcie_eth_ring_buff_desc));
-		if(!desc_ptr)
-			assert(0);
+	if_cfg = &eth_control.configs[cfg->if_id];
+	if_cfg->mtu = cfg->mtu;
+	memcpy(if_cfg->mac_addr, cfg->mac_addr, MAC_ADDR_LEN);
 
-		printf("Rx desc at %p and TX desc at %p\n", &desc_ptr[0], &desc_ptr[1]);
-		setup_rx(&desc_ptr[0]);
-		setup_tx(&desc_ptr[1]);
+	ret = netdev_setup_rx(if_cfg, cfg->n_rx_entries);
+	if (ret)
+		return ret;
 
-		g_netdev_rx[i] = &desc_ptr[0];
-		g_netdev_tx[i] = &desc_ptr[1];
+	ret = netdev_setup_tx(if_cfg, cfg->n_tx_entries);
+	if (ret)
+		return ret;
+	return 0;
+}
 
-		eth_control.configs[i].rx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[0];
-		eth_control.configs[i].tx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[1];
+int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]) {
+	uint8_t i;
+	int ret;
+
+	if (n_if > MPPA_PCIE_ETH_MAX_INTERFACE_COUNT)
+		return -1;
+
+	for (i = 0; i < n_if; ++i) {
+		ret = netdev_init_interface(&cfg[n_if]);
+		if (ret)
+			return ret;
 	}
+
+	return 0;
+}
+
+int netdev_start()
+{
 	/* Ensure coherency */
 	__k1_mb();
 	/* Cross fingers for everything to be setup correctly ! */
 	__builtin_k1_swu(&eth_control.magic, 0xCAFEBABE);
 	return 0;
 }
+

@@ -9,6 +9,9 @@
 
 #include "netdev.h"
 
+#define IF_COUNT		1
+#define RING_BUFFER_ENTRIES	32
+
 /**
  * Transfer all packet received on host tx to host rx
  */
@@ -22,14 +25,19 @@ void main_loop()
 
 	for (i = 0; i < IF_COUNT; i++) {
 		/* Handle incoming tx packet */
-		tx_head = __builtin_k1_lwu(&g_netdev_tx[i]->head);
-		tx_tail = __builtin_k1_lwu(&g_netdev_tx[i]->tail);
+		struct mppa_pcie_eth_ring_buff_desc * tx_rbuf =
+			netdev_get_tx_ring_buffer(i);
+		struct mppa_pcie_eth_ring_buff_desc * rx_rbuf =
+			netdev_get_rx_ring_buffer(i);
+
+		tx_head = __builtin_k1_lwu(&tx_rbuf->head);
+		tx_tail = __builtin_k1_lwu(&tx_rbuf->tail);
 
 		if (tx_head != tx_tail) {
-			tx_entries = (void *) (uintptr_t) g_netdev_tx[i]->ring_buffer_entries_addr;
-			rx_entries = (void *) (uintptr_t) g_netdev_rx[i]->ring_buffer_entries_addr;
+			tx_entries = (void *) (uintptr_t) tx_rbuf->ring_buffer_entries_addr;
+			rx_entries = (void *) (uintptr_t) rx_rbuf->ring_buffer_entries_addr;
 
-			rx_tail = __builtin_k1_lwu(&g_netdev_rx[i]->tail);
+			rx_tail = __builtin_k1_lwu(&rx_rbuf->tail);
 
 			tx_entry = &tx_entries[tx_head];
 			rx_entry = &rx_entries[rx_tail];
@@ -39,7 +47,7 @@ void main_loop()
 			rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
 
 			/* If the user head is the same as our next tail, there is no room to store a packet */
-			while(rx_tail == __builtin_k1_lwu(&g_netdev_rx[i]->head)) {
+			while(rx_tail == __builtin_k1_lwu(&rx_rbuf->head)) {
 			}
 
 			__builtin_k1_swu(&rx_entry->len, __builtin_k1_lwu(&tx_entry->len));
@@ -49,9 +57,9 @@ void main_loop()
 			__builtin_k1_sdu(&tx_entry->pkt_addr, tmp);
 
 			/* Update tx head and rx tail pointer and send it */
-			__builtin_k1_swu(&g_netdev_rx[i]->tail, rx_tail);
+			__builtin_k1_swu(&rx_rbuf->tail, rx_tail);
 			tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-			__builtin_k1_swu(&g_netdev_tx[i]->head, tx_head);
+			__builtin_k1_swu(&tx_rbuf->head, tx_head);
 
 			printf("New rx tail : %"PRIu32", tx head: %"PRIu32"\n", rx_tail, tx_head);
 
@@ -60,9 +68,24 @@ void main_loop()
 	}
 }
 
+static eth_if_cfg_t if_cfgs[IF_COUNT] = {
+	[ 0 ... IF_COUNT - 1] =
+	{ .if_id = 0, .mtu = MPPA_PCIE_ETH_DEFAULT_MTU,
+	  .n_rx_entries = RING_BUFFER_ENTRIES,
+	  .n_tx_entries = RING_BUFFER_ENTRIES,
+	  .mac_addr = { 0xde, 0xad, 0xbe, 0xef }
+	}
+};
+
+
 int main()
 {
-	netdev_init_configs();
+	for (int i = 0; i < IF_COUNT; ++i){
+		if_cfgs[i].if_id = i;
+		if_cfgs[i].mac_addr[MAC_ADDR_LEN - 1] = i;
+	}
+	netdev_init(IF_COUNT, if_cfgs);
+	netdev_start();
 
 	printf("Waiting for packets\n");
 
