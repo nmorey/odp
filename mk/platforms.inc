@@ -163,3 +163,10 @@ k1b-kalray-iounified-boot_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mclu
 k1b-kalray-iounified-boot_LDFLAGS     :=
 k1b-kalray-iounified-boot_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
 iounified-boot_CONFIGS += k1b-kalray-iounified-boot
+
+
+k1b-kalray-netdev-loopback_CC          := k1-gcc
+k1b-kalray-netdev-loopback_CFLAGS      := -march=k1b -mos=bare -mcore=k1bio -mcluster=ioddr -mprocessing=single
+k1b-kalray-netdev-loopback_LDFLAGS     :=
+k1b-kalray-netdev-loopback_INSTDIR      = $(K1ST_DIR)/share/odp/firmware/k1b
+_netdev-loopback_CONFIGS += k1b-kalray-netdev-loopback
