@@ -34,6 +34,11 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 	unsigned int pcie_eth_if;
 };
 
+
+
+void
+mppa_pcie_noc_rx_buffer_consumed(uint64_t data);
+
 void
 mppa_pcie_noc_start_rx_rm();
 
@@ -51,7 +56,6 @@ int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_
 extern struct mppa_pcie_eth_control g_pcie_eth_control;
 
 int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id);
-
-int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size);
+int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint64_t data);
 
 #endif

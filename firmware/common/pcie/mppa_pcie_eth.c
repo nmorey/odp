@@ -33,6 +33,8 @@
 #define MPPA_PCIE_ETH_SET_ENTRY_LEN(__entry, __val) MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, len, __val)
 #define MPPA_PCIE_ETH_SET_ENTRY_FLAGS(__entry, __val) MPPA_PCIE_ETH_SET_ENTRY_VALUE(__entry, flags, __val)
 #define MPPA_PCIE_ETH_SET_ENTRY_ADDR(__entry, __val) MPPA_PCIE_ETH_SET_DENTRY_VALUE(__entry, pkt_addr, __val)
+/* Double reading */
+#define MPPA_PCIE_ETH_GET_DENTRY_VALUE(__entry, __memb) __builtin_k1_ldu(&__entry->__memb)
 
 struct mppa_pcie_eth_control g_pcie_eth_control = {
 	.magic = 0xDEADBEEF,
@@ -44,13 +46,13 @@ struct mppa_pcie_eth_control g_pcie_eth_control = {
 struct mppa_pcie_g_eth_if_cfg {
 	struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg[MAX_DNOC_TX_PER_PCIE_ETH_IF];	/* Interfaces for the current */
 	unsigned int dnoc_tx_count;
-	unsigned int current_dnoc_tx;
+	unsigned int current_dnoc_tx; 	/* Current index in dnoc_tx_cfg array */
 	struct mppa_pcie_eth_ring_buff_desc *rx, *tx;
 };
 
-static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, 0, 0}};
+static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, NULL, NULL}};
 
-static unsigned int g_if_count; 
+static unsigned int g_if_count;
 
 static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
 {
@@ -129,7 +131,7 @@ int mppa_pcie_eth_init(int if_count)
 	return 0;
 }
 
-int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size)
+int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint64_t data)
 {
 	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if), next_rx_tail;
 	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
@@ -144,9 +146,16 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	//dbg_printf("Enqueuing tx for interface %p addr 0x%x to host rx descriptor %d\n", addr, size, rx_tail);
 	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].rx->ring_buffer_entries_addr;
 	entry = &entries[rx_tail];
+	
+	/* If there are padding data, signal the enqueuer */ 
+	if (entry->data != 0) {
+		mppa_pcie_noc_rx_buffer_consumed(entry->data);
+		entry->data = 0;
+	}
 
 	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
 	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
+	MPPA_PCIE_ETH_SET_DENTRY_VALUE(entry, data, data);
 
 	MPPA_PCIE_ETH_SET_RX_TAIL(pcie_eth_if, next_rx_tail);
 	mppa_pcie_send_it_to_host();

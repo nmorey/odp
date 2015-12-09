@@ -46,6 +46,10 @@ static int reload_rx(rx_iface_t *iface, int rx_id)
 		dbg_printf("No more free buffer available\n");
 		return -1;
 	}
+	
+	/* Add previous buffer to full list */
+	buffer_ring_push_multi(&g_full_buf_pool, &iface->rx_cfgs[rx_id].mapped_buf, 1, &left);
+	
 	dbg_printf("Reloading rx %d of if %d\n", rx_id, iface->iface_id);
 
 	mppa_dnoc[iface->iface_id]->rx_queues[rx_id].event_lac.hword;
@@ -104,7 +108,48 @@ static void mppa_pcie_noc_poll_masks(rx_thread_t *th, rx_iface_t *iface)
 	}
 }
 
-static uint64_t g_pcie_tx_stack[RX_RM_STACK_SIZE];
+void mppa_pcie_noc_rx_buffer_consumed(uint64_t data)
+{
+	mppa_pcie_noc_rx_buf_t *buf;
+	uint32_t left;
+
+	buf = (mppa_pcie_noc_rx_buf_t *) (uintptr_t) data ;
+
+	buf->pkt_count--;
+	/* All packets from this buffer have been transfered, add it again the free list */
+	if (buf->pkt_count == 0)
+		buffer_ring_push_multi(&g_full_buf_pool, &buf, 1, &left);
+}
+
+
+static void poll_noc_rx_buffer()
+{	
+	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT], *buf;
+	uint32_t left, pkt_size;
+	int ret, pkt, buf_idx;
+	void * pkt_addr;
+	/* FIXME: wait for event from other rx rms */
+	ret = buffer_ring_get_multi(&g_full_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
+	if (ret == 0) {
+		return;
+	}
+
+	dbg_printf("%d buffer ready to be sent\n", ret);
+	for(buf_idx = 0; buf_idx < ret; buf_idx++) {
+		buf = bufs[buf_idx];
+
+		dbg_printf("%ld packet in buffer %p\n", buf->pkt_count,buf->buf_addr);
+		for (pkt = 0; pkt < (int) buf->pkt_count; pkt++) {
+			/* Packet size is added as a header to the packet */
+			pkt_addr = buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE);
+			pkt_size = __builtin_k1_lwu(pkt_addr);
+			pkt_addr += sizeof(uint32_t);
+
+			/* Send one packet of the buffer and add buf as padding data to handle consumed packets */
+			mppa_pcie_eth_enqueue_tx(/* FIXME FIXME FIXME */ 0, buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE), pkt_size, (uintptr_t) buf);
+		}
+	}
+}
 
 /**
  * Sender RM function which take buffer from clusters and send them
@@ -112,30 +157,12 @@ static uint64_t g_pcie_tx_stack[RX_RM_STACK_SIZE];
  */
 static void mppa_pcie_pcie_tx_sender()
 {
-	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT], *buf;
-	uint32_t left;
-	int ret, pkt, buf_idx;
-
 	while(1) {
-		/* FIXME: wait for event from other rx rms */
-		ret = buffer_ring_get_multi(&g_full_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
-		if (ret == 0) {
-			__k1_cpu_backoff(10000);
-			continue;
-		}
-
-		dbg_printf("%d buffer ready to be sent\n", ret);
-		for(buf_idx = 0; buf_idx < ret; buf_idx++) {
-			buf = bufs[buf_idx];
-
-			dbg_printf("%ld packet in buffer %p\n", buf->pkt_count,buf->buf_addr);
-			for (pkt = 0; pkt < (int) buf->pkt_count; pkt++) {
-				mppa_pcie_eth_enqueue_tx(/* FIXME FIXME FIXME */ 0, buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE), MPPA_PCIE_MULTIBUF_PKT_SIZE);
-			}
-			buf->pkt_count = 0;
-		}
+		poll_noc_rx_buffer();
 	}
 }
+
+static uint64_t g_pcie_tx_stack[RX_RM_STACK_SIZE];
 
 void mppa_pcie_start_pcie_tx_rm()
 {

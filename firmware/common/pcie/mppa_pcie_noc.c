@@ -29,6 +29,7 @@ buffer_ring_t g_free_buf_pool;
  */
 buffer_ring_t g_full_buf_pool;
 
+#define BUF_POOL_COUNT	2
 
 int mppa_pcie_noc_init_buff_pools()
 {
@@ -37,13 +38,14 @@ int mppa_pcie_noc_init_buff_pools()
 	int i;
 	uint32_t buf_left;
 
-	buf_pool = calloc(MPPA_PCIE_MULTIBUF_COUNT, sizeof(mppa_pcie_noc_rx_buf_t *));
+	buf_pool = calloc(MPPA_PCIE_MULTIBUF_COUNT * BUF_POOL_COUNT, sizeof(mppa_pcie_noc_rx_buf_t *));
 	if (!buf_pool) {
 		fprintf(stderr, "Failed to alloc pool descriptor\n");
 		return 1;
 	}
-
 	buffer_ring_init(&g_free_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+
+	buf_pool += MPPA_PCIE_MULTIBUF_COUNT;
 	buffer_ring_init(&g_full_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
 
 	for (i = 0; i < MPPA_PCIE_MULTIBUF_COUNT; i++) {
