@@ -19,7 +19,7 @@
 
 #include "mppa_pcie_dmaengine_priv.h"
 #include "mppa_pcie_priv.h"
-#include "mppa_pcie_eth.h"
+#include "mppa_pcie_netdev.h"
 #include "mppa_pcie_fs.h"
 
 /**
@@ -40,6 +40,13 @@ MODULE_PARM_DESC(eth_ctrl_addr, "Ethernet control structure address");
 
 #define desc_info_addr(pdata, addr, field)				\
 	SMEM_BAR_VADDR(pdata) + addr +  offsetof(struct mppa_pcie_eth_ring_buff_desc, field)
+
+enum _mppa_pcie_netdev_state {
+	_MPPA_PCIE_NETDEV_STATE_DISABLED = 0,
+	_MPPA_PCIE_NETDEV_STATE_ENABLING = 1,
+	_MPPA_PCIE_NETDEV_STATE_ENABLED = 2,
+	_MPPA_PCIE_NETDEV_STATE_DISABLING = 3,
+};
 
 struct mppa_pcie_netdev_tx {
 	struct sk_buff *skb;
@@ -106,6 +113,15 @@ struct mppa_pcie_netdev_priv {
 	struct mppa_pcie_eth_rx_ring_buff_entry *rx_mppa_entries;
 
 	struct mppa_pcie_time *tx_time;
+};
+
+struct mppa_pcie_pdata_netdev {
+	struct mppa_pcie_device *pdata;
+	atomic_t state;
+	struct net_device *dev[MPPA_PCIE_ETH_MAX_INTERFACE_COUNT];
+	int if_count;
+	struct mppa_pcie_eth_control control;
+	struct work_struct enable; /* cannot register in interrupt context */
 };
 
 static uint32_t mppa_pcie_netdev_get_eth_control_addr(struct mppa_pcie_device *pdata)
@@ -941,27 +957,34 @@ static void mppa_pcie_netdev_enable(struct mppa_pcie_device *pdata)
 	int i;
 	enum _mppa_pcie_netdev_state last_state;
 	uint32_t eth_control_addr;
+	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 
-	last_state = atomic_cmpxchg(&pdata->netdev_state, _MPPA_PCIE_NETDEV_STATE_DISABLED, _MPPA_PCIE_NETDEV_STATE_ENABLING);
+	last_state = atomic_cmpxchg(&netdev->state, _MPPA_PCIE_NETDEV_STATE_DISABLED, _MPPA_PCIE_NETDEV_STATE_ENABLING);
 	if (last_state != _MPPA_PCIE_NETDEV_STATE_DISABLED) {
 		return;
 	}
 
 	eth_control_addr = mppa_pcie_netdev_get_eth_control_addr(pdata);
 
-	memcpy_fromio(&pdata->netdev_control, SMEM_BAR_VADDR(pdata)
+	memcpy_fromio(&netdev->control, SMEM_BAR_VADDR(pdata)
 		      + eth_control_addr,
 		      sizeof (struct mppa_pcie_eth_control));
-	pdata->netdev_if_count = pdata->netdev_control.if_count;
 
-	dev_dbg(&pdata->pdev->dev, "enable: initialization of %d interface(s)\n", pdata->netdev_control.if_count);
-
-	/* add net devices */
-	for (i = 0; i < pdata->netdev_if_count; ++i) {
-		pdata->netdev[i] = mppa_pcie_netdev_create(pdata, pdata->netdev_control.configs + i, eth_control_addr, i);
+	if (netdev->control.magic != MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC) {
+		atomic_set(&netdev->state, _MPPA_PCIE_NETDEV_STATE_DISABLED);
+		return;
 	}
 
-	atomic_set(&pdata->netdev_state, _MPPA_PCIE_NETDEV_STATE_ENABLED);
+	netdev->if_count = netdev->control.if_count;
+
+	dev_dbg(&pdata->pdev->dev, "enable: initialization of %d interface(s)\n", netdev->control.if_count);
+
+	/* add net devices */
+	for (i = 0; i < netdev->if_count; ++i) {
+		netdev->dev[i] = mppa_pcie_netdev_create(pdata, netdev->control.configs + i, eth_control_addr, i);
+	}
+
+	atomic_set(&netdev->state, _MPPA_PCIE_NETDEV_STATE_ENABLED);
 }
 
 static void mppa_pcie_netdev_pre_reset(struct net_device *netdev)
@@ -979,9 +1002,10 @@ static void mppa_pcie_netdev_pre_reset(struct net_device *netdev)
 static void mppa_pcie_netdev_pre_reset_all(struct mppa_pcie_device *pdata)
 {
 	int i;
+	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 
-	for (i = 0; i < pdata->netdev_if_count; ++i) {
-		mppa_pcie_netdev_pre_reset(pdata->netdev[i]);
+	for (i = 0; i < netdev->if_count; ++i) {
+		mppa_pcie_netdev_pre_reset(netdev->dev[i]);
 	}
 }
 
@@ -991,9 +1015,13 @@ static void mppa_pcie_netdev_disable(struct mppa_pcie_device *pdata)
 	int i;
 	enum _mppa_pcie_netdev_state last_state;
 	uint32_t eth_control_addr;
+	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 
 	do {
-		last_state = atomic_cmpxchg(&pdata->netdev_state, _MPPA_PCIE_NETDEV_STATE_ENABLED, _MPPA_PCIE_NETDEV_STATE_DISABLING);
+		last_state = atomic_cmpxchg(&netdev->state,
+					    _MPPA_PCIE_NETDEV_STATE_ENABLED,
+					    _MPPA_PCIE_NETDEV_STATE_DISABLING);
+
 		if (last_state == _MPPA_PCIE_NETDEV_STATE_ENABLING) {
 			msleep(10);
 		} else if (last_state != _MPPA_PCIE_NETDEV_STATE_ENABLED) {
@@ -1002,32 +1030,34 @@ static void mppa_pcie_netdev_disable(struct mppa_pcie_device *pdata)
 	} while (last_state == _MPPA_PCIE_NETDEV_STATE_ENABLING);
 
 	dev_dbg(&pdata->pdev->dev, "disable: remove interface(s)\n");
-	
+
 	eth_control_addr = mppa_pcie_netdev_get_eth_control_addr(pdata);
 	writel(0, SMEM_BAR_VADDR(pdata)
 			      + eth_control_addr
 			      + offsetof(struct mppa_pcie_eth_control, magic));
 
 	/* delete net devices */
-	for (i = 0; i < pdata->netdev_if_count; ++i) {
-		mppa_pcie_netdev_remove(pdata->netdev[i]);
+	for (i = 0; i < netdev->if_count; ++i) {
+		mppa_pcie_netdev_remove(netdev->dev[i]);
 	}
 
-	pdata->netdev_if_count = 0;
+	netdev->if_count = 0;
 
-	atomic_set(&pdata->netdev_state, _MPPA_PCIE_NETDEV_STATE_DISABLED);
+	atomic_set(&netdev->state, _MPPA_PCIE_NETDEV_STATE_DISABLED);
 }
 
 static void mppa_pcie_netdev_enable_task(struct work_struct *work)
 {
-	struct mppa_pcie_device *pdata = container_of(work, struct mppa_pcie_device, netdev_enable);
+	struct mppa_pcie_pdata_netdev *netdev =
+		container_of(work, struct mppa_pcie_pdata_netdev, enable);
 
-	mppa_pcie_netdev_enable(pdata);
+	mppa_pcie_netdev_enable(netdev->pdata);
 }
 
 static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 {
 	struct mppa_pcie_device *pdata = arg;
+	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 	struct mppa_pcie_netdev_priv *priv;
 	int magic, i;
 	enum _mppa_pcie_netdev_state last_state;
@@ -1036,7 +1066,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 
 	dev_dbg(&pdata->pdev->dev, "interrupt\n");
 
-	last_state = atomic_read(&pdata->netdev_state);
+	last_state = atomic_read(&netdev->state);
 	/* disabled : try to enable */
 	if (last_state == _MPPA_PCIE_NETDEV_STATE_DISABLED) {
 
@@ -1049,7 +1079,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 
 			if (magic == MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC) {
 				/* start netdev */
-				schedule_work(&pdata->netdev_enable);
+				schedule_work(&netdev->enable);
 			}
 		}
 	}
@@ -1059,23 +1089,25 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	}
 
 	/* schedule poll call */
-	for (i = 0; i < pdata->netdev_if_count; ++i) {
-		if (netif_running(pdata->netdev[i])) {
-			priv = netdev_priv(pdata->netdev[i]);
-			if (netif_queue_stopped(pdata->netdev[i]) && !atomic_read(&priv->reset)) {
-				tx_head = readl(priv->tx_head_addr);
-				if ((atomic_read(&priv->tx_tail) + 1) % priv->tx_size != tx_head) {
-					atomic_set(&priv->tx_head, tx_head);
-					for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
-						mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
-											       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);
-					}
-					netif_wake_queue(pdata->netdev[i]);
-				}
+	for (i = 0; i < netdev->if_count; ++i) {
+		if (!netif_running(netdev->dev[i]))
+			continue;
+
+		priv = netdev_priv(netdev->dev[i]);
+		if (!netif_queue_stopped(netdev->dev[i]) || atomic_read(&priv->reset))
+			continue;
+
+		tx_head = readl(priv->tx_head_addr);
+		if ((atomic_read(&priv->tx_tail) + 1) % priv->tx_size != tx_head) {
+			atomic_set(&priv->tx_head, tx_head);
+			for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
+				mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
+									       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);
 			}
-			if (priv->interrupt_status) {
-				mppa_pcie_netdev_schedule_napi(priv);
-			}
+			netif_wake_queue(netdev->dev[i]);
+		}
+		if (priv->interrupt_status) {
+			mppa_pcie_netdev_schedule_napi(priv);
 		}
 	}
 
@@ -1153,15 +1185,24 @@ static int mppa_pcie_netdev_init(void)
 	printk(KERN_INFO "Loading ethernet driver, ethernet control addr 0x%x\n", eth_ctrl_addr);
 
 	list_for_each_entry(pdata, &mppa_device_list, link) {
+		struct mppa_pcie_pdata_netdev *netdev;
+
 		if (!pdata) {
 			pr_warn("device data is NULL\n");
 			return -1;
 		}
 
-		atomic_set(&pdata->netdev_state, _MPPA_PCIE_NETDEV_STATE_DISABLED);
-		pdata->netdev_if_count = 0;
+		netdev = kzalloc(sizeof(*netdev), GFP_KERNEL);
+		if (!netdev)
+			continue;
 
-		INIT_WORK(&pdata->netdev_enable, mppa_pcie_netdev_enable_task);
+		netdev->pdata = pdata;
+		pdata->netdev = netdev;
+
+		atomic_set(&netdev->state, _MPPA_PCIE_NETDEV_STATE_DISABLED);
+		netdev->if_count = 0;
+
+		INIT_WORK(&netdev->enable, mppa_pcie_netdev_enable_task);
 		pdata->netdev_reset = &mppa_pcie_netdev_disable;
 		pdata->netdev_pre_reset = &mppa_pcie_netdev_pre_reset_all;
 		pdata->netdev_interrupt = &mppa_pcie_netdev_interrupt;
@@ -1195,6 +1236,8 @@ static void mppa_pcie_netdev_exit(void)
 			pr_warn("device data is NULL\n");
 			return;
 		}
+		if (pdata->netdev)
+			kfree(pdata->netdev);
 
 		pdata->netdev_interrupt = NULL;
 
