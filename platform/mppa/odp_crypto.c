@@ -689,33 +689,46 @@ odp_random_data(uint8_t *buf, int32_t len, odp_bool_t use_entropy ODP_UNUSED)
 	}
 	return len;
 #endif
+	int rnd_len = 0;
 
-	ODP_ASSERT((unsigned)len <= sizeof(((odp_rpc_cmd_rnd_t*)0)->rnd_data) );
-	unsigned cluster_id = __k1_get_cluster_id();
-	odp_rpc_t *ack_msg;
+	while (len) {
+		uint32_t pkt_len = len;
 
-	odp_rpc_t cmd = {
-		.pkt_type = ODP_RPC_CMD_RND_GET,
-		.data_len = 0,
-		.flags = 0,
-		.inl_data = ( ( odp_rpc_cmd_rnd_t ){ .rnd_len = len }).inl_data,
-	};
+		if (pkt_len > sizeof(((odp_rpc_cmd_rnd_t*)0)->rnd_data)) {
+			pkt_len = sizeof(((odp_rpc_cmd_rnd_t*)0)->rnd_data);
+		}
 
-	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
-				odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
-				&cmd, NULL);
-	int ret = odp_rpc_wait_ack(&ack_msg, NULL, 15 * RPC_TIMEOUT_1S);
-	if (ret < 0) {
-		fprintf(stderr, "[RND] RPC Error\n");
-		return 1;
-	} else if (ret == 0){
-		fprintf(stderr, "[RND] Query timed out\n");
-		return 1;
+		unsigned cluster_id = __k1_get_cluster_id();
+		odp_rpc_t *ack_msg;
+
+		odp_rpc_t cmd = {
+			.pkt_type = ODP_RPC_CMD_RND_GET,
+			.data_len = 0,
+			.flags = 0,
+			.inl_data = ( ( odp_rpc_cmd_rnd_t ){ .rnd_len = pkt_len }).inl_data,
+		};
+
+		odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(0, cluster_id),
+				 odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
+				 &cmd, NULL);
+		int ret = odp_rpc_wait_ack(&ack_msg, NULL, 15 * RPC_TIMEOUT_1S);
+		if (ret < 0) {
+			fprintf(stderr, "[RND] RPC Error\n");
+			return 1;
+		} else if (ret == 0){
+			fprintf(stderr, "[RND] Query timed out\n");
+			return 1;
+		}
+		const odp_rpc_cmd_rnd_t ack = {.inl_data = ack_msg->inl_data};
+
+		memcpy(buf + rnd_len, ack.rnd_data, ack.rnd_len);
+		if (!ack.rnd_len)
+			return rnd_len;
+
+		rnd_len += ack.rnd_len;
+		len -= ack.rnd_len;
 	}
-	const odp_rpc_cmd_rnd_t ack = {.inl_data = ack_msg->inl_data};
-
-	memcpy(buf, ack.rnd_data, ack.rnd_len);
-	return ack.rnd_len;
+	return rnd_len;
 }
 
 odp_crypto_compl_t odp_crypto_compl_from_event(odp_event_t ev)
