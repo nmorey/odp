@@ -1017,6 +1017,9 @@ static void mppa_pcie_netdev_disable(struct mppa_pcie_device *pdata)
 	uint32_t eth_control_addr;
 	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 
+	if (!netdev)
+		return;
+
 	do {
 		last_state = atomic_cmpxchg(&netdev->state,
 					    _MPPA_PCIE_NETDEV_STATE_ENABLED,
@@ -1196,6 +1199,7 @@ static int mppa_pcie_netdev_init(void)
 		if (!netdev)
 			continue;
 
+		dev_dbg(&pdata->pdev->dev, "Attaching a netdev\n");
 		netdev->pdata = pdata;
 		pdata->netdev = netdev;
 
@@ -1236,10 +1240,14 @@ static void mppa_pcie_netdev_exit(void)
 			pr_warn("device data is NULL\n");
 			return;
 		}
-		pdata->netdev_interrupt = NULL;
-
 		if (pdata->netdev) {
 			mppa_pcie_netdev_disable(pdata);
+
+			dev_dbg(&pdata->pdev->dev, "Removing the associated netdev\n");
+			pdata->netdev_interrupt = NULL;
+			pdata->netdev_reset = NULL;
+			pdata->netdev_pre_reset = NULL;
+
 			kfree(pdata->netdev);
 			pdata->netdev = NULL;
 		}
