@@ -125,7 +125,7 @@ int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]) {
 		return -1;
 
 	for (i = 0; i < n_if; ++i) {
-		ret = netdev_init_interface(&cfg[n_if]);
+		ret = netdev_init_interface(&cfg[i]);
 		if (ret)
 			return ret;
 	}
