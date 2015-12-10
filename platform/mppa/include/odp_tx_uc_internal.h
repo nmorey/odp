@@ -18,9 +18,12 @@ extern "C" {
 #define MAX_JOB_PER_UC          MOS_NB_UC_TRS
 #define DNOC_CLUS_IFACE_ID	0
 
+#define END_OF_PACKETS		(1 << 0)
+
 typedef union {
 	struct {
 		uint16_t pkt_size;
+		uint16_t flags;
 	};
 	uint64_t dword;
 } tx_uc_header_t;

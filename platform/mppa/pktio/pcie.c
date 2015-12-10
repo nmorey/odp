@@ -212,6 +212,7 @@ static int pcie_open(odp_pktio_t id ODP_UNUSED, pktio_entry_t *pktio_entry,
 	pcie->pool = pool;
 	odp_spinlock_init(&pcie->wlock);
 	pcie->tx_config.nofree = nofree;
+	pcie->tx_config.add_end_marker = 1;
 
 	/* Setup Rx threads */
 	if (pktio_entry->s.param.in_mode != ODP_PKTIN_MODE_DISABLED) {

@@ -156,6 +156,10 @@ static int _tx_uc_send_packets(const pkt_tx_uc_config *tx_config,
 		if (ctx->add_header){
 			tx_uc_header_t info = { .dword = 0ULL };
 			info.pkt_size = len;
+			/* Add the packet end marker */
+			if (tx_config->add_end_marker && i == (pkt_count - 1))
+				info.flags |= END_OF_PACKETS;
+
 			base_addr -= sizeof(info);
 			((tx_uc_header_t*)base_addr)->dword = info.dword;
 			len += sizeof(info);
@@ -245,6 +249,11 @@ static int _tx_uc_send_aligned_packets(const pkt_tx_uc_config *tx_config,
 		if (ctx->add_header){
 			tx_uc_header_t info = { .dword = 0ULL };
 			info.pkt_size = len;
+			/* Add the packet end marker */
+			if (tx_config->add_end_marker && i == (pkt_count - 1)) {
+				info.flags |= END_OF_PACKETS;
+			}
+
 			base_addr -= sizeof(info);
 			((tx_uc_header_t*)base_addr)->dword = info.dword;
 			len += sizeof(info);

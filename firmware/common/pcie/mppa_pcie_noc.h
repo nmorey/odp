@@ -13,10 +13,11 @@
  * PKT size
  */
 #define MPPA_PCIE_MULTIBUF_PKT_SIZE	(9*1024)
+
 /**
- * 4 packets per multi buffer
+ * Packets per multi buffer
  */
-#define MPPA_PCIE_MULTIBUF_PKT_COUNT	4
+#define MPPA_PCIE_MULTIBUF_PKT_COUNT	8
 #define MPPA_PCIE_MULTIBUF_SIZE		(MPPA_PCIE_MULTIBUF_PKT_COUNT * MPPA_PCIE_MULTIBUF_PKT_SIZE)
 
 #define MPPA_PCIE_MULTIBUF_COUNT	64
@@ -33,7 +34,6 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 	volatile void *fifo_addr;
 	unsigned int pcie_eth_if;
 };
-
 
 
 void

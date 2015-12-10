@@ -18,6 +18,20 @@
 #define RX_RM_COUNT		2
 #define PCIE_TX_RM		(RX_RM_START + RX_RM_COUNT)
 
+/**
+ * WARNING: struct from odp_tx_uc_internal
+ */
+ 
+#define END_OF_PACKETS		(1 << 0)
+
+typedef union {
+	struct {
+		uint16_t pkt_size;
+		uint16_t flags;
+	};
+	uint64_t dword;
+} tx_uc_header_t;
+
 typedef struct rx_cfg {
 		mppa_pcie_noc_rx_buf_t *mapped_buf;
 } rx_cfg_t;
@@ -128,8 +142,9 @@ static void poll_noc_rx_buffer()
 {	
 	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT], *buf;
 	uint32_t left, pkt_size;
-	int ret, pkt, buf_idx;
+	int ret, pkt_count = 0, buf_idx;
 	void * pkt_addr;
+	tx_uc_header_t hdr;
 
 	/* FIXME FIXME FIXME */
 	/* FIXME FIXME FIXME */
@@ -141,25 +156,32 @@ static void poll_noc_rx_buffer()
 	}
 
 	ret = buffer_ring_get_multi(&g_full_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
-	if (ret == 0) {
+	if (ret == 0)
 		return;
-	}
 
 	dbg_printf("%d buffer ready to be sent\n", ret);
 	for(buf_idx = 0; buf_idx < ret; buf_idx++) {
 		buf = bufs[buf_idx];
 
-		dbg_printf("%ld packet in buffer %p\n", buf->pkt_count,buf->buf_addr);
-		for (pkt = 0; pkt < (int) buf->pkt_count; pkt++) {
-			/* Packet size is added as a header to the packet */
-			pkt_addr = buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE);
-			pkt_size = __builtin_k1_lwu(pkt_addr);
-			pkt_addr += sizeof(uint32_t);
+		/* Packet size is added as a header to the packet */
+		pkt_addr = buf->buf_addr;
+
+		while (1) {
+			pkt_count++;
+			hdr.dword = __builtin_k1_ldu(pkt_addr);
+
+			pkt_size = hdr.pkt_size;
+			pkt_addr += sizeof(tx_uc_header_t);
 
 			dbg_printf("packet at addr %p, size %ld\n", pkt_addr, pkt_size);
 			/* Send one packet of the buffer and add buf as padding data to handle consumed packets */
-			mppa_pcie_eth_enqueue_tx(pcie_eth_if_id, buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE), pkt_size, (uintptr_t) buf);
+			mppa_pcie_eth_enqueue_tx(pcie_eth_if_id, pkt_addr, pkt_size, (uintptr_t) buf);
+			pkt_addr += sizeof(pkt_size);
+			if (hdr.flags & END_OF_PACKETS)
+				break;
 		}
+		
+		dbg_printf("%d packets handled\n", pkt_count);
 	}
 }
 
