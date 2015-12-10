@@ -1236,12 +1236,13 @@ static void mppa_pcie_netdev_exit(void)
 			pr_warn("device data is NULL\n");
 			return;
 		}
-		if (pdata->netdev)
-			kfree(pdata->netdev);
-
 		pdata->netdev_interrupt = NULL;
 
-		mppa_pcie_netdev_disable(pdata);
+		if (pdata->netdev) {
+			mppa_pcie_netdev_disable(pdata);
+			kfree(pdata->netdev);
+			pdata->netdev = NULL;
+		}
 	}
 }
 
