@@ -49,7 +49,8 @@ int netdev_setup_rx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
 
 	rx->ring_buffer_entries_count = n_entries;
 	rx->ring_buffer_entries_addr = (uintptr_t) entries;
-	rx->flags = flags;
+	(void)flags;
+	/* rx->flags = flags; */
 	cfg->rx_ring_buf_desc_addr = (uint64_t)(unsigned long)rx;
 
 	return 0;
@@ -86,7 +87,8 @@ int netdev_setup_tx(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
 
 	tx->ring_buffer_entries_count = n_entries;
 	tx->ring_buffer_entries_addr = (uintptr_t) entries;
-	tx->flags = flags;
+	(void)flags;
+	/* tx->flags = flags; */
 	cfg->tx_ring_buf_desc_addr = (uint64_t)(unsigned long)tx;
 
 	return 0;
