@@ -952,6 +952,28 @@ static struct net_device *mppa_pcie_netdev_create(struct mppa_pcie_device *pdata
 	return NULL;
 }
 
+static int mppa_pcie_netdev_is_magic_set(struct mppa_pcie_device *pdata)
+{
+	uint32_t eth_control_addr;
+	int magic;
+
+	eth_control_addr = mppa_pcie_netdev_get_eth_control_addr(pdata);
+	if (eth_control_addr != 0) {
+		/* read magic struct */
+		magic = readl(SMEM_BAR_VADDR(pdata)
+			      + eth_control_addr
+			      + offsetof(struct mppa_pcie_eth_control, magic));
+		if (magic == MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC) {
+			dev_dbg(&pdata->pdev->dev, "MPPA netdev control struct (0x%x) ready\n", eth_control_addr);
+			return 1;
+		} else {
+			dev_dbg(&pdata->pdev->dev, "MPPA netdev control struct (0x%x) not ready\n", eth_control_addr);
+			return 0;
+		}
+	}
+	return 0;
+}
+
 static void mppa_pcie_netdev_enable(struct mppa_pcie_device *pdata)
 {
 	int i;
@@ -1062,28 +1084,19 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	struct mppa_pcie_device *pdata = arg;
 	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
 	struct mppa_pcie_netdev_priv *priv;
-	int magic, i;
+	int i;
 	enum _mppa_pcie_netdev_state last_state;
-	uint32_t tx_head, eth_control_addr;
+	uint32_t tx_head;
 	int chanidx;
 
 	dev_dbg(&pdata->pdev->dev, "interrupt\n");
 
 	last_state = atomic_read(&netdev->state);
+
 	/* disabled : try to enable */
 	if (last_state == _MPPA_PCIE_NETDEV_STATE_DISABLED) {
-
-		eth_control_addr = mppa_pcie_netdev_get_eth_control_addr(pdata);
-		if (eth_control_addr != 0) {
-			/* read magic struct */
-			magic = readl(SMEM_BAR_VADDR(pdata)
-				      + eth_control_addr
-				      + offsetof(struct mppa_pcie_eth_control, magic));
-
-			if (magic == MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC) {
-				/* start netdev */
+		if (mppa_pcie_netdev_is_magic_set(pdata)) {
 				schedule_work(&netdev->enable);
-			}
 		}
 	}
 	/* not enabled, stop here */
@@ -1182,8 +1195,6 @@ static void mppa_pcie_netdev_loopback_init(struct mppa_pcie_device *pdata)
 static int mppa_pcie_netdev_init(void)
 {
 	struct mppa_pcie_device *pdata = NULL;
-	int magic;
-	uint32_t eth_control_addr;
 
 	printk(KERN_INFO "Loading ethernet driver, ethernet control addr 0x%x\n", eth_ctrl_addr);
 
@@ -1216,15 +1227,8 @@ static int mppa_pcie_netdev_init(void)
 		mppa_pcie_netdev_loopback_init(pdata);
 #endif
 
-		eth_control_addr = mppa_pcie_netdev_get_eth_control_addr(pdata);
-		if (eth_control_addr != 0) {
-			/* read magic struct */
-			magic = readl(SMEM_BAR_VADDR(pdata)
-				      + eth_control_addr
-				      + offsetof(struct mppa_pcie_eth_control, magic));
-			if (magic == MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC) {
-				mppa_pcie_netdev_enable(pdata);
-			}
+		if (mppa_pcie_netdev_is_magic_set(pdata)){
+			mppa_pcie_netdev_enable(pdata);
 		}
 	}
 
