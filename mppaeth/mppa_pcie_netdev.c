@@ -25,8 +25,7 @@
 /**
  * Limit the number of dma engine used
  */
-unsigned int eth_ctrl_addr = 0x9d00;
-
+unsigned int eth_ctrl_addr = 0x1c200;
 
 module_param(eth_ctrl_addr, int, S_IRUSR | S_IRGRP);
 MODULE_PARM_DESC(eth_ctrl_addr, "Ethernet control structure address");
