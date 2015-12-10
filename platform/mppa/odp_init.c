@@ -27,8 +27,9 @@ int cluster_iopcie_sync(void)
 		.flags = 0,
 	};
 
-	odp_rpc_do_query(__k1_spawner_id(),
-			odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
+	odp_rpc_do_query(odp_rpc_get_ioddr_dma_id(__k1_spawner_id() / 128  - 1,
+						  cluster_id),
+			 odp_rpc_get_ioddr_tag_id(/* unused */ 0, cluster_id),
 			 &cmd, NULL);
 
 	if (odp_rpc_wait_ack(&ack_msg, NULL, 5 * RPC_TIMEOUT_1S) != 1)
