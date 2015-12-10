@@ -644,6 +644,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* get tx slot */
 	tx = &(priv->tx_ring[tx_tail]);
+	dev_dbg(&priv->pdata->pdev->dev, "Alloc TX packet descriptor %p/%d\n", tx, tx_tail);
 
 	/* take the time */
 	mppa_pcie_time_get(priv->tx_time, &tx->time);
@@ -1088,7 +1089,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	uint32_t tx_head;
 	int chanidx;
 
-	dev_dbg(&pdata->pdev->dev, "interrupt\n");
+	dev_dbg(&pdata->pdev->dev, "netdev interrupt IN\n");
 
 	last_state = atomic_read(&netdev->state);
 
@@ -1100,6 +1101,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	}
 	/* not enabled, stop here */
 	if (last_state != _MPPA_PCIE_NETDEV_STATE_ENABLED) {
+		dev_dbg(&pdata->pdev->dev, "netdev interrupt OUT\n");
 		return IRQ_HANDLED;
 	}
 
@@ -1125,7 +1127,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 			mppa_pcie_netdev_schedule_napi(priv);
 		}
 	}
-
+	dev_dbg(&pdata->pdev->dev, "netdev interrupt OUT\n");
 	return IRQ_HANDLED;
 }
 
