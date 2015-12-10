@@ -139,6 +139,15 @@ int netdev_start()
 	__k1_mb();
 	/* Cross fingers for everything to be setup correctly ! */
 	__builtin_k1_swu(&eth_control.magic, 0xCAFEBABE);
+	/* Ensure coherency */
+	__k1_mb();
+
+#ifdef __mos__
+	mOS_pcie_write_usr_it(0);
+	mOS_pcie_write_usr_it(1);
+#else
+	mppa_pcie_send_it_to_host();
+#endif
 	return 0;
 }
 
