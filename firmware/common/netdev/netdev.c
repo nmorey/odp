@@ -129,6 +129,7 @@ int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]) {
 		if (ret)
 			return ret;
 	}
+	eth_control.if_count = n_if;
 
 	return 0;
 }
