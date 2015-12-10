@@ -131,6 +131,19 @@ int mppa_pcie_eth_init(int if_count)
 	return 0;
 }
 
+int mppa_pcie_eth_tx_full(unsigned int pcie_eth_if)
+{
+	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if), next_rx_tail;
+	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
+
+	/* Check if there is room to send a packet to host */
+	next_rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
+	if (next_rx_tail == rx_head)
+		return 1;
+		
+	return 0;
+}
+
 int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint64_t data)
 {
 	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if), next_rx_tail;

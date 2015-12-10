@@ -41,19 +41,25 @@ static int reload_rx(rx_iface_t *iface, int rx_id)
 {
 	mppa_pcie_noc_rx_buf_t *buf;
 	uint32_t left;
+	uint16_t events;
 	int ret = buffer_ring_get_multi(&g_free_buf_pool, &buf, 1, &left);
 	if (ret != 1) {
 		dbg_printf("No more free buffer available\n");
 		return -1;
 	}
-	
+
+	events = mppa_noc_dnoc_rx_lac_event_counter(iface->iface_id, rx_id);
+	iface->rx_cfgs[rx_id].mapped_buf->pkt_count = events;
+
+	dbg_printf("%d events\n", events);
+	if (!events) {
+		dbg_printf("Invalid count of events\n");
+		exit(1);
+	}
+
 	/* Add previous buffer to full list */
 	buffer_ring_push_multi(&g_full_buf_pool, &iface->rx_cfgs[rx_id].mapped_buf, 1, &left);
 	
-	dbg_printf("Reloading rx %d of if %d\n", rx_id, iface->iface_id);
-
-	mppa_dnoc[iface->iface_id]->rx_queues[rx_id].event_lac.hword;
-
 	typeof(mppa_dnoc[iface->iface_id]->rx_queues[0]) * const rx_queue =
 		&mppa_dnoc[iface->iface_id]->rx_queues[rx_id];
 
@@ -78,32 +84,28 @@ static int reload_rx(rx_iface_t *iface, int rx_id)
 	}
 
 	iface->rx_cfgs[rx_id].mapped_buf = buf;
+	dbg_printf("Reloading rx %d of if %d with buffer %p\n", rx_id, iface->iface_id, buf);
 
 	return 0;
 }
 
 
-static void mppa_pcie_noc_poll_masks(rx_thread_t *th, rx_iface_t *iface)
+static void mppa_pcie_noc_poll_masks(rx_iface_t *iface)
 {
 	int i;
-	uint64_t mask;
-	int if_mask = 0;
-	iface  = iface;
 	int dma_if = iface->iface_id;
+	mppa_noc_dnoc_rx_bitmask_t bitmask;
 
-	for (i = 0; i < 4; i++) {
-		mask = mppa_dnoc[dma_if]->rx_global.events[i].dword & th->iface[dma_if].ev_mask[i];
+	bitmask = mppa_noc_dnoc_rx_get_events_bitmask(dma_if);
 
-		if (mask == 0ULL)
-			continue;
+	for (i = 0; i < 3; ++i) {
+		bitmask.bitmask[i] &= iface->ev_mask[i];
+		while(bitmask.bitmask[i]) {
+			const int mask_bit = __k1_ctzdl(bitmask.bitmask[i]);
+			int rx_id = mask_bit + i * 8 * sizeof(bitmask.bitmask[i]);
+			bitmask.bitmask[i] &= ~(1 << mask_bit);
 
-		/* We have an event */
-		while (mask != 0ULL) {
-			const int mask_bit = __k1_ctzdl(mask);
-			const int rx_id = mask_bit + i * 64;
-
-			mask = mask ^ (1ULL << mask_bit);
-			if_mask |=  reload_rx(iface, rx_id);
+			reload_rx(iface, rx_id);
 		}
 	}
 }
@@ -116,7 +118,7 @@ void mppa_pcie_noc_rx_buffer_consumed(uint64_t data)
 	buf = (mppa_pcie_noc_rx_buf_t *) (uintptr_t) data ;
 
 	buf->pkt_count--;
-	/* All packets from this buffer have been transfered, add it again the free list */
+	/* All packets from this buffer have been transfered, add it again to the free list */
 	if (buf->pkt_count == 0)
 		buffer_ring_push_multi(&g_full_buf_pool, &buf, 1, &left);
 }
@@ -128,7 +130,16 @@ static void poll_noc_rx_buffer()
 	uint32_t left, pkt_size;
 	int ret, pkt, buf_idx;
 	void * pkt_addr;
-	/* FIXME: wait for event from other rx rms */
+
+	/* FIXME FIXME FIXME */
+	/* FIXME FIXME FIXME */
+	int pcie_eth_if_id = 0;
+	
+	if (mppa_pcie_eth_tx_full(pcie_eth_if_id)) {
+		printf("PCIe eth tx is full !!!\n");
+		return;
+	}
+
 	ret = buffer_ring_get_multi(&g_full_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
 	if (ret == 0) {
 		return;
@@ -145,8 +156,9 @@ static void poll_noc_rx_buffer()
 			pkt_size = __builtin_k1_lwu(pkt_addr);
 			pkt_addr += sizeof(uint32_t);
 
+			dbg_printf("packet at addr %p, size %ld\n", pkt_addr, pkt_size);
 			/* Send one packet of the buffer and add buf as padding data to handle consumed packets */
-			mppa_pcie_eth_enqueue_tx(/* FIXME FIXME FIXME */ 0, buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE), pkt_size, (uintptr_t) buf);
+			mppa_pcie_eth_enqueue_tx(pcie_eth_if_id, buf->buf_addr + (pkt * MPPA_PCIE_MULTIBUF_PKT_SIZE), pkt_size, (uintptr_t) buf);
 		}
 	}
 }
@@ -166,7 +178,6 @@ static uint64_t g_pcie_tx_stack[RX_RM_STACK_SIZE];
 
 void mppa_pcie_start_pcie_tx_rm()
 {
-
 		/* Init with scratchpad size */
 		_K1_PE_STACK_ADDRESS[PCIE_TX_RM] = &g_pcie_tx_stack[RX_RM_STACK_SIZE - 16];
 		_K1_PE_START_ADDRESS[PCIE_TX_RM] = &mppa_pcie_pcie_tx_sender;
@@ -191,7 +202,7 @@ mppa_pcie_rx_rm_func()
 	thread->ready = 1;
 	while (1) {
 		for (iface = 0; iface < IF_PER_THREAD; iface++) {
-			mppa_pcie_noc_poll_masks(thread, &thread->iface[iface]);
+			mppa_pcie_noc_poll_masks(&thread->iface[iface]);
 		}
 	}
 }
@@ -294,6 +305,7 @@ int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 	}
 
 	iface->ev_mask[rx_mask_off] |= (1 << *rx_id);
+	__k1_mb();
 
 	return 0;
 }

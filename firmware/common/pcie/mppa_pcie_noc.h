@@ -57,5 +57,6 @@ extern struct mppa_pcie_eth_control g_pcie_eth_control;
 
 int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id);
 int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint64_t data);
+int mppa_pcie_eth_tx_full(unsigned int pcie_eth_if);
 
 #endif

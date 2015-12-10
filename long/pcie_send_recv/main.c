@@ -70,9 +70,21 @@ static int setup_test()
 
 static int run_pcie_simple()
 {
-	int ret;
-	odp_packet_t packet;
+	int ret, i;
+	uint8_t *buf;
+	odp_packet_t packet = odp_packet_alloc (pool, PKT_SIZE);
+	test_assert_ret(packet != ODP_PACKET_INVALID);
 
+	buf = odp_packet_data(packet);
+	odp_packet_l2_offset_set(packet, 0);
+
+	for (i = 0; i < PKT_SIZE; i++)
+		buf[i] = i;
+
+	printf("Sending packet\n");
+	test_assert_ret(odp_pktio_send(pktio, &packet, 1) == 1);
+
+	printf("Waiting packet\n");
 	while (1) {
 		ret = odp_pktio_recv(pktio, &packet, 1);
 
