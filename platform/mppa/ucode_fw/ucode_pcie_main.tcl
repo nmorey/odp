@@ -19,7 +19,4 @@ dma_decr ${POINTER}
 dma_bnz dcnt0 send_64_bytes_loop_label${POINTER}
 dma_write_bundle
 
-dma_send_eot 0
-dma_write_bundle
-
 dma_label skip_label${POINTER}

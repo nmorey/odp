@@ -20,5 +20,6 @@ for {set i 0} {$i < 8} {incr i} {
 }
 
 dma_stop
+dma_send_eot 0
 dma_send_event
 dma_write_bundle

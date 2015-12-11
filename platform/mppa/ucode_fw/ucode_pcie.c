@@ -9,13 +9,13 @@
  */
 unsigned long long ucode_pcie[] __attribute__((aligned(128) )) = {
 0x0000001000600000ULL,  /* C_0: dcnt0=R[0];*/
-0x0000000000400012ULL,  /* C_1: if(dcnt0==0) goto C_4; dcnt0--;*/
+0x000000000040000eULL,  /* C_1: if(dcnt0==0) goto C_3; dcnt0--;*/
 0x0000000803c0000bULL,  /* C_2: READ8(ptr_0,chan_0); ptr_0+=8; if(dcnt0!=0) goto C_2; dcnt0--;*/
-0x0000000000004000ULL,  /* C_3: SEND_EOT(chan_0);*/
-0x0000003000600000ULL,  /* C_4: dcnt0=R[1];*/
-0x0000000000400042ULL,  /* C_5: if(dcnt0==0) goto C_16; dcnt0--;*/
-0x0000000843c0001bULL,  /* C_6: READ8(ptr_1,chan_0); ptr_1+=8; if(dcnt0!=0) goto C_6; dcnt0--;*/
-0x0000000000004041ULL,  /* C_7: SEND_EOT(chan_0); goto C_16;*/
+0x0000003000600000ULL,  /* C_3: dcnt0=R[1];*/
+0x000000000040001aULL,  /* C_4: if(dcnt0==0) goto C_6; dcnt0--;*/
+0x0000000843c00017ULL,  /* C_5: READ8(ptr_1,chan_0); ptr_1+=8; if(dcnt0!=0) goto C_5; dcnt0--;*/
+0x0000005000600041ULL,  /* C_6: goto C_16; dcnt0=R[2];*/
+0x0000000000000041ULL,  /* C_7: goto C_16;*/
 0x0000000000001000ULL,  /* C_8: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_9: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_10: STOP(); ALIGN DROP ADDRESS */
@@ -24,14 +24,14 @@ unsigned long long ucode_pcie[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_13: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_14: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_15: STOP(); ALIGN DROP ADDRESS */
-0x0000005000600000ULL,  /* C_16: dcnt0=R[2];*/
-0x0000000000400052ULL,  /* C_17: if(dcnt0==0) goto C_20; dcnt0--;*/
-0x0000000883c0004bULL,  /* C_18: READ8(ptr_2,chan_0); ptr_2+=8; if(dcnt0!=0) goto C_18; dcnt0--;*/
-0x0000000000004000ULL,  /* C_19: SEND_EOT(chan_0);*/
-0x0000007000600000ULL,  /* C_20: dcnt0=R[3];*/
-0x0000000000400082ULL,  /* C_21: if(dcnt0==0) goto C_32; dcnt0--;*/
-0x00000008c3c0005bULL,  /* C_22: READ8(ptr_3,chan_0); ptr_3+=8; if(dcnt0!=0) goto C_22; dcnt0--;*/
-0x0000000000004081ULL,  /* C_23: SEND_EOT(chan_0); goto C_32;*/
+0x000000000040004aULL,  /* C_16: if(dcnt0==0) goto C_18; dcnt0--;*/
+0x0000000883c00047ULL,  /* C_17: READ8(ptr_2,chan_0); ptr_2+=8; if(dcnt0!=0) goto C_17; dcnt0--;*/
+0x0000007000600000ULL,  /* C_18: dcnt0=R[3];*/
+0x0000000000400056ULL,  /* C_19: if(dcnt0==0) goto C_21; dcnt0--;*/
+0x00000008c3c00053ULL,  /* C_20: READ8(ptr_3,chan_0); ptr_3+=8; if(dcnt0!=0) goto C_20; dcnt0--;*/
+0x0000009000600000ULL,  /* C_21: dcnt0=R[4];*/
+0x0000000000400086ULL,  /* C_22: if(dcnt0==0) goto C_33; dcnt0--;*/
+0x0000000000000081ULL,  /* C_23: goto C_32;*/
 0x0000000000001000ULL,  /* C_24: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_25: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_26: STOP(); ALIGN DROP ADDRESS */
@@ -40,14 +40,14 @@ unsigned long long ucode_pcie[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_29: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_30: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_31: STOP(); ALIGN DROP ADDRESS */
-0x0000009000600000ULL,  /* C_32: dcnt0=R[4];*/
-0x0000000000400092ULL,  /* C_33: if(dcnt0==0) goto C_36; dcnt0--;*/
-0x0000000903c0008bULL,  /* C_34: READ8(ptr_4,chan_0); ptr_4+=8; if(dcnt0!=0) goto C_34; dcnt0--;*/
-0x0000000000004000ULL,  /* C_35: SEND_EOT(chan_0);*/
-0x000000b000600000ULL,  /* C_36: dcnt0=R[5];*/
-0x00000000004000c2ULL,  /* C_37: if(dcnt0==0) goto C_48; dcnt0--;*/
-0x0000000943c0009bULL,  /* C_38: READ8(ptr_5,chan_0); ptr_5+=8; if(dcnt0!=0) goto C_38; dcnt0--;*/
-0x00000000000040c1ULL,  /* C_39: SEND_EOT(chan_0); goto C_48;*/
+0x0000000903c00083ULL,  /* C_32: READ8(ptr_4,chan_0); ptr_4+=8; if(dcnt0!=0) goto C_32; dcnt0--;*/
+0x000000b000600000ULL,  /* C_33: dcnt0=R[5];*/
+0x0000000000400092ULL,  /* C_34: if(dcnt0==0) goto C_36; dcnt0--;*/
+0x0000000943c0008fULL,  /* C_35: READ8(ptr_5,chan_0); ptr_5+=8; if(dcnt0!=0) goto C_35; dcnt0--;*/
+0x000000d000600000ULL,  /* C_36: dcnt0=R[6];*/
+0x000000000040009eULL,  /* C_37: if(dcnt0==0) goto C_39; dcnt0--;*/
+0x0000000983c0009bULL,  /* C_38: READ8(ptr_6,chan_0); ptr_6+=8; if(dcnt0!=0) goto C_38; dcnt0--;*/
+0x000000f0006000c1ULL,  /* C_39: goto C_48; dcnt0=R[7];*/
 0x0000000000001000ULL,  /* C_40: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_41: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_42: STOP(); ALIGN DROP ADDRESS */
@@ -56,21 +56,7 @@ unsigned long long ucode_pcie[] __attribute__((aligned(128) )) = {
 0x0000000000001000ULL,  /* C_45: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_46: STOP(); ALIGN DROP ADDRESS */
 0x0000000000001000ULL,  /* C_47: STOP(); ALIGN DROP ADDRESS */
-0x000000d000600000ULL,  /* C_48: dcnt0=R[6];*/
-0x00000000004000d2ULL,  /* C_49: if(dcnt0==0) goto C_52; dcnt0--;*/
-0x0000000983c000cbULL,  /* C_50: READ8(ptr_6,chan_0); ptr_6+=8; if(dcnt0!=0) goto C_50; dcnt0--;*/
-0x0000000000004000ULL,  /* C_51: SEND_EOT(chan_0);*/
-0x000000f000600000ULL,  /* C_52: dcnt0=R[7];*/
-0x0000000000400102ULL,  /* C_53: if(dcnt0==0) goto C_64; dcnt0--;*/
-0x00000009c3c000dbULL,  /* C_54: READ8(ptr_7,chan_0); ptr_7+=8; if(dcnt0!=0) goto C_54; dcnt0--;*/
-0x0000000000004101ULL,  /* C_55: SEND_EOT(chan_0); goto C_64;*/
-0x0000000000001000ULL,  /* C_56: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_57: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_58: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_59: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_60: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_61: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_62: STOP(); ALIGN DROP ADDRESS */
-0x0000000000001000ULL,  /* C_63: STOP(); ALIGN DROP ADDRESS */
-0x0000000000003000ULL}; /* C_64: STOP(); SEND_IT();*/
+0x00000000004000caULL,  /* C_48: if(dcnt0==0) goto C_50; dcnt0--;*/
+0x00000009c3c000c7ULL,  /* C_49: READ8(ptr_7,chan_0); ptr_7+=8; if(dcnt0!=0) goto C_49; dcnt0--;*/
+0x0000000000007000ULL}; /* C_50: STOP(); SEND_IT(); SEND_EOT(chan_0);*/
 
