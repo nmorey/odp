@@ -4,6 +4,7 @@
 #include "odp_rpc_internal.h"
 #include "rpc-server.h"
 #include "mppa_pcie_buf_alloc.h"
+#include "mppa_pcie_eth.h"
 
 #define MPPA_PCIE_ETH_IF_MAX 4
 
@@ -25,7 +26,7 @@
 #define RX_RM_STACK_SIZE	(0x2000 / (sizeof(uint64_t)))
 
 extern buffer_ring_t g_free_buf_pool;
-extern buffer_ring_t g_full_buf_pool;
+extern buffer_ring_t g_full_buf_pool[MPPA_PCIE_ETH_MAX_INTERFACE_COUNT];
 
 struct mppa_pcie_eth_dnoc_tx_cfg {
 	int opened;
@@ -35,6 +36,7 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 	unsigned int pcie_eth_if;
 };
 
+extern volatile unsigned int g_pcie_if_count;
 
 void
 mppa_pcie_noc_rx_buffer_consumed(uint64_t data);
@@ -55,7 +57,7 @@ int mppa_pcie_eth_handler();
 int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg);
 extern struct mppa_pcie_eth_control g_pcie_eth_control;
 
-int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id);
+int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id, unsigned int pcie_eth_if);
 int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint64_t data);
 int mppa_pcie_eth_tx_full(unsigned int pcie_eth_if);
 

@@ -33,7 +33,8 @@ typedef union {
 } tx_uc_header_t;
 
 typedef struct rx_cfg {
-		mppa_pcie_noc_rx_buf_t *mapped_buf;
+	mppa_pcie_noc_rx_buf_t *mapped_buf;
+	uint8_t pcie_eth_if; /* PCIe ethernet interface */
 } rx_cfg_t;
 
 typedef struct rx_iface {
@@ -56,23 +57,23 @@ static int reload_rx(rx_iface_t *iface, int rx_id)
 	mppa_pcie_noc_rx_buf_t *buf;
 	uint32_t left;
 	uint16_t events;
+	uint16_t pcie_eth_if = iface->rx_cfgs[rx_id].pcie_eth_if;
+	
 	int ret = buffer_ring_get_multi(&g_free_buf_pool, &buf, 1, &left);
 	if (ret != 1) {
 		dbg_printf("No more free buffer available\n");
 		return -1;
 	}
-
+	
 	events = mppa_noc_dnoc_rx_lac_event_counter(iface->iface_id, rx_id);
-	iface->rx_cfgs[rx_id].mapped_buf->pkt_count = events;
-
-	dbg_printf("%d events\n", events);
 	if (!events) {
 		dbg_printf("Invalid count of events\n");
 		exit(1);
 	}
 
+	dbg_printf("Adding buf to eth if %d\n", pcie_eth_if);
 	/* Add previous buffer to full list */
-	buffer_ring_push_multi(&g_full_buf_pool, &iface->rx_cfgs[rx_id].mapped_buf, 1, &left);
+	buffer_ring_push_multi(&g_full_buf_pool[pcie_eth_if], &iface->rx_cfgs[rx_id].mapped_buf, 1, &left);
 	
 	typeof(mppa_dnoc[iface->iface_id]->rx_queues[0]) * const rx_queue =
 		&mppa_dnoc[iface->iface_id]->rx_queues[rx_id];
@@ -134,54 +135,51 @@ void mppa_pcie_noc_rx_buffer_consumed(uint64_t data)
 	buf->pkt_count--;
 	/* All packets from this buffer have been transfered, add it again to the free list */
 	if (buf->pkt_count == 0)
-		buffer_ring_push_multi(&g_full_buf_pool, &buf, 1, &left);
+		buffer_ring_push_multi(&g_free_buf_pool, &buf, 1, &left);
 }
 
 
-static void poll_noc_rx_buffer()
+static void poll_noc_rx_buffer(int pcie_eth_if)
 {	
 	mppa_pcie_noc_rx_buf_t *bufs[MPPA_PCIE_MULTIBUF_COUNT], *buf;
 	uint32_t left, pkt_size;
-	int ret, pkt_count = 0, buf_idx;
+	int ret, buf_idx;
 	void * pkt_addr;
 	tx_uc_header_t hdr;
 
-	/* FIXME FIXME FIXME */
-	/* FIXME FIXME FIXME */
-	int pcie_eth_if_id = 0;
-	
-	if (mppa_pcie_eth_tx_full(pcie_eth_if_id)) {
-		printf("PCIe eth tx is full !!!\n");
+	if (mppa_pcie_eth_tx_full(pcie_eth_if)) {
+		dbg_printf("PCIe eth tx is full !!!\n");
 		return;
 	}
 
-	ret = buffer_ring_get_multi(&g_full_buf_pool, bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
+	ret = buffer_ring_get_multi(&g_full_buf_pool[pcie_eth_if], bufs, MPPA_PCIE_MULTIBUF_COUNT, &left);
 	if (ret == 0)
 		return;
 
 	dbg_printf("%d buffer ready to be sent\n", ret);
 	for(buf_idx = 0; buf_idx < ret; buf_idx++) {
 		buf = bufs[buf_idx];
+		buf->pkt_count = 0;
 
 		/* Packet size is added as a header to the packet */
 		pkt_addr = buf->buf_addr;
 
 		while (1) {
-			pkt_count++;
+			/* Read ehader from packet */
 			hdr.dword = __builtin_k1_ldu(pkt_addr);
-
 			pkt_size = hdr.pkt_size;
 			pkt_addr += sizeof(tx_uc_header_t);
+			buf->pkt_count++;
 
 			dbg_printf("packet at addr %p, size %ld\n", pkt_addr, pkt_size);
 			/* Send one packet of the buffer and add buf as padding data to handle consumed packets */
-			mppa_pcie_eth_enqueue_tx(pcie_eth_if_id, pkt_addr, pkt_size, (uintptr_t) buf);
+			mppa_pcie_eth_enqueue_tx(pcie_eth_if, pkt_addr, pkt_size, (uintptr_t) buf);
 			pkt_addr += sizeof(pkt_size);
 			if (hdr.flags & END_OF_PACKETS)
 				break;
 		}
-		
-		dbg_printf("%d packets handled\n", pkt_count);
+
+		dbg_printf("%d packets handled\n", buf->pkt_count);
 	}
 }
 
@@ -191,8 +189,11 @@ static void poll_noc_rx_buffer()
  */
 static void mppa_pcie_pcie_tx_sender()
 {
+	unsigned int i = 0;
+
 	while(1) {
-		poll_noc_rx_buffer();
+		for (i = 0; i < g_pcie_if_count; i++)
+			poll_noc_rx_buffer(i);
 	}
 }
 
@@ -278,6 +279,7 @@ int mppa_pcie_noc_configure_rx(rx_iface_t *iface, int dma_if, int rx_id)
 	}
 
 	iface->rx_cfgs[rx_id].mapped_buf = buf;
+	iface->rx_cfgs[rx_id].pcie_eth_if = iface->rx_cfgs[rx_id].pcie_eth_if;
 
 	conf.buffer_base = (uintptr_t) buf->buf_addr;
 	conf.buffer_size = MPPA_PCIE_MULTIBUF_SIZE;
@@ -303,7 +305,7 @@ int mppa_pcie_noc_configure_rx(rx_iface_t *iface, int dma_if, int rx_id)
 }
 
 
-int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
+int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id, unsigned int pcie_eth_if)
 {
 	mppa_noc_ret_t ret;
 	int rx_thread_num = if_id / RX_THREAD_COUNT;
@@ -327,6 +329,7 @@ int mppa_pcie_eth_setup_rx(int if_id, unsigned int *rx_id)
 	}
 
 	iface->ev_mask[rx_mask_off] |= (1 << *rx_id);
+	iface->rx_cfgs[*rx_id].pcie_eth_if = pcie_eth_if;
 	__k1_mb();
 
 	return 0;

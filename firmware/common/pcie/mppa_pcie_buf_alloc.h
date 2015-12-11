@@ -63,7 +63,7 @@ static inline void odp_atomic_store_u32(odp_atomic_u32_t *atom,
 
 typedef struct mppa_pcie_noc_rx_buf {
 	void *buf_addr;
-	uint32_t pkt_count;		/* Count of packet in this buffer */
+	uint8_t pkt_count;		/* Count of packet in this buffer */
 } mppa_pcie_noc_rx_buf_t; 
 
 typedef struct {

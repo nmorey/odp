@@ -52,7 +52,7 @@ struct mppa_pcie_g_eth_if_cfg {
 
 static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, NULL, NULL}};
 
-static unsigned int g_if_count;
+volatile unsigned int g_pcie_if_count;
 
 static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
 {
@@ -93,13 +93,13 @@ int mppa_pcie_eth_init(int if_count)
 #endif
 	unsigned int i;
 	struct mppa_pcie_eth_ring_buff_desc *desc_ptr;
-	g_if_count = if_count;
-	g_pcie_eth_control.if_count = g_if_count;
+	g_pcie_if_count = if_count;
+	g_pcie_eth_control.if_count = g_pcie_if_count;
 
 	if (if_count > MPPA_PCIE_ETH_IF_MAX)
 		return 1;
 
-	for (i = 0; i < g_if_count; i++) {
+	for (i = 0; i < g_pcie_if_count; i++) {
 		g_pcie_eth_control.configs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
 		g_pcie_eth_control.configs[i].link_status = 0;
 		g_pcie_eth_control.configs[i].mac_addr[5] = '0' + i;
@@ -242,7 +242,7 @@ int mppa_pcie_eth_handler()
 {
 	unsigned int i;
 
-	for (i = 0; i < g_if_count; i++) {
+	for (i = 0; i < g_pcie_if_count; i++) {
 		mppa_pcie_eth_fill_rx(i);
 	}
 

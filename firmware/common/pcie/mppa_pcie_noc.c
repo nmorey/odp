@@ -27,9 +27,9 @@ buffer_ring_t g_free_buf_pool;
 /**
  * Buffer ready to be sent to host
  */
-buffer_ring_t g_full_buf_pool;
+buffer_ring_t g_full_buf_pool[MPPA_PCIE_ETH_MAX_INTERFACE_COUNT];
 
-#define BUF_POOL_COUNT	2
+#define BUF_POOL_COUNT	(1 + MPPA_PCIE_ETH_MAX_INTERFACE_COUNT)
 
 int mppa_pcie_noc_init_buff_pools()
 {
@@ -44,9 +44,11 @@ int mppa_pcie_noc_init_buff_pools()
 		return 1;
 	}
 	buffer_ring_init(&g_free_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
-
-	buf_pool += MPPA_PCIE_MULTIBUF_COUNT;
-	buffer_ring_init(&g_full_buf_pool, buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+	
+	for (i = 0; i < MPPA_PCIE_ETH_MAX_INTERFACE_COUNT; i++) {
+		buf_pool += MPPA_PCIE_MULTIBUF_COUNT;
+		buffer_ring_init(&g_full_buf_pool[i], buf_pool, MPPA_PCIE_MULTIBUF_COUNT);
+	}
 
 	for (i = 0; i < MPPA_PCIE_MULTIBUF_COUNT; i++) {
 		bufs[i] = (mppa_pcie_noc_rx_buf_t *) g_pkt_base_addr;
@@ -128,7 +130,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 		return ack;
 	}
 
-	ret = mppa_pcie_eth_setup_rx(if_id, &rx_id);
+	ret = mppa_pcie_eth_setup_rx(if_id, &rx_id, open_cmd.pcie_eth_if_id);
 	if (ret)
 		return ack;
 
