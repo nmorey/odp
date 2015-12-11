@@ -1101,18 +1101,28 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	}
 	/* not enabled, stop here */
 	if (last_state != _MPPA_PCIE_NETDEV_STATE_ENABLED) {
-		dev_dbg(&pdata->pdev->dev, "netdev interrupt OUT\n");
+		dev_dbg(&pdata->pdev->dev, "netdev is disabled. interrupt OUT\n");
 		return IRQ_HANDLED;
 	}
 
 	/* schedule poll call */
 	for (i = 0; i < netdev->if_count; ++i) {
-		if (!netif_running(netdev->dev[i]))
+		if (!netif_running(netdev->dev[i])) {
+			dev_dbg(&pdata->pdev->dev, "netdev[%d] is not running\n", i);
 			continue;
+		}
 
 		priv = netdev_priv(netdev->dev[i]);
-		if (!netif_queue_stopped(netdev->dev[i]) || atomic_read(&priv->reset))
+		if (priv->interrupt_status) {
+			dev_dbg(&pdata->pdev->dev, "Schedule NAPI\n");
+			mppa_pcie_netdev_schedule_napi(priv);
+		}
+
+		if (!netif_queue_stopped(netdev->dev[i]) || atomic_read(&priv->reset)){
+			dev_dbg(&pdata->pdev->dev, "netdev[%d] is not stopped (%d) or in reset (%d)\n",
+				i, !netif_queue_stopped(netdev->dev[i]), atomic_read(&priv->reset));
 			continue;
+		}
 
 		tx_head = readl(priv->tx_head_addr);
 		if ((atomic_read(&priv->tx_tail) + 1) % priv->tx_size != tx_head) {
@@ -1121,10 +1131,8 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 				mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
 									       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);
 			}
+			dev_dbg(&pdata->pdev->dev, "Wake netdev queue\n");
 			netif_wake_queue(netdev->dev[i]);
-		}
-		if (priv->interrupt_status) {
-			mppa_pcie_netdev_schedule_napi(priv);
 		}
 	}
 	dev_dbg(&pdata->pdev->dev, "netdev interrupt OUT\n");
