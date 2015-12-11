@@ -22,7 +22,7 @@
 
 #define PKT_SIZE		64
 
-#define TEST_RUN_COUNT		1024
+#define TEST_RUN_COUNT		10
 
 #define PCIE_INTERFACE_COUNT	16
 
@@ -70,7 +70,7 @@ static int setup_test()
 
 static int run_pcie_simple()
 {
-	int ret, i;
+	int i;
 	uint8_t *buf;
 	odp_packet_t packet = odp_packet_alloc (pool, PKT_SIZE);
 	test_assert_ret(packet != ODP_PACKET_INVALID);
@@ -84,19 +84,19 @@ static int run_pcie_simple()
 	printf("Sending packet\n");
 	test_assert_ret(odp_pktio_send(pktio, &packet, 1) == 1);
 
-	printf("Waiting packet\n");
-	while (1) {
-		ret = odp_pktio_recv(pktio, &packet, 1);
+	//~ printf("Waiting packet\n");
+	//~ while (1) {
+		//~ ret = odp_pktio_recv(pktio, &packet, 1);
 
-		test_assert_ret(ret >= 0);
+		//~ test_assert_ret(ret >= 0);
 
-		if (ret == 1)
-			break;
-	}
-	printf("Received packet\n");
-	test_assert_ret(odp_packet_is_valid(packet) == 1);
+		//~ if (ret == 1)
+			//~ break;
+	//~ }
+	//~ printf("Received packet\n");
+	//~ test_assert_ret(odp_packet_is_valid(packet) == 1);
 
-	odp_packet_free(packet);
+	//~ odp_packet_free(packet);
 	return 0;
 }
 
