@@ -3,19 +3,20 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <getopt.h>
 
 #include <mppa/osconfig.h>
 #include <HAL/hal/hal.h>
 
 #include "netdev.h"
 
-#define IF_COUNT		1
+#define IF_COUNT		8
 #define RING_BUFFER_ENTRIES	32
 
 /**
  * Transfer all packet received on host tx to host rx
  */
-void main_loop()
+void main_loop(int n_if)
 {
 	struct mppa_pcie_eth_tx_ring_buff_entry *tx_entry, *tx_entries;
 	struct mppa_pcie_eth_rx_ring_buff_entry *rx_entry, *rx_entries;
@@ -23,12 +24,17 @@ void main_loop()
 	uint32_t tx_head, rx_tail, tx_tail, len;
 	int i;
 
-	for (i = 0; i < IF_COUNT; i++) {
+	for (i = 0; i < n_if; i++) {
+		int src_if = i;
+		int dst_if = i + 1;
+		if (dst_if >= n_if)
+			dst_if -= n_if;
+
 		/* Handle incoming tx packet */
 		struct mppa_pcie_eth_ring_buff_desc * tx_rbuf =
-			netdev_get_tx_ring_buffer(i);
+			netdev_get_tx_ring_buffer(dst_if);
 		struct mppa_pcie_eth_ring_buff_desc * rx_rbuf =
-			netdev_get_rx_ring_buffer(i);
+			netdev_get_rx_ring_buffer(src_if);
 
 		tx_head = __builtin_k1_lwu(&tx_rbuf->head);
 		tx_tail = __builtin_k1_lwu(&tx_rbuf->tail);
@@ -78,19 +84,35 @@ static eth_if_cfg_t if_cfgs[IF_COUNT] = {
 };
 
 
-int main()
+int main(int argc, char* argv[])
 {
+	int opt;
+
+	unsigned n_if = 1;
+
+	while ((opt = getopt(argc, argv, "n:")) != -1) {
+		switch (opt) {
+		case 'n':
+			n_if = atoi(optarg);
+			break;
+		default: /* '?' */
+			fprintf(stderr, "Wrong arguments for boot\n");
+			return -1;
+		}
+	}
+	printf("Starting %u interfaces\n", n_if);
+
 	for (int i = 0; i < IF_COUNT; ++i){
 		if_cfgs[i].if_id = i;
 		if_cfgs[i].mac_addr[MAC_ADDR_LEN - 1] = i;
 	}
+
 	netdev_init(IF_COUNT, if_cfgs);
 	netdev_start();
 
-	printf("Waiting for packets\n");
 
 	while(1) {
-		main_loop();
+		main_loop(n_if);
 	}
 
 	return 0;
