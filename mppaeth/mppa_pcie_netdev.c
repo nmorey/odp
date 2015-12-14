@@ -670,6 +670,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 #endif
 
 	/* prepare sg */
+	sg_init_table(tx->sg, MAX_SKB_FRAGS + 1);
 	tx->sg_len = skb_to_sgvec(skb, tx->sg, 0, skb->len);
         dma_len = dma_map_sg(&priv->pdata->pdev->dev, tx->sg, tx->sg_len, DMA_TO_DEVICE);
 	if (dma_len == 0) {
