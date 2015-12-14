@@ -88,7 +88,8 @@ static eth_if_cfg_t if_cfgs[IF_COUNT] = {
 	{ .if_id = 0, .mtu = MPPA_PCIE_ETH_DEFAULT_MTU,
 	  .n_rx_entries = RING_BUFFER_ENTRIES,
 	  .n_tx_entries = RING_BUFFER_ENTRIES,
-	  .mac_addr = { 0xde, 0xad, 0xbe, 0xef }
+	  .mac_addr = { 0xde, 0xad, 0xbe, 0xef },
+	  .flags = MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP,
 	}
 };
 
