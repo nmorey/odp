@@ -72,7 +72,8 @@ void main_loop(int n_if)
 #ifdef VERBOSE
 			printf("New rx tail : %"PRIu32", tx head: %"PRIu32"\n", rx_tail, tx_head);
 #endif
-			mppa_pcie_send_it_to_host();
+			if (__builtin_k1_lwu(&eth_control.configs[dst_if].interrupt_status))
+				mppa_pcie_send_it_to_host();
 		}
 	}
 }
