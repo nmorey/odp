@@ -47,8 +47,8 @@ struct mppa_pcie_eth_if_config {
 	uint64_t rx_ring_buf_desc_addr;	/*< Rx ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
 	uint64_t tx_ring_buf_desc_addr;	/*< Tx ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
 	uint16_t mtu;			/*< MTU */
-	uint8_t mac_addr[MAC_ADDR_LEN];	/*< Mac address */
-	uint8_t interrupt_status;       /*< interrupt status (set by host) */
+	uint8_t  mac_addr[MAC_ADDR_LEN];/*< Mac address */
+	uint32_t interrupt_status;      /*< interrupt status (set by host) */
 	uint32_t flags;			/*< Flags for config (checksum offload, etc) */
 	uint32_t link_status;		/*< Link status (activity, speed, duplex, etc) */
 } __attribute__ ((packed));
