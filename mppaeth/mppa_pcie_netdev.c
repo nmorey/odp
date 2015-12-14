@@ -144,7 +144,7 @@ static void mppa_pcie_netdev_tx_timeout(struct net_device *netdev)
 {
 	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
 
-	dev_dbg(&priv->pdata->pdev->dev, "timeout\n");
+	netdev_dbg(netdev, "timeout\n");
 
 	/* TODO: what to do? */
 	/* TODO: remove this once the above question is anwsered */
@@ -161,7 +161,7 @@ static struct net_device_stats *mppa_pcie_netdev_get_stats(struct net_device *ne
 static void mppa_pcie_netdev_schedule_napi(struct mppa_pcie_netdev_priv *priv)
 {
 	if (napi_schedule_prep(&priv->napi)) {
-		dev_dbg(&priv->pdata->pdev->dev, "interrupt: disable\n");
+		netdev_dbg(priv->netdev, "interrupt: disable\n");
 		mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->rx_chan,
 							       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);
 		priv->interrupt_status = 0;
@@ -174,7 +174,7 @@ static void mppa_pcie_netdev_dma_callback(void *param)
 {
 	struct mppa_pcie_netdev_priv *priv = param;
 
-	dev_dbg(&priv->pdata->pdev->dev, "callback\n");
+	netdev_dbg(priv->netdev, "callback\n");
 
 	mppa_pcie_netdev_schedule_napi(priv);
 }
@@ -209,7 +209,7 @@ static int mppa_pcie_netdev_clean_rx(struct mppa_pcie_netdev_priv *priv,
 			break;
 		}
 
-		dev_dbg(&priv->pdata->pdev->dev, "rx %d: transfer done\n", priv->rx_used);
+		netdev_dbg(netdev, "rx %d: transfer done\n", priv->rx_used);
 
 		/* get rx slot */
 		rx = &(priv->rx_ring[priv->rx_used]);
@@ -295,18 +295,18 @@ static int mppa_pcie_netdev_clean_rx(struct mppa_pcie_netdev_priv *priv,
 		if (dmaengine_slave_config(priv->rx_chan, &priv->rx_config.cfg)) {
 			/* board has reset, wait for reset of netdev */
 			netif_carrier_off(netdev);
-			dev_err(&priv->pdata->pdev->dev, "rx %d: cannot configure channel\n", priv->rx_avail);
+			netdev_err(netdev, "rx %d: cannot configure channel\n", priv->rx_avail);
 			break;
 		}
 
 		/* get transfer descriptor */
 		dma_txd = dmaengine_prep_slave_sg(priv->rx_chan, rx->sg, dma_len, DMA_DEV_TO_MEM, 0);
 		if (dma_txd == NULL) {
-			dev_err(&priv->pdata->pdev->dev, "rx %d: cannot get dma descriptor", priv->rx_avail);
+			netdev_err(netdev, "rx %d: cannot get dma descriptor", priv->rx_avail);
 			goto dma_failed;
 		}
 
-		dev_dbg(&priv->pdata->pdev->dev, "rx %d: transfer start\n", priv->rx_avail);
+		netdev_dbg(netdev, "rx %d: transfer start\n", priv->rx_avail);
 
 		/* submit and issue descriptor */
 		rx->cookie = dmaengine_submit(dma_txd);
@@ -381,8 +381,8 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 			break;
 		}
 
-		dev_dbg(&priv->pdata->pdev->dev, "tx %d: transfer done (h: %d t: %d d: %d)\n", tx_done,
-			atomic_read(&priv->tx_head), tx_tail, tx_done);
+		netdev_dbg(netdev, "tx %d: transfer done (h: %d t: %d d: %d)\n", tx_done,
+			   atomic_read(&priv->tx_head), tx_tail, tx_done);
 
 		/* get TX slot */
 		tx = &(priv->tx_ring[tx_done]);
@@ -410,8 +410,8 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 
 	/* TX: 3rd step: free finished TX slot */
 	while (first_tx_done != last_tx_done) {
-		dev_dbg(&priv->pdata->pdev->dev, "tx %d: done (h: %d t: %d d: %d)\n", first_tx_done,
-			atomic_read(&priv->tx_head), tx_tail, tx_done);
+		netdev_dbg(netdev, "tx %d: done (h: %d t: %d d: %d)\n", first_tx_done,
+			   atomic_read(&priv->tx_head), tx_tail, tx_done);
 
 		/* get TX slot */
 		tx = &(priv->tx_ring[first_tx_done]);
@@ -460,7 +460,7 @@ static void mppa_pcie_netdev_loopback_call(struct mppa_pcie_netdev_priv *priv)
 			break;
 		}
 
-		dev_dbg(&priv->pdata->pdev->dev, "shift\n");
+		netdev_dbg(priv->netdev, "shift\n");
 
 		/* get slots */
 		tx = &(priv->tx_ring[tx_head]);
@@ -493,6 +493,8 @@ static int mppa_pcie_netdev_poll(struct napi_struct *napi, int budget)
 
 	priv = container_of(napi, struct mppa_pcie_netdev_priv, napi);
 
+	netdev_dbg(priv->netdev, "netdev_poll IN\n");
+
 #if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 2
 	work = mppa_pcie_netdev_clean_tx(priv, -1);
 #endif
@@ -504,7 +506,7 @@ static int mppa_pcie_netdev_poll(struct napi_struct *napi, int budget)
 #endif
 	if (work_done < budget && work < budget && !priv->schedule_napi) {
 		napi_complete(napi);
-		dev_dbg(&priv->pdata->pdev->dev, "interrupt: enable\n");
+		netdev_dbg(priv->netdev, "interrupt: enable\n");
 		mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->rx_chan,
 							       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_ENABLED);
 		priv->interrupt_status = 1;
@@ -512,6 +514,7 @@ static int mppa_pcie_netdev_poll(struct napi_struct *napi, int budget)
 	}
 
 	priv->schedule_napi = 0;
+	netdev_dbg(priv->netdev, "netdev_poll OUT\n");
 
 	return work_done;
 }
@@ -586,7 +589,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	}
 	if (tx_next_tail == tx_full) {
 		/* Ring is full */
-		dev_dbg(&priv->pdata->pdev->dev, "TX ring full\n");
+		netdev_dbg(netdev, "TX ring full\n");
 		netif_stop_queue(netdev);
 		for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
 			mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
@@ -599,7 +602,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* get tx slot */
 	tx = &(priv->tx_ring[tx_tail]);
-	dev_dbg(&priv->pdata->pdev->dev, "Alloc TX packet descriptor %p/%d\n", tx, tx_tail);
+	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d\n", tx, tx_tail);
 
 	/* take the time */
 	mppa_pcie_time_get(priv->tx_time, &tx->time);
@@ -619,10 +622,10 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	ret = mppa_pcie_dma_check_addr(priv->pdata, tx->dst_addr, &fifo_mode, &requested_engine);
 	if ((ret) || (fifo_mode && (requested_engine >= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT))) {
 		if (ret) {
-			dev_err(&priv->pdata->pdev->dev, "tx %d: invalid send address %llx\n",
+			netdev_err(netdev, "tx %d: invalid send address %llx\n",
 				tx_tail, tx->dst_addr);
 		} else {
-			dev_err(&priv->pdata->pdev->dev, "tx %d: address %llx using NoC engine out of range (%d >= %d)\n",
+			netdev_err(netdev, "tx %d: address %llx using NoC engine out of range (%d >= %d)\n",
 				tx_tail, tx->dst_addr, requested_engine, MPPA_PCIE_NETDEV_NOC_CHAN_COUNT);
 		}
 		netdev->stats.tx_dropped++;
@@ -639,7 +642,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* If the packet needs a header to determine size, add it */
 	if (tx->flags & MPPA_PCIE_ETH_NEED_PKT_HDR) {
-		dev_dbg(&priv->pdata->pdev->dev, "tx %d: Adding header to packet\n", tx_tail);
+		netdev_dbg(netdev, "tx %d: Adding header to packet\n", tx_tail);
 		if (skb_headroom(skb) < sizeof(struct mppa_pcie_eth_pkt_hdr)) {
 			struct sk_buff *skb_new;
 
@@ -671,14 +674,14 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
         dma_len = dma_map_sg(&priv->pdata->pdev->dev, tx->sg, tx->sg_len, DMA_TO_DEVICE);
 	if (dma_len == 0) {
 		/* dma_map_sg failed, retry */
-		dev_err(&priv->pdata->pdev->dev, "tx %d: failed to map sg to dma\n", tx_tail);
+		netdev_err(netdev, "tx %d: failed to map sg to dma\n", tx_tail);
 		goto busy;
 	}
 
 	if (dmaengine_slave_config(priv->tx_chan[chanidx], &priv->tx_config[chanidx].cfg)) {
 		/* board has reset, wait for reset of netdev */
 		netif_carrier_off(netdev);
-		dev_err(&priv->pdata->pdev->dev, "tx %d: cannot configure channel\n", tx_tail);
+		netdev_err(netdev, "tx %d: cannot configure channel\n", tx_tail);
 		goto busy;
 	}
 
@@ -687,12 +690,12 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	dma_txd = dmaengine_prep_slave_sg(priv->tx_chan[chanidx], tx->sg, dma_len, DMA_MEM_TO_DEV, 0);
 	if (dma_txd == NULL) {
 		/* dmaengine_prep_slave_sg failed, retry */
-		dev_err(&priv->pdata->pdev->dev, "tx %d: cannot get dma descriptor\n", tx_tail);
+		netdev_err(netdev, "tx %d: cannot get dma descriptor\n", tx_tail);
 		goto busy;
 	}
 #endif
-	dev_dbg(&priv->pdata->pdev->dev, "tx %d: transfer start (h: %d t: %d d: %d)\n", tx_tail,
-		atomic_read(&priv->tx_head), tx_next_tail, atomic_read(&priv->tx_done));
+	netdev_dbg(netdev, "tx %d: transfer start (h: %d t: %d d: %d)\n", tx_tail,
+		   atomic_read(&priv->tx_head), tx_next_tail, atomic_read(&priv->tx_done));
 
 #if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 3
 	/* submit and issue descriptor */
@@ -1116,18 +1119,18 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	/* schedule poll call */
 	for (i = 0; i < netdev->if_count; ++i) {
 		if (!netif_running(netdev->dev[i])) {
-			dev_dbg(&pdata->pdev->dev, "netdev[%d] is not running\n", i);
+			netdev_dbg(netdev->dev[i], "netdev[%d] is not running\n", i);
 			continue;
 		}
 
 		priv = netdev_priv(netdev->dev[i]);
 		if (priv->interrupt_status) {
-			dev_dbg(&pdata->pdev->dev, "Schedule NAPI\n");
+			netdev_dbg(netdev->dev[i], "Schedule NAPI\n");
 			mppa_pcie_netdev_schedule_napi(priv);
 		}
 
 		if (!netif_queue_stopped(netdev->dev[i]) || atomic_read(&priv->reset)){
-			dev_dbg(&pdata->pdev->dev, "netdev[%d] is not stopped (%d) or in reset (%d)\n",
+			netdev_dbg(netdev->dev[i], "netdev[%d] is not stopped (%d) or in reset (%d)\n",
 				i, !netif_queue_stopped(netdev->dev[i]), atomic_read(&priv->reset));
 			continue;
 		}
@@ -1139,7 +1142,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 				mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
 									       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);
 			}
-			dev_dbg(&pdata->pdev->dev, "Wake netdev queue\n");
+			netdev_dbg(netdev->dev[i], "Wake netdev queue\n");
 			netif_wake_queue(netdev->dev[i]);
 		}
 	}
