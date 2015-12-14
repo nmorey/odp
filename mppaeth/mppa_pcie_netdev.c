@@ -374,6 +374,9 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 	} else {
 		tx_size = atomic_read(&priv->tx_head);
 	}
+	if (tx_size == 0) {
+		return 0;
+	}
 	/* TX: 2nd step: update TX tail (DMA transfer completed) */
 	while (tx_done != tx_tail) {
 		if (!mppa_pcie_netdev_tx_is_done(priv, tx_done)) {
@@ -552,6 +555,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	uint32_t tx_tail;
 	uint32_t tx_full, tx_head;
 	int chanidx = 0;
+	const int autoloop = priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP;
 
 	/* make room before adding packets */
 	mppa_pcie_netdev_clean_tx(priv, -1);
@@ -560,13 +564,19 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	/* Check if there is tx room available */
 	tx_next_tail = (tx_tail + 1) % priv->tx_size;
 	tx_head = atomic_read(&priv->tx_head);
-	if (tx_next_tail == tx_head) {
+	if (tx_next_tail == tx_head ||
+	    (autoloop && !tx_head)) {
 		/* We have reach our cached value of head, but the device might
 		 * have handled more buffers, read it from device directly */
 		tx_head = readl(priv->tx_head_addr);
 		atomic_set(&priv->tx_head, tx_head);
 
-		if ((priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)) {
+		if (autoloop) {
+			/* If tx_head is NULL, there are no descriptor in place.
+			 * Stop the massacre here */
+			if (tx_head == 0)
+				return NETDEV_TX_BUSY;
+
 			/* RING_AUTOLOOP mode */
 			if (tx_next_tail == tx_head) {
 				tx_next_tail = 0;
@@ -574,7 +584,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 		}
 	}
-	if (!(priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)) {
+	if (!autoloop) {
 		tx_full = tx_head;
 	} else {
 		/* RING_AUTOLOOP mode */
@@ -611,7 +621,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 #if defined(CONFIG_MPPA_NETDEV_FULL_SPEED) && CONFIG_MPPA_NETDEV_FULL_SPEED == 1
 	if (1)
 #else
-	if (!(priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP))
+	if (!autoloop)
 #endif
 	{
 		tx->dst_addr = readq(tx->entry_addr + offsetof(struct mppa_pcie_eth_tx_ring_buff_entry, pkt_addr));
