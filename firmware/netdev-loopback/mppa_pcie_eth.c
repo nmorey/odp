@@ -32,9 +32,9 @@ void main_loop(int n_if)
 
 		/* Handle incoming tx packet */
 		struct mppa_pcie_eth_ring_buff_desc * tx_rbuf =
-			netdev_get_tx_ring_buffer(dst_if);
+			netdev_get_tx_ring_buffer(src_if);
 		struct mppa_pcie_eth_ring_buff_desc * rx_rbuf =
-			netdev_get_rx_ring_buffer(src_if);
+			netdev_get_rx_ring_buffer(dst_if);
 
 		tx_head = __builtin_k1_lwu(&tx_rbuf->head);
 		tx_tail = __builtin_k1_lwu(&tx_rbuf->tail);
