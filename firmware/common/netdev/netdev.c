@@ -105,6 +105,7 @@ int netdev_init_interface(const eth_if_cfg_t *cfg)
 	if_cfg = &eth_control.configs[cfg->if_id];
 	if_cfg->mtu = cfg->mtu;
 	if_cfg->flags = cfg->flags;
+	if_cfg->interrupt_status = 1;
 	memcpy(if_cfg->mac_addr, cfg->mac_addr, MAC_ADDR_LEN);
 
 	ret = netdev_setup_rx(if_cfg, cfg->n_rx_entries, cfg->rx_flags);
