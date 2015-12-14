@@ -140,51 +140,6 @@ static bool mppa_pcie_netdev_chan_filter(struct dma_chan *chan, void *arg)
 	return wanted_dma == chan->device;
 }
 
-static int mppa_pcie_netdev_open(struct net_device *netdev)
-{
-	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
-	uint32_t tx_tail;
-
-	tx_tail = readl(priv->tx_tail_addr);
-	atomic_set(&priv->tx_tail, tx_tail);
-	atomic_set(&priv->tx_head, readl(priv->tx_head_addr));
-	atomic_set(&priv->tx_done, tx_tail);
-
-	priv->rx_tail = readl(priv->rx_tail_addr);
-	priv->rx_head = readl(priv->rx_head_addr);
-	priv->rx_used = priv->rx_head;
-	priv->rx_avail = priv->rx_tail;
-
-	priv->schedule_napi = 0;
-
-	atomic_set(&priv->reset, 0);
-
-	netif_start_queue(netdev);
-	napi_enable(&priv->napi);
-
-	priv->interrupt_status = 1;
-	writel(priv->interrupt_status, priv->interrupt_status_addr);
-
-	netif_carrier_on(netdev);
-
-	return 0;
-}
-
-static int mppa_pcie_netdev_close(struct net_device *netdev)
-{
-	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
-
-	priv->interrupt_status = 0;
-	writel(priv->interrupt_status, priv->interrupt_status_addr);
-
-	netif_carrier_off(netdev);
-
-	napi_disable(&priv->napi);
-	netif_stop_queue(netdev);
-
-	return 0;
-}
-
 static void mppa_pcie_netdev_tx_timeout(struct net_device *netdev)
 {
 	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
@@ -761,6 +716,54 @@ busy:
 #endif
 }
 
+
+static int mppa_pcie_netdev_open(struct net_device *netdev)
+{
+	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
+	uint32_t tx_tail;
+
+	tx_tail = readl(priv->tx_tail_addr);
+	atomic_set(&priv->tx_tail, tx_tail);
+	atomic_set(&priv->tx_head, readl(priv->tx_head_addr));
+	atomic_set(&priv->tx_done, tx_tail);
+
+	priv->rx_tail = readl(priv->rx_tail_addr);
+	priv->rx_head = readl(priv->rx_head_addr);
+	priv->rx_used = priv->rx_head;
+	priv->rx_avail = priv->rx_tail;
+
+	priv->schedule_napi = 0;
+
+	atomic_set(&priv->reset, 0);
+
+	netif_start_queue(netdev);
+	napi_enable(&priv->napi);
+
+	priv->interrupt_status = 1;
+	writel(priv->interrupt_status, priv->interrupt_status_addr);
+
+	netif_carrier_on(netdev);
+
+	return 0;
+}
+
+static int mppa_pcie_netdev_close(struct net_device *netdev)
+{
+	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
+
+	priv->interrupt_status = 0;
+	writel(priv->interrupt_status, priv->interrupt_status_addr);
+
+	netif_carrier_off(netdev);
+
+	napi_disable(&priv->napi);
+	netif_stop_queue(netdev);
+
+	mppa_pcie_netdev_clean_tx(priv, -1);
+
+	return 0;
+}
+
 static const struct net_device_ops mppa_pcie_netdev_ops = {
         .ndo_open               = mppa_pcie_netdev_open,
         .ndo_stop               = mppa_pcie_netdev_close,
@@ -776,6 +779,7 @@ static void mppa_pcie_netdev_remove(struct net_device *netdev)
 {
 	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
 	int chanidx;
+
 
 	/* unregister */
 	unregister_netdev(netdev);
