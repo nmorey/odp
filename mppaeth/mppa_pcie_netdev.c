@@ -980,6 +980,7 @@ static void mppa_pcie_netdev_enable(struct mppa_pcie_device *pdata)
 	enum _mppa_pcie_netdev_state last_state;
 	uint32_t eth_control_addr;
 	struct mppa_pcie_pdata_netdev * netdev = pdata->netdev;
+	int if_count;
 
 	last_state = atomic_cmpxchg(&netdev->state, _MPPA_PCIE_NETDEV_STATE_DISABLED, _MPPA_PCIE_NETDEV_STATE_ENABLING);
 	if (last_state != _MPPA_PCIE_NETDEV_STATE_DISABLED) {
@@ -997,14 +998,17 @@ static void mppa_pcie_netdev_enable(struct mppa_pcie_device *pdata)
 		return;
 	}
 
-	netdev->if_count = netdev->control.if_count;
+	if_count = netdev->control.if_count;
 
 	dev_dbg(&pdata->pdev->dev, "enable: initialization of %d interface(s)\n", netdev->control.if_count);
 
 	/* add net devices */
-	for (i = 0; i < netdev->if_count; ++i) {
+	for (i = 0; i < if_count; ++i) {
 		netdev->dev[i] = mppa_pcie_netdev_create(pdata, netdev->control.configs + i, eth_control_addr, i);
+		if (!netdev->dev[i])
+			break;
 	}
+	netdev->if_count = i;
 
 	atomic_set(&netdev->state, _MPPA_PCIE_NETDEV_STATE_ENABLED);
 }
