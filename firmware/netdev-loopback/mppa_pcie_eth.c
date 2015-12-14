@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 		if_cfgs[i].mac_addr[MAC_ADDR_LEN - 1] = i;
 	}
 
-	netdev_init(IF_COUNT, if_cfgs);
+	netdev_init(n_if, if_cfgs);
 	netdev_start();
 
 
