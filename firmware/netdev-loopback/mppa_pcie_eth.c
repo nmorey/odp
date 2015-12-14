@@ -16,7 +16,7 @@
 /**
  * Transfer all packet received on host tx to host rx
  */
-void main_loop(int n_if)
+void main_loop(int n_if, int drop_all)
 {
 	struct mppa_pcie_eth_tx_ring_buff_entry *tx_entry, *tx_entries;
 	struct mppa_pcie_eth_rx_ring_buff_entry *rx_entry, *rx_entries;
@@ -40,6 +40,11 @@ void main_loop(int n_if)
 		tx_tail = __builtin_k1_lwu(&tx_rbuf->tail);
 
 		if (tx_head != tx_tail) {
+			if (drop_all) {
+				tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
+				__builtin_k1_swu(&tx_rbuf->head, tx_head);
+				continue;
+			}
 			tx_entries = (void *) (uintptr_t) tx_rbuf->ring_buffer_entries_addr;
 			rx_entries = (void *) (uintptr_t) rx_rbuf->ring_buffer_entries_addr;
 
@@ -93,9 +98,12 @@ int main(int argc, char* argv[])
 	int opt;
 
 	unsigned n_if = 1;
-
-	while ((opt = getopt(argc, argv, "n:")) != -1) {
+	unsigned drop_all = 0;
+	while ((opt = getopt(argc, argv, "dn:")) != -1) {
 		switch (opt) {
+		case 'd':
+			drop_all = 1;
+			break;
 		case 'n':
 			n_if = atoi(optarg);
 			break;
@@ -116,7 +124,7 @@ int main(int argc, char* argv[])
 
 
 	while(1) {
-		main_loop(n_if);
+		main_loop(n_if, drop_all);
 	}
 
 	return 0;
