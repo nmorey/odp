@@ -48,7 +48,9 @@ void main_loop(int n_if)
 			tx_entry = &tx_entries[tx_head];
 			rx_entry = &rx_entries[rx_tail];
 			len = __builtin_k1_lwu(&tx_entry->len);
+#ifdef VERBOSE
 			printf("Received packet from host on interface %d, size %"PRIu32", index %"PRIu32"\n", i, len, tx_head);
+#endif
 
 			rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
 
@@ -56,7 +58,7 @@ void main_loop(int n_if)
 			while(rx_tail == __builtin_k1_lwu(&rx_rbuf->head)) {
 			}
 
-			__builtin_k1_swu(&rx_entry->len, __builtin_k1_lwu(&tx_entry->len));
+			__builtin_k1_swu(&rx_entry->len, len);
 			/* Swap buffers */
 			tmp = __builtin_k1_ldu(&rx_entry->pkt_addr);
 			__builtin_k1_sdu(&rx_entry->pkt_addr, __builtin_k1_ldu(&tx_entry->pkt_addr));
@@ -67,8 +69,9 @@ void main_loop(int n_if)
 			tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
 			__builtin_k1_swu(&tx_rbuf->head, tx_head);
 
+#ifdef VERBOSE
 			printf("New rx tail : %"PRIu32", tx head: %"PRIu32"\n", rx_tail, tx_head);
-
+#endif
 			mppa_pcie_send_it_to_host();
 		}
 	}
