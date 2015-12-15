@@ -13,11 +13,14 @@ int main()
 
 	int ret;
 
-	mppa_pcie_eth_noc_init();
-
 	ret = odp_rpc_server_start();
 	if (ret) {
 		fprintf(stderr, "[RPC] Error: Failed to start server\n");
+		exit(EXIT_FAILURE);
+	}
+	ret = mppa_pcie_eth_noc_init();
+	if (ret) {
+		fprintf(stderr, "[NoC] Error: Failed to init NoC\n");
 		exit(EXIT_FAILURE);
 	}
 	ret = mppa_pcie_eth_init(MPPA_PCIE_ETH_IF_MAX);
@@ -25,7 +28,6 @@ int main()
 		fprintf(stderr, "Failed to initialize PCIe eth interface\n");
 		exit(1);
 	}
-
 
 	while (1) {
 		odp_rpc_t *msg;
