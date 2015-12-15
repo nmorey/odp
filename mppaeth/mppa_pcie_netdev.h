@@ -44,13 +44,13 @@
  * Per interface configuration (Read from host)
  */
 struct mppa_pcie_eth_if_config {
-	uint64_t rx_ring_buf_desc_addr;	/*< Rx ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
-	uint64_t tx_ring_buf_desc_addr;	/*< Tx ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
-	uint16_t mtu;			/*< MTU */
-	uint8_t  mac_addr[MAC_ADDR_LEN];/*< Mac address */
-	uint32_t interrupt_status;      /*< interrupt status (set by host) */
-	uint32_t flags;			/*< Flags for config (checksum offload, etc) */
-	uint32_t link_status;		/*< Link status (activity, speed, duplex, etc) */
+	uint64_t c2h_ring_buf_desc_addr; /*< MPPA2Host ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
+	uint64_t h2c_ring_buf_desc_addr; /*< Host2MPPA ring buffer address (`mppa_pcie_eth_ring_buff_desc`) */
+	uint16_t mtu;			 /*< MTU */
+	uint8_t  mac_addr[MAC_ADDR_LEN]; /*< Mac address */
+	uint32_t interrupt_status;       /*< interrupt status (set by host) */
+	uint32_t flags;			 /*< Flags for config (checksum offload, etc) */
+	uint32_t link_status;		 /*< Link status (activity, speed, duplex, etc) */
 } __attribute__ ((packed));
 
 /**
@@ -64,18 +64,18 @@ struct mppa_pcie_eth_control {
 } __attribute__ ((packed));
 
 /**
- * TX single entry descriptor (Updated by Host)
+ * TX (Host2MPPA) single entry descriptor (Updated by Host)
  */
-struct mppa_pcie_eth_tx_ring_buff_entry {
+struct mppa_pcie_eth_h2c_ring_buff_entry {
 	uint32_t len;		/*< Packet length */
 	uint32_t flags;		/*< Flags to control offloading features */
 	uint64_t pkt_addr;	/*< Packet Address */
 } __attribute__ ((packed));
 
 /**
- * RX single entry descriptor (Updated by MPPA)
+ * RX (MPPA2Host) single entry descriptor (Updated by MPPA)
  */
-struct mppa_pcie_eth_rx_ring_buff_entry {
+struct mppa_pcie_eth_c2h_ring_buff_entry {
 	uint16_t len;		/*< Packet length */
 	uint16_t status;	/*< Packet status (errors, etc) */
 	uint32_t checksum;	/*< Packet checksum (computed by MPPA) */

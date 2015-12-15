@@ -18,10 +18,10 @@
  */
 void main_loop(int n_if, int drop_all)
 {
-	struct mppa_pcie_eth_tx_ring_buff_entry *tx_entry, *tx_entries;
-	struct mppa_pcie_eth_rx_ring_buff_entry *rx_entry, *rx_entries;
+	struct mppa_pcie_eth_h2c_ring_buff_entry *h2c_entry, *h2c_entries;
+	struct mppa_pcie_eth_c2h_ring_buff_entry *c2h_entry, *c2h_entries;
 	uint64_t tmp;
-	uint32_t tx_head, rx_tail, tx_tail, len;
+	uint32_t h2c_head, c2h_tail, h2c_tail, len;
 	int i;
 
 	for (i = 0; i < n_if; i++) {
@@ -30,52 +30,52 @@ void main_loop(int n_if, int drop_all)
 		if (dst_if >= n_if)
 			dst_if -= n_if;
 
-		/* Handle incoming tx packet */
-		struct mppa_pcie_eth_ring_buff_desc * tx_rbuf =
-			netdev_get_tx_ring_buffer(src_if);
-		struct mppa_pcie_eth_ring_buff_desc * rx_rbuf =
-			netdev_get_rx_ring_buffer(dst_if);
+		/* Handle incoming h2c packet */
+		struct mppa_pcie_eth_ring_buff_desc * h2c_rbuf =
+			netdev_get_h2c_ring_buffer(src_if);
+		struct mppa_pcie_eth_ring_buff_desc * c2h_rbuf =
+			netdev_get_c2h_ring_buffer(dst_if);
 
-		tx_head = __builtin_k1_lwu(&tx_rbuf->head);
-		tx_tail = __builtin_k1_lwu(&tx_rbuf->tail);
+		h2c_head = __builtin_k1_lwu(&h2c_rbuf->head);
+		h2c_tail = __builtin_k1_lwu(&h2c_rbuf->tail);
 
-		if (tx_head != tx_tail) {
+		if (h2c_head != h2c_tail) {
 			if (drop_all) {
-				tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-				__builtin_k1_swu(&tx_rbuf->head, tx_head);
+				h2c_head = (h2c_head + 1) % RING_BUFFER_ENTRIES;
+				__builtin_k1_swu(&h2c_rbuf->head, h2c_head);
 				continue;
 			}
-			tx_entries = (void *) (uintptr_t) tx_rbuf->ring_buffer_entries_addr;
-			rx_entries = (void *) (uintptr_t) rx_rbuf->ring_buffer_entries_addr;
+			h2c_entries = (void *) (uintptr_t) h2c_rbuf->ring_buffer_entries_addr;
+			c2h_entries = (void *) (uintptr_t) c2h_rbuf->ring_buffer_entries_addr;
 
-			rx_tail = __builtin_k1_lwu(&rx_rbuf->tail);
+			c2h_tail = __builtin_k1_lwu(&c2h_rbuf->tail);
 
-			tx_entry = &tx_entries[tx_head];
-			rx_entry = &rx_entries[rx_tail];
-			len = __builtin_k1_lwu(&tx_entry->len);
+			h2c_entry = &h2c_entries[h2c_head];
+			c2h_entry = &c2h_entries[c2h_tail];
+			len = __builtin_k1_lwu(&h2c_entry->len);
 #ifdef VERBOSE
-			printf("Received packet from host on interface %d, size %"PRIu32", index %"PRIu32"\n", i, len, tx_head);
+			printf("Received packet from host on interface %d, size %"PRIu32", index %"PRIu32"\n",
+			       i, len, h2c_head);
 #endif
 
-			rx_tail = (rx_tail + 1) % RING_BUFFER_ENTRIES;
+			c2h_tail = (c2h_tail + 1) % RING_BUFFER_ENTRIES;
 
 			/* If the user head is the same as our next tail, there is no room to store a packet */
-			while(rx_tail == __builtin_k1_lwu(&rx_rbuf->head)) {
-			}
+			while(c2h_tail == __builtin_k1_lwu(&c2h_rbuf->head)) {}
 
-			__builtin_k1_swu(&rx_entry->len, len);
+			__builtin_k1_swu(&c2h_entry->len, len);
 			/* Swap buffers */
-			tmp = __builtin_k1_ldu(&rx_entry->pkt_addr);
-			__builtin_k1_sdu(&rx_entry->pkt_addr, __builtin_k1_ldu(&tx_entry->pkt_addr));
-			__builtin_k1_sdu(&tx_entry->pkt_addr, tmp);
+			tmp = __builtin_k1_ldu(&c2h_entry->pkt_addr);
+			__builtin_k1_sdu(&c2h_entry->pkt_addr, __builtin_k1_ldu(&h2c_entry->pkt_addr));
+			__builtin_k1_sdu(&h2c_entry->pkt_addr, tmp);
 
-			/* Update tx head and rx tail pointer and send it */
-			__builtin_k1_swu(&rx_rbuf->tail, rx_tail);
-			tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-			__builtin_k1_swu(&tx_rbuf->head, tx_head);
+			/* Update h2c head and c2h tail pointer and send it */
+			__builtin_k1_swu(&c2h_rbuf->tail, c2h_tail);
+			h2c_head = (h2c_head + 1) % RING_BUFFER_ENTRIES;
+			__builtin_k1_swu(&h2c_rbuf->head, h2c_head);
 
 #ifdef VERBOSE
-			printf("New rx tail : %"PRIu32", tx head: %"PRIu32"\n", rx_tail, tx_head);
+			printf("New c2h tail : %"PRIu32", h2c head: %"PRIu32"\n", c2h_tail, h2c_head);
 #endif
 			if (__builtin_k1_lwu(&eth_control.configs[dst_if].interrupt_status))
 				mppa_pcie_send_it_to_host();
@@ -86,8 +86,8 @@ void main_loop(int n_if, int drop_all)
 static eth_if_cfg_t if_cfgs[IF_COUNT] = {
 	[ 0 ... IF_COUNT - 1] =
 	{ .if_id = 0, .mtu = MPPA_PCIE_ETH_DEFAULT_MTU,
-	  .n_rx_entries = RING_BUFFER_ENTRIES,
-	  .n_tx_entries = RING_BUFFER_ENTRIES,
+	  .n_c2h_entries = RING_BUFFER_ENTRIES,
+	  .n_h2c_entries = RING_BUFFER_ENTRIES,
 	  .mac_addr = { 0xde, 0xad, 0xbe, 0xef },
 	  .flags = MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP,
 	}
