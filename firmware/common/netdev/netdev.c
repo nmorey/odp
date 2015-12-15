@@ -81,15 +81,14 @@ int netdev_enqueue_h2c_buffer(struct mppa_pcie_eth_if_config *cfg,
 
 }
 
-static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg,
-			    uint32_t n_entries,
-			    uint32_t flags)
+static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *if_cfg,
+			    const eth_if_cfg_t *cfg)
 {
 	struct mppa_pcie_eth_ring_buff_desc *c2h;
 	struct mppa_pcie_eth_c2h_ring_buff_entry *entries;
 	uint32_t i;
 
-	if (cfg->mtu == 0) {
+	if (if_cfg->mtu == 0) {
 		fprintf(stderr, "[netdev] MTU not configured\n");
 		return -1;
 	}
@@ -97,38 +96,37 @@ static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg,
 	if (!c2h)
 		return -1;
 
-	entries = calloc(n_entries, sizeof(*entries));
+	entries = calloc(cfg->n_c2h_entries, sizeof(*entries));
 	if(!entries) {
 		free(c2h);
 		return -1;
 	}
 
-	for(i = 0; i < n_entries; i++) {
-		entries[i].pkt_addr = g_current_pkt_addr;
-		g_current_pkt_addr += cfg->mtu;
+	if (!cfg->noalloc) {
+		for(i = 0; i < cfg->n_c2h_entries; i++) {
+			entries[i].pkt_addr = g_current_pkt_addr;
+			g_current_pkt_addr += if_cfg->mtu;
 #ifdef VERBOSE
-		printf("C2H Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
+			printf("C2H Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
 #endif
+		}
 	}
 
-	c2h->ring_buffer_entries_count = n_entries;
+	c2h->ring_buffer_entries_count = cfg->n_c2h_entries;
 	c2h->ring_buffer_entries_addr = (uintptr_t) entries;
-	(void)flags;
-	/* c2h->flags = flags; */
-	cfg->c2h_ring_buf_desc_addr = (uint64_t)(unsigned long)c2h;
+	if_cfg->c2h_ring_buf_desc_addr = (uint64_t)(unsigned long)c2h;
 
 	return 0;
 }
 
-static int netdev_setup_h2c(struct mppa_pcie_eth_if_config *cfg,
-			    uint32_t n_entries,
-			    uint32_t flags)
+static int netdev_setup_h2c(struct mppa_pcie_eth_if_config *if_cfg,
+			    const eth_if_cfg_t *cfg)
 {
 	struct mppa_pcie_eth_ring_buff_desc *h2c;
 	struct mppa_pcie_eth_h2c_ring_buff_entry *entries;
 	uint32_t i;
 
-	if (cfg->mtu == 0) {
+	if (if_cfg->mtu == 0) {
 		fprintf(stderr, "[netdev] MTU not configured\n");
 		return -1;
 	}
@@ -136,25 +134,25 @@ static int netdev_setup_h2c(struct mppa_pcie_eth_if_config *cfg,
 	if (!h2c)
 		return -1;
 
-	entries = calloc(n_entries, sizeof(*entries));
+	entries = calloc(cfg->n_h2c_entries, sizeof(*entries));
 	if(!entries) {
 		free(h2c);
 		return -1;
 	}
 
-	for(i = 0; i < n_entries; i++) {
-		entries[i].pkt_addr = g_current_pkt_addr;
-		g_current_pkt_addr += cfg->mtu;
+	if (!(cfg->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP) && !cfg->noalloc) {
+		for(i = 0; i < cfg->n_h2c_entries; i++) {
+			entries[i].pkt_addr = g_current_pkt_addr;
+			g_current_pkt_addr += if_cfg->mtu;
 #ifdef VERBOSE
-		printf("H2C Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
+			printf("H2C Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
 #endif
+		}
 	}
 
-	h2c->ring_buffer_entries_count = n_entries;
+	h2c->ring_buffer_entries_count = cfg->n_h2c_entries;
 	h2c->ring_buffer_entries_addr = (uintptr_t) entries;
-	(void)flags;
-	/* h2c->flags = flags; */
-	cfg->h2c_ring_buf_desc_addr = (uint64_t)(unsigned long)h2c;
+	if_cfg->h2c_ring_buf_desc_addr = (uint64_t)(unsigned long)h2c;
 
 	return 0;
 }
@@ -173,11 +171,11 @@ int netdev_init_interface(const eth_if_cfg_t *cfg)
 	if_cfg->interrupt_status = 1;
 	memcpy(if_cfg->mac_addr, cfg->mac_addr, MAC_ADDR_LEN);
 
-	ret = netdev_setup_c2h(if_cfg, cfg->n_c2h_entries, cfg->c2h_flags);
+	ret = netdev_setup_c2h(if_cfg, cfg);
 	if (ret)
 		return ret;
 
-	ret = netdev_setup_h2c(if_cfg, cfg->n_h2c_entries, cfg->h2c_flags);
+	ret = netdev_setup_h2c(if_cfg, cfg);
 	if (ret)
 		return ret;
 	return 0;
