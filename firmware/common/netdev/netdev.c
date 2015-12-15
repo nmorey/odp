@@ -7,7 +7,7 @@
 
 #include <mppa/osconfig.h>
 #include <HAL/hal/hal.h>
-
+#include <odp/plat/atomic_types.h>
 #include "netdev.h"
 
 #define DDR_BUFFER_BASE_ADDR	0x80000000
@@ -18,8 +18,72 @@ __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_contro
 	.magic = 0xDEADBEEF,
 };
 
-int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
-		    uint32_t flags)
+int netdev_enqueue_c2h_data(struct mppa_pcie_eth_if_config *cfg,
+			    struct mppa_pcie_eth_c2h_ring_buff_entry *data)
+{
+	struct mppa_pcie_eth_ring_buff_desc *c2h =
+		(void*)(unsigned long)cfg->c2h_ring_buf_desc_addr;
+	uint32_t tail = LOAD_U32(c2h->tail);
+	uint32_t next_tail = tail + 1;
+
+	if (next_tail == c2h->ring_buffer_entries_count)
+		next_tail = 0;
+
+	if(next_tail == LOAD_U32(c2h->head)) {
+		/* Ring is full of data */
+		return -1;
+	}
+
+	struct mppa_pcie_eth_c2h_ring_buff_entry *entry_base =
+		(void*)(unsigned long)c2h->ring_buffer_entries_addr;
+	struct mppa_pcie_eth_c2h_ring_buff_entry *entry = entry_base + tail;
+
+	memcpy(entry, data, sizeof(*entry));
+	__k1_wmb();
+
+	STORE_U32(c2h->tail, next_tail);
+
+	return 0;
+}
+
+int netdev_enqueue_h2c_buffer(struct mppa_pcie_eth_if_config *cfg,
+			      struct mppa_pcie_eth_h2c_ring_buff_entry *buffer)
+{
+	struct mppa_pcie_eth_ring_buff_desc *h2c =
+		(void*)(unsigned long)cfg->h2c_ring_buf_desc_addr;
+	uint32_t head = LOAD_U32(h2c->head);
+
+	if (cfg->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP) {
+		if (head == h2c->ring_buffer_entries_count - 1) {
+			/* Ring is full of FIFO address */
+			return -1;
+		}
+	} else {
+		if(head == LOAD_U32(h2c->tail)) {
+			/* Ring is full of buffers */
+			return -1;
+		}
+	}
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entry_base =
+		(void*)(unsigned long)h2c->ring_buffer_entries_addr;
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entry = entry_base + head;
+
+	memcpy(entry, buffer, sizeof(*entry));
+	__k1_wmb();
+
+	uint32_t next_head = head + 1;
+	if (next_head == h2c->ring_buffer_entries_count)
+		next_head = 0;
+
+	STORE_U32(h2c->head, next_head);
+
+	return 0;
+
+}
+
+static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg,
+			    uint32_t n_entries,
+			    uint32_t flags)
 {
 	struct mppa_pcie_eth_ring_buff_desc *c2h;
 	struct mppa_pcie_eth_c2h_ring_buff_entry *entries;
@@ -56,8 +120,9 @@ int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
 	return 0;
 }
 
-int netdev_setup_h2c(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
-		    uint32_t flags)
+static int netdev_setup_h2c(struct mppa_pcie_eth_if_config *cfg,
+			    uint32_t n_entries,
+			    uint32_t flags)
 {
 	struct mppa_pcie_eth_ring_buff_desc *h2c;
 	struct mppa_pcie_eth_h2c_ring_buff_entry *entries;

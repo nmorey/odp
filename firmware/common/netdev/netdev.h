@@ -9,6 +9,10 @@ typedef struct {
 	uint16_t mtu;
 	uint32_t flags;
 
+	struct {
+		uint8_t noalloc :1;
+	};
+
 	uint32_t n_c2h_entries;
 	uint32_t c2h_flags;
 
@@ -32,11 +36,11 @@ netdev_get_h2c_ring_buffer(uint8_t if_id){
 
 int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]);
 int netdev_init_interface(const eth_if_cfg_t *cfg);
-int netdev_setup_h2c(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
-		     uint32_t flags);
-int netdev_setup_c2h(struct mppa_pcie_eth_if_config *cfg, uint32_t n_entries,
-		     uint32_t flags);
 int netdev_start();
 
 
+int netdev_enqueue_c2h_data(struct mppa_pcie_eth_if_config *cfg,
+			    struct mppa_pcie_eth_c2h_ring_buff_entry *data);
+int netdev_enqueue_h2c_buffer(struct mppa_pcie_eth_if_config *cfg,
+			      struct mppa_pcie_eth_h2c_ring_buff_entry *buffer);
 #endif /* NETDEV__H */
