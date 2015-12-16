@@ -34,6 +34,11 @@ SECTIONS
     . = ALIGN(8);
   }  > internal_mem
   
+  .eth_control 0x1c200:
+  {
+	eth_control = ABSOLUTE(.);
+  }> internal_mem
+ 
   .text   ALIGN(8) :
   {
       KEEP(*(.init))
@@ -144,11 +149,6 @@ SECTIONS
   /* TLS support */
   INCLUDE tls.ld 
 
-  .eth_control 0x1c200:
-  {
-	eth_control = ABSOLUTE(.);
-  }> internal_mem
- 
   .heap_start ALIGN(8):
   {
     _heap_start = ABSOLUTE(.);
