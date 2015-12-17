@@ -317,7 +317,7 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 
 	/* TX: 3rd step: free finished TX slot */
 	while (first_tx_done != last_tx_done) {
-		netdev_dbg(netdev, "tx %d: done (head: %d submitted: %d ddone: %d)\n", first_tx_done,
+		netdev_dbg(netdev, "tx %d: done (head: %d submitted: %d done: %d)\n", first_tx_done,
 			   atomic_read(&priv->tx_head), tx_submitted, tx_done);
 
 		/* get TX slot */
@@ -401,8 +401,10 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	uint32_t tx_submitted, tx_next;
 	uint32_t tx_full, tx_head;
+	uint32_t tx_mppa_idx;
 	int chanidx = 0;
 	const int autoloop = priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP;
+	bool refresh_head = false;
 
 	/* make room before adding packets */
 	mppa_pcie_netdev_clean_tx(priv, -1);
@@ -410,43 +412,50 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	tx_submitted = atomic_read(&priv->tx_submitted);
 	tx_next = (tx_submitted + 1) % priv->tx_size;
 	tx_head = atomic_read(&priv->tx_head);
-	if (tx_next == tx_head || (autoloop && !tx_head)) {
-		/* We have reach our cached value of head, but the device might
-		 * have handled more buffers, read it from device directly */
+
+
+
+	/* Compute the ID of the descriptor use on the MPPA side
+	 * - In std mode it's the same
+	 * - In autoloop, it's not because the Host desc ring buffer does NOT
+	 *   have the same size as the MPPA Tx RB */
+	if (autoloop) {
+		tx_mppa_idx = atomic_read(&priv->tx_autoloop_cur);
+		refresh_head = (tx_mppa_idx + 1) == tx_head;
+	} else {
+		tx_mppa_idx = tx_submitted;
+		refresh_head = (tx_next == tx_head);
+	}
+
+	/* End of the MPPA side of the list.
+	 * Update the head value
+	 * - In std mode to see if there may be more free slots
+	 * - In autoloop to check for new entries */
+	if (refresh_head) {
+		/* Try to update first */
 		tx_head = readl(priv->tx_head_addr);
 		atomic_set(&priv->tx_head, tx_head);
 
-		if (autoloop) {
-			/* If tx_head is NULL, there are no descriptor in place.
-			 * Stop the massacre here */
-			if (tx_head == 0)
-				return NETDEV_TX_BUSY;
+		/* In autoloop, we need to cache new elements */
+		while (autoloop && priv->tx_cached_head < tx_head) {
+			entry = &priv->tx_cache[priv->tx_cached_head];
 
-			/* RING_AUTOLOOP mode */
-			if (tx_next == tx_head) {
-				tx_next = 0;
-			}
-
-		}
-	}
-	if (!autoloop) {
-		tx_full = tx_head;
-	} else {
-		/* RING_AUTOLOOP mode */
-		tx_full = atomic_read(&priv->tx_done);
-		/* Step 0: cache new elements */
-		while (priv->tx_cached_head < tx_head) {
-			tx = &(priv->tx_ring[priv->tx_cached_head]);
-			entry = &(priv->tx_cache[priv->tx_cached_head]);
-			tx->dst_addr =
-				  readq(entry->entry_addr +
-					offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-			tx->flags =
-				  readl(entry->entry_addr +
-					offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
+			entry->addr =
+				readq(entry->entry_addr +
+				      offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
+			entry->flags =
+				readl(entry->entry_addr +
+				      offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
 			priv->tx_cached_head++;
 		}
 	}
+
+	if (autoloop) {
+		tx_full = atomic_read(&priv->tx_done);
+	} else {
+		tx_full = tx_head;
+	}
+
 	if (tx_next == tx_full) {
 		/* Ring is full */
 		netdev_dbg(netdev, "TX ring full \n");
@@ -462,17 +471,22 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* get tx slot */
 	tx = &(priv->tx_ring[tx_submitted]);
-	entry = &(priv->tx_cache[tx_submitted]);
+	entry = &(priv->tx_cache[tx_mppa_idx]);
 
-	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d\n", tx, tx_submitted);
+	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d (MPPA Idx = %d)\n", tx, tx_submitted, tx_mppa_idx);
 
 	/* take the time */
 	mppa_pcie_time_get(priv->tx_time, &tx->time);
 
 	/* configure channel */
 	if (!autoloop) {
-		tx->dst_addr = readq(entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-		tx->flags = readl(entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
+		tx->dst_addr = readq(entry->entry_addr +
+				     offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
+		tx->flags = readl(entry->entry_addr +
+				  offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
+	} else {
+		tx->dst_addr = entry->addr;
+		tx->flags = entry->flags;
 	}
 
 	/* Check the provided address */
@@ -561,6 +575,12 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	/* Increment tail pointer locally */
 	atomic_set(&priv->tx_submitted, tx_next);
 
+	if (autoloop) {
+		uint32_t tx_autoloop_next = tx_mppa_idx + 1;
+		if (tx_autoloop_next == tx_head)
+			tx_autoloop_next = 0;
+		atomic_set(&priv->tx_autoloop_cur, tx_autoloop_next);
+	}
 	skb_tx_timestamp(skb);
 
 	return NETDEV_TX_OK;
@@ -580,6 +600,7 @@ static int mppa_pcie_netdev_open(struct net_device *netdev)
 	atomic_set(&priv->tx_submitted, tx_tail);
 	atomic_set(&priv->tx_head, readl(priv->tx_head_addr));
 	atomic_set(&priv->tx_done, tx_tail);
+	atomic_set(&priv->tx_autoloop_cur, 0);
 
 	priv->rx_tail = readl(priv->rx_tail_addr);
 	priv->rx_head = readl(priv->rx_head_addr);
@@ -669,6 +690,7 @@ static struct net_device *mppa_pcie_netdev_create(struct mppa_pcie_device *pdata
 	char name[64];
 	int i, entries_addr;
 	int chanidx;
+	const bool autoloop = config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP;
 
 	/* initialize mask for dma channel */
 	dma_cap_zero(mask);
@@ -752,8 +774,13 @@ static struct net_device *mppa_pcie_netdev_create(struct mppa_pcie_device *pdata
 	priv->rx_mppa_entries = kmalloc(priv->rx_size * sizeof (struct mppa_pcie_eth_c2h_ring_buff_entry), GFP_ATOMIC);
 
 	/* init TX ring */
-   	priv->tx_mppa_size = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_count));
-	priv->tx_size = priv->tx_mppa_size;
+	priv->tx_mppa_size = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_count));
+	if (autoloop) {
+		priv->tx_size = MPPA_PCIE_NETDEV_AUTOLOOP_DESC_COUNT;
+	} else {
+		priv->tx_size = priv->tx_mppa_size;
+	}
+
 	priv->tx_head_addr = desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, head);
 	priv->tx_tail_addr = desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, tail);
 
@@ -963,7 +990,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	struct mppa_pcie_netdev_priv *priv;
 	int i;
 	enum _mppa_pcie_netdev_state last_state;
-	uint32_t tx_head;
+	uint32_t tx_limit;
 	int chanidx;
 
 	dev_dbg(&pdata->pdev->dev, "netdev interrupt IN\n");
@@ -1001,9 +1028,18 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 			continue;
 		}
 
-		tx_head = readl(priv->tx_head_addr);
-		if ((atomic_read(&priv->tx_submitted) + 1) % priv->tx_size != tx_head) {
-			atomic_set(&priv->tx_head, tx_head);
+		/* Compute the limit where the Tx queue would have been saturated
+		 * - In std mode, submitted is just before head
+		 * - In autoloop, submitted is just before done (we don't care at all about head)
+		 */
+		if (priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP) {
+			tx_limit = atomic_read(&priv->tx_done);
+		} else {
+			tx_limit = readl(priv->tx_head_addr);
+			atomic_set(&priv->tx_head, tx_limit);
+		}
+
+		if ((atomic_read(&priv->tx_submitted) + 1) % priv->tx_size != tx_limit) {
 			for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
 				mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
 									       _MPPA_PCIE_ENGINE_INTERRUPT_CHAN_DISABLED);

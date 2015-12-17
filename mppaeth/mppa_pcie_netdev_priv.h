@@ -5,6 +5,7 @@
 
 /* Sufficient for K1B not for K1A but not expected to be used */
 #define MPPA_PCIE_NETDEV_NOC_CHAN_COUNT 4
+#define MPPA_PCIE_NETDEV_AUTOLOOP_DESC_COUNT 32
 
 #define SMEM_BAR_VADDR(__pdata) __pdata->bar[__pdata->smem_bar].vaddr
 
@@ -84,6 +85,10 @@ struct mppa_pcie_netdev_priv {
 	int tx_mppa_size;
 	/* Number of descriptors on the host */
 	int tx_size;
+
+	/* Current idx in the autoloop MPPA RB */
+	atomic_t tx_autoloop_cur;
+
 	/* Amount of Tx cached Host side in autoloop mode. Size = tx_size */
 	int tx_cached_head;
 	/* Cached adresses from the MPPA side. Size = tx_mppa_size */
