@@ -5,6 +5,7 @@
 #include "mppa_pcie_buf_alloc.h"
 #include "mppa_pcie_noc.h"
 #include "mppa_pcie_debug.h"
+#include "netdev.h"
 
 
 #define MAX_RX 					(30 * 4)
@@ -192,7 +193,7 @@ static void mppa_pcie_pcie_tx_sender()
 	unsigned int i = 0;
 
 	while(1) {
-		for (i = 0; i < g_pcie_if_count; i++)
+		for (i = 0; i < eth_control.if_count; i++)
 			poll_noc_rx_buffer(i);
 	}
 }

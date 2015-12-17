@@ -8,6 +8,8 @@
 #include "mppa_pcie_buf_alloc.h"
 #include <HAL/hal/hal.h>
 
+#include "netdev.h"
+
 #define DDR_BASE_ADDR			0x80000000
 #define DIRECTORY_SIZE			(32 * 1024 * 1024)
 
@@ -151,7 +153,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	ack.cmd.pcie_open.tx_if = __k1_get_cluster_id() + if_id;
 	/* FIXME, we send the same MTU as the one received */
 	ack.cmd.pcie_open.mtu = open_cmd.pkt_size;
-	memcpy(ack.cmd.pcie_open.mac, g_pcie_eth_control.configs[open_cmd.pcie_eth_if_id].mac_addr, MAC_ADDR_LEN);
+	memcpy(ack.cmd.pcie_open.mac, eth_control.configs[open_cmd.pcie_eth_if_id].mac_addr, MAC_ADDR_LEN);
 	ack.status = 0;
 
 	return ack;
