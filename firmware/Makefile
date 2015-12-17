@@ -17,6 +17,9 @@ _CFLAGS    += -O0
 else
 _CFLAGS    += -O2
 endif
+ifdef VERBOSE
+_CFLAGS += -DVERBOSE
+endif
 
 ifndef INCLUDING_FIRMWARE
 
