@@ -68,6 +68,9 @@ int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 
 	STORE_U32(c2h->tail, next_tail);
 
+#ifdef VERBOSE
+	printf("C2H data pushed in if:%p | at offset:%lu\n", cfg, tail);
+#endif
 	if (LOAD_U32(cfg->interrupt_status))
 		mppa_pcie_send_it_to_host();
 
@@ -104,6 +107,9 @@ int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 		next_head = 0;
 
 	STORE_U32(h2c->head, next_head);
+#ifdef VERBOSE
+	printf("H2C buffer pushed in if:%p | at offset:%lu\n", cfg, head);
+#endif
 
 	return 0;
 
@@ -128,6 +134,10 @@ netdev_h2c_peek_data(const struct mppa_pcie_eth_if_config *cfg)
 		(void*)(unsigned long)h2c->ring_buffer_entries_addr;
 	struct mppa_pcie_eth_h2c_ring_buff_entry *entry = entry_base + head;
 	INVALIDATE(entry);
+
+#ifdef VERBOSE
+	printf("H2C data found in if:%p | at offset:%lu\n", cfg, head);
+#endif
 
 	return entry;
 }
@@ -158,7 +168,8 @@ static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *if_cfg,
 			entries[i].pkt_addr = g_current_pkt_addr;
 			g_current_pkt_addr += if_cfg->mtu;
 #ifdef VERBOSE
-			printf("C2H Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
+			printf("C2H Packet (%lu/%lu) entry at 0x%"PRIx64"\n", i,
+			       cfg->n_c2h_entries, entries[i].pkt_addr);
 #endif
 		}
 	}
@@ -196,7 +207,8 @@ static int netdev_setup_h2c(struct mppa_pcie_eth_if_config *if_cfg,
 			entries[i].pkt_addr = g_current_pkt_addr;
 			g_current_pkt_addr += if_cfg->mtu;
 #ifdef VERBOSE
-			printf("H2C Packet entry at 0x%"PRIx64"\n", entries[i].pkt_addr);
+			printf("H2C Packet (%lu/%lu) entry at 0x%"PRIx64"\n", i,
+			       cfg->n_h2c_entries, entries[i].pkt_addr);
 #endif
 		}
 	}
@@ -263,6 +275,9 @@ int netdev_start()
 	mOS_pcie_write_usr_it(1);
 #else
 	mppa_pcie_send_it_to_host();
+#endif
+#ifdef VERBOSE
+	printf("Net dev interface(s) are up\n");
 #endif
 	return 0;
 }
