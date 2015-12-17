@@ -6,7 +6,7 @@
 #include "mppa_pcie_buf_alloc.h"
 #include "mppa_pcie_eth.h"
 
-#define MPPA_PCIE_ETH_IF_MAX 4
+#define MPPA_PCIE_ETH_IF_MAX 2
 
 #define MPPA_PCIE_USABLE_DNOC_IF	4
 
