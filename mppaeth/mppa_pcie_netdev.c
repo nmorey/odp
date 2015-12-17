@@ -378,6 +378,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
 	struct mppa_pcie_netdev_tx *tx;
 	struct dma_async_tx_descriptor *dma_txd;
+	struct mppa_pcie_tx_cache_entry *entry;
 	int dma_len, ret;
 	uint8_t fifo_mode, requested_engine;
 	struct mppa_pcie_eth_pkt_hdr *hdr;
@@ -422,8 +423,13 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 		/* Step 0: cache new elements */
 		while (priv->tx_cached_head < tx_head) {
 			tx = &(priv->tx_ring[priv->tx_cached_head]);
-			tx->dst_addr = readq(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-			tx->flags = readl(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
+			entry = &(priv->tx_cache[priv->tx_cached_head]);
+			tx->dst_addr =
+				  readq(entry->entry_addr +
+					offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
+			tx->flags =
+				  readl(entry->entry_addr +
+					offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
 			priv->tx_cached_head++;
 		}
 	}
@@ -442,6 +448,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* get tx slot */
 	tx = &(priv->tx_ring[tx_tail]);
+	entry = &(priv->tx_cache[tx_tail]);
+
 	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d\n", tx, tx_tail);
 
 	/* take the time */
@@ -449,8 +457,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* configure channel */
 	if (!autoloop) {
-		tx->dst_addr = readq(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-		tx->flags = readl(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
+		tx->dst_addr = readq(entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
+		tx->flags = readl(entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
 	}
 
 	/* Check the provided address */
@@ -501,7 +509,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* write TX entry length field */
 	if (!autoloop)
-		writel(skb->len, tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
+		writel(skb->len, entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
 
 	/* prepare sg */
 	sg_init_table(tx->sg, MAX_SKB_FRAGS + 1);
@@ -720,23 +728,36 @@ static struct net_device *mppa_pcie_netdev_create(struct mppa_pcie_device *pdata
 	priv->rx_mppa_entries = kmalloc(priv->rx_size * sizeof (struct mppa_pcie_eth_c2h_ring_buff_entry), GFP_ATOMIC);
 
 	/* init TX ring */
-   	priv->tx_size = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_count));
+   	priv->tx_mppa_size = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_count));
+	priv->tx_size = priv->tx_mppa_size;
 	priv->tx_head_addr = desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, head);
 	priv->tx_tail_addr = desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, tail);
+
+	/* Setup Host TX Ring */
 	priv->tx_ring = kzalloc(priv->tx_size * sizeof (struct mppa_pcie_netdev_tx), GFP_ATOMIC);
 	if (priv->tx_ring == NULL) {
 		dev_err(&pdata->pdev->dev, "TX ring allocation failed\n");
 		goto tx_alloc_failed;
 	}
-	entries_addr = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_addr));
 	for (i = 0; i < priv->tx_size; ++i) {
 		/* initialize scatterlist to the maximum size */
 		sg_init_table(priv->tx_ring[i].sg, MAX_SKB_FRAGS + 1);
+	}
+
+	/* Pre cache MPPA TX Ring */
+	priv->tx_cache = kzalloc(priv->tx_mppa_size * sizeof(*priv->tx_cache), GFP_ATOMIC);
+	if (priv->tx_cache == NULL) {
+		dev_err(&pdata->pdev->dev, "TX cache allocation failed\n");
+		goto tx_alloc_failed;
+	}
+	entries_addr = readl(desc_info_addr(pdata, config->h2c_ring_buf_desc_addr, ring_buffer_entries_addr));
+	for (i = 0; i < priv->tx_mppa_size; ++i) {
 		/* set the TX ring entry address */
-		priv->tx_ring[i].entry_addr = SMEM_BAR_VADDR(pdata)
+		priv->tx_cache[i].entry_addr = SMEM_BAR_VADDR(pdata)
 			+ entries_addr
 			+ i * sizeof (struct mppa_pcie_eth_h2c_ring_buff_entry);
 	}
+
 	priv->tx_cached_head = 0;
 	for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
 		priv->tx_config[chanidx].cfg.direction = DMA_MEM_TO_DEV;

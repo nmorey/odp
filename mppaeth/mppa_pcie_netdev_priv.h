@@ -23,7 +23,6 @@ struct mppa_pcie_netdev_tx {
 	struct scatterlist sg[MAX_SKB_FRAGS + 1];
 	u32 sg_len;
 	dma_cookie_t cookie;
-	void *entry_addr;
 	u32 len; /* to be able to free the skb in the TX 2nd step */
 	struct timespec time;
 	dma_addr_t dst_addr;
@@ -38,6 +37,12 @@ struct mppa_pcie_netdev_rx {
 	dma_cookie_t cookie;
 	void *entry_addr;
 	u32 len; /* avoid to re-read the entry in the RX 2nd step */
+};
+
+struct mppa_pcie_tx_cache_entry {
+	void *entry_addr;
+	u32 addr;
+	u32 flags;
 };
 
 struct mppa_pcie_netdev_priv {
@@ -66,8 +71,15 @@ struct mppa_pcie_netdev_priv {
 	u8 __iomem *tx_tail_addr;
 	atomic_t tx_head;
 	u8 __iomem *tx_head_addr;
+
+	/* Size of the Tx RB on the MPPA */
+	int tx_mppa_size;
+	/* Number of descriptors on the host */
 	int tx_size;
+	/* Amount of Tx cached Host side in autoloop mode. Size = tx_size */
 	int tx_cached_head;
+	/* Cached adresses from the MPPA side. Size = tx_mppa_size */
+	struct mppa_pcie_tx_cache_entry *tx_cache;
 
 	/* RX ring */
 	struct dma_chan *rx_chan;
