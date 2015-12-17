@@ -72,9 +72,9 @@ static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
 
 static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
 {
-	struct mppa_pcie_eth_tx_ring_buff_entry *entries;
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entries;
 
-	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_tx_ring_buff_entry));
+	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_h2c_ring_buff_entry));
 	if(!entries)
 		assert(0);
 
@@ -148,7 +148,7 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 {
 	unsigned int rx_tail = MPPA_PCIE_ETH_GET_RX_TAIL(pcie_eth_if), next_rx_tail;
 	unsigned int rx_head = MPPA_PCIE_ETH_GET_RX_HEAD(pcie_eth_if);
-	struct mppa_pcie_eth_rx_ring_buff_entry *entry, *entries;
+	struct mppa_pcie_eth_c2h_ring_buff_entry *entry, *entries;
 	uint64_t daddr = (uintptr_t) addr;
 
 	/* Check if there is room to send a packet to host */
@@ -180,7 +180,7 @@ int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int 
 {
 	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
 	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if), next_tx_head;
-	struct mppa_pcie_eth_tx_ring_buff_entry *entry, *entries;
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entry, *entries;
 	uint64_t daddr = (uintptr_t) addr;
 	uint32_t prev_head;
 
