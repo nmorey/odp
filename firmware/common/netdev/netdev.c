@@ -111,6 +111,9 @@ int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 	printf("H2C buffer pushed in if:%p | at offset:%lu\n", cfg, head);
 #endif
 
+	if (cfg->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)
+		mppa_pcie_send_it_to_host();
+
 	return 0;
 
 }
