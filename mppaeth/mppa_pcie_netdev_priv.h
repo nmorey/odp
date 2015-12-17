@@ -66,9 +66,17 @@ struct mppa_pcie_netdev_priv {
 	struct dma_chan *tx_chan[MPPA_PCIE_NETDEV_NOC_CHAN_COUNT+1];
 	struct mppa_pcie_dma_slave_config tx_config[MPPA_PCIE_NETDEV_NOC_CHAN_COUNT+1];
 	struct mppa_pcie_netdev_tx *tx_ring;
+
+	/* Position of the latest complete Tx buffer.
+	 * same as tail in MPPA Tx ring buffer
+	 * Range [0 .. tx_size [ */
 	atomic_t tx_done;
-	atomic_t tx_tail;
 	u8 __iomem *tx_tail_addr;
+
+	/* Position of the latest submited desc
+	 * Range [0 .. tx_size [ */
+	atomic_t tx_submitted;
+
 	atomic_t tx_head;
 	u8 __iomem *tx_head_addr;
 

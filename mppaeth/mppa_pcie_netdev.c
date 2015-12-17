@@ -257,10 +257,10 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 	unsigned int bytes_completed = 0;
 	unsigned int worked = 0;
 	struct timespec ts;
-	uint32_t tx_done, first_tx_done, last_tx_done, tx_tail, tx_size;
+	uint32_t tx_done, first_tx_done, last_tx_done, tx_submitted, tx_size;
 	int chanidx;
 
-	tx_tail = atomic_read(&priv->tx_tail);
+	tx_submitted = atomic_read(&priv->tx_submitted);
 	tx_done = atomic_read(&priv->tx_done);
 	first_tx_done = tx_done;
 	last_tx_done = first_tx_done;
@@ -272,15 +272,16 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 	if (tx_size == 0) {
 		return 0;
 	}
+
 	/* TX: 2nd step: update TX tail (DMA transfer completed) */
-	while (tx_done != tx_tail) {
+	while (tx_done != tx_submitted) {
 		if (!mppa_pcie_netdev_tx_is_done(priv, tx_done)) {
 			/* DMA transfer not completed */
 			break;
 		}
 
-		netdev_dbg(netdev, "tx %d: transfer done (h: %d t: %d d: %d)\n", tx_done,
-			   atomic_read(&priv->tx_head), tx_tail, tx_done);
+		netdev_dbg(netdev, "tx %d: transfer done (head: %d submitted: %d done: %d)\n", tx_done,
+			   atomic_read(&priv->tx_head), tx_submitted, tx_done);
 
 		/* get TX slot */
 		tx = &(priv->tx_ring[tx_done]);
@@ -291,7 +292,9 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 
 		worked++;
 
-		tx_done = (tx_done + 1) % tx_size;
+		tx_done += 1;
+		if (tx_done == tx_size)
+			tx_done = 0;
 		last_tx_done = tx_done;
 
 	}
@@ -303,8 +306,8 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 
 	/* TX: 3rd step: free finished TX slot */
 	while (first_tx_done != last_tx_done) {
-		netdev_dbg(netdev, "tx %d: done (h: %d t: %d d: %d)\n", first_tx_done,
-			   atomic_read(&priv->tx_head), tx_tail, tx_done);
+		netdev_dbg(netdev, "tx %d: done (head: %d submitted: %d ddone: %d)\n", first_tx_done,
+			   atomic_read(&priv->tx_head), tx_submitted, tx_done);
 
 		/* get TX slot */
 		tx = &(priv->tx_ring[first_tx_done]);
@@ -315,7 +318,9 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 		packets_completed++;
 		bytes_completed += tx->len;
 
-		first_tx_done = (first_tx_done + 1) % tx_size;
+		first_tx_done += 1;
+		if (first_tx_done == tx_size)
+			first_tx_done = 0;
 	}
 
 	if (!packets_completed) {
@@ -382,8 +387,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	int dma_len, ret;
 	uint8_t fifo_mode, requested_engine;
 	struct mppa_pcie_eth_pkt_hdr *hdr;
-	uint32_t tx_next_tail;
-	uint32_t tx_tail;
+
+	uint32_t tx_submitted, tx_next;
 	uint32_t tx_full, tx_head;
 	int chanidx = 0;
 	const int autoloop = priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP;
@@ -391,12 +396,10 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	/* make room before adding packets */
 	mppa_pcie_netdev_clean_tx(priv, -1);
 
-	tx_tail = atomic_read(&priv->tx_tail);
-	/* Check if there is tx room available */
-	tx_next_tail = (tx_tail + 1) % priv->tx_size;
+	tx_submitted = atomic_read(&priv->tx_submitted);
+	tx_next = (tx_submitted + 1) % priv->tx_size;
 	tx_head = atomic_read(&priv->tx_head);
-	if (tx_next_tail == tx_head ||
-	    (autoloop && !tx_head)) {
+	if (tx_next == tx_head || (autoloop && !tx_head)) {
 		/* We have reach our cached value of head, but the device might
 		 * have handled more buffers, read it from device directly */
 		tx_head = readl(priv->tx_head_addr);
@@ -409,8 +412,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 				return NETDEV_TX_BUSY;
 
 			/* RING_AUTOLOOP mode */
-			if (tx_next_tail == tx_head) {
-				tx_next_tail = 0;
+			if (tx_next == tx_head) {
+				tx_next = 0;
 			}
 
 		}
@@ -433,9 +436,9 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 			priv->tx_cached_head++;
 		}
 	}
-	if (tx_next_tail == tx_full) {
+	if (tx_next == tx_full) {
 		/* Ring is full */
-		netdev_dbg(netdev, "TX ring full\n");
+		netdev_dbg(netdev, "TX ring full \n");
 		netif_stop_queue(netdev);
 		for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
 			mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
@@ -447,10 +450,10 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	/* TX: 1st step: start TX transfer */
 
 	/* get tx slot */
-	tx = &(priv->tx_ring[tx_tail]);
-	entry = &(priv->tx_cache[tx_tail]);
+	tx = &(priv->tx_ring[tx_submitted]);
+	entry = &(priv->tx_cache[tx_submitted]);
 
-	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d\n", tx, tx_tail);
+	netdev_dbg(netdev, "Alloc TX packet descriptor %p/%d\n", tx, tx_submitted);
 
 	/* take the time */
 	mppa_pcie_time_get(priv->tx_time, &tx->time);
@@ -466,10 +469,10 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	if ((ret) || (fifo_mode && (requested_engine >= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT))) {
 		if (ret) {
 			netdev_err(netdev, "tx %d: invalid send address %llx\n",
-				tx_tail, tx->dst_addr);
+				tx_submitted, tx->dst_addr);
 		} else {
 			netdev_err(netdev, "tx %d: address %llx using NoC engine out of range (%d >= %d)\n",
-				tx_tail, tx->dst_addr, requested_engine, MPPA_PCIE_NETDEV_NOC_CHAN_COUNT);
+				tx_submitted, tx->dst_addr, requested_engine, MPPA_PCIE_NETDEV_NOC_CHAN_COUNT);
 		}
 		netdev->stats.tx_dropped++;
 		dev_kfree_skb(skb);
@@ -477,7 +480,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 		netif_stop_queue(netdev);
 		return NETDEV_TX_BUSY;
 	}
-	if (fifo_mode) chanidx = requested_engine + 1;
+	if (fifo_mode)
+		chanidx = requested_engine + 1;
 	tx->chanidx = chanidx;
 	priv->tx_config[chanidx].cfg.dst_addr = tx->dst_addr;
 	priv->tx_config[chanidx].fifo_mode = fifo_mode;
@@ -485,7 +489,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* If the packet needs a header to determine size, add it */
 	if (tx->flags & MPPA_PCIE_ETH_NEED_PKT_HDR) {
-		netdev_dbg(netdev, "tx %d: Adding header to packet\n", tx_tail);
+		netdev_dbg(netdev, "tx %d: Adding header to packet\n", tx_submitted);
 		if (skb_headroom(skb) < sizeof(struct mppa_pcie_eth_pkt_hdr)) {
 			struct sk_buff *skb_new;
 
@@ -509,7 +513,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 
 	/* write TX entry length field */
 	if (!autoloop)
-		writel(skb->len, entry->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
+		writel(skb->len, entry->entry_addr +
+		       offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
 
 	/* prepare sg */
 	sg_init_table(tx->sg, MAX_SKB_FRAGS + 1);
@@ -517,14 +522,14 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
         dma_len = dma_map_sg(&priv->pdata->pdev->dev, tx->sg, tx->sg_len, DMA_TO_DEVICE);
 	if (dma_len == 0) {
 		/* dma_map_sg failed, retry */
-		netdev_err(netdev, "tx %d: failed to map sg to dma\n", tx_tail);
+		netdev_err(netdev, "tx %d: failed to map sg to dma\n", tx_submitted);
 		goto busy;
 	}
 
 	if (dmaengine_slave_config(priv->tx_chan[chanidx], &priv->tx_config[chanidx].cfg)) {
 		/* board has reset, wait for reset of netdev */
 		netif_carrier_off(netdev);
-		netdev_err(netdev, "tx %d: cannot configure channel\n", tx_tail);
+		netdev_err(netdev, "tx %d: cannot configure channel\n", tx_submitted);
 		goto busy;
 	}
 
@@ -532,18 +537,18 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	dma_txd = dmaengine_prep_slave_sg(priv->tx_chan[chanidx], tx->sg, dma_len, DMA_MEM_TO_DEV, 0);
 	if (dma_txd == NULL) {
 		/* dmaengine_prep_slave_sg failed, retry */
-		netdev_err(netdev, "tx %d: cannot get dma descriptor\n", tx_tail);
+		netdev_err(netdev, "tx %d: cannot get dma descriptor\n", tx_submitted);
 		goto busy;
 	}
-	netdev_dbg(netdev, "tx %d: transfer start (h: %d t: %d d: %d)\n", tx_tail,
-		   atomic_read(&priv->tx_head), tx_next_tail, atomic_read(&priv->tx_done));
+	netdev_dbg(netdev, "tx %d: transfer start (head: %d submitted: %d done: %d)\n", tx_submitted,
+		   atomic_read(&priv->tx_head), tx_next, atomic_read(&priv->tx_done));
 
 	/* submit and issue descriptor */
 	tx->cookie = dmaengine_submit(dma_txd);
 	dma_async_issue_pending(priv->tx_chan[chanidx]);
 
 	/* Increment tail pointer locally */
-	atomic_set(&priv->tx_tail, tx_next_tail);
+	atomic_set(&priv->tx_submitted, tx_next);
 
 	skb_tx_timestamp(skb);
 
@@ -561,7 +566,7 @@ static int mppa_pcie_netdev_open(struct net_device *netdev)
 	uint32_t tx_tail;
 
 	tx_tail = readl(priv->tx_tail_addr);
-	atomic_set(&priv->tx_tail, tx_tail);
+	atomic_set(&priv->tx_submitted, tx_tail);
 	atomic_set(&priv->tx_head, readl(priv->tx_head_addr));
 	atomic_set(&priv->tx_done, tx_tail);
 
@@ -869,7 +874,7 @@ static void mppa_pcie_netdev_pre_reset(struct net_device *netdev)
 	atomic_set(&priv->reset, 1);
 	netif_carrier_off(netdev);
 
-	while (atomic_read(&priv->tx_done) != atomic_read(&priv->tx_tail) || priv->rx_used != priv->rx_avail) {
+	while (atomic_read(&priv->tx_done) != atomic_read(&priv->tx_submitted) || priv->rx_used != priv->rx_avail) {
 		msleep(10);
 	}
 }
@@ -978,7 +983,7 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 		}
 
 		tx_head = readl(priv->tx_head_addr);
-		if ((atomic_read(&priv->tx_tail) + 1) % priv->tx_size != tx_head) {
+		if ((atomic_read(&priv->tx_submitted) + 1) % priv->tx_size != tx_head) {
 			atomic_set(&priv->tx_head, tx_head);
 			for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
 				mppa_pcie_dmaengine_set_channel_interrupt_mode(priv->tx_chan[chanidx],
