@@ -41,13 +41,10 @@
  * PCIe ethernet interface config
  */
 struct mppa_pcie_g_eth_if_cfg {
-	struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg[MAX_DNOC_TX_PER_PCIE_ETH_IF];	/* Interfaces for the current */
-	unsigned int dnoc_tx_count;
-	unsigned int current_dnoc_tx; 	/* Current index in dnoc_tx_cfg array */
-	struct mppa_pcie_eth_ring_buff_desc *rx, *tx;
+	struct mppa_pcie_eth_ring_buff_desc *rx;
 };
 
-static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, NULL, NULL}};
+static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{NULL}};
 
 int mppa_pcie_eth_init(int if_count)
 {
@@ -59,7 +56,6 @@ int mppa_pcie_eth_init(int if_count)
 
 	eth_if_cfg_t if_cfgs[if_count];
 	for (int i = 0; i < if_count; ++i){
-		if_cfgs[i].if_id = 0;
 		if_cfgs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
 		if_cfgs[i].n_c2h_entries = RING_BUFFER_ENTRIES;
 		if_cfgs[i].n_h2c_entries = RING_BUFFER_ENTRIES;
@@ -72,7 +68,6 @@ int mppa_pcie_eth_init(int if_count)
 	netdev_init(if_count, if_cfgs);
 	for (int i = 0; i < if_count; ++i){
 		g_eth_if_cfg[i].rx = (void*)(unsigned long)eth_control.configs[i].c2h_ring_buf_desc_addr;
-		g_eth_if_cfg[i].tx = (void*)(unsigned long)eth_control.configs[i].h2c_ring_buf_desc_addr;
 	}
 		
 	netdev_start();
@@ -125,92 +120,15 @@ int mppa_pcie_eth_enqueue_tx(unsigned int pcie_eth_if, void *addr, unsigned int 
 	return 0;
 }
 
-int mppa_pcie_eth_enqueue_rx(unsigned int pcie_eth_if, void *addr, unsigned int size, uint32_t flags)
+int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id,
+			      struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg)
 {
-	unsigned int tx_tail = MPPA_PCIE_ETH_GET_TX_TAIL(pcie_eth_if);
-	unsigned int tx_head = MPPA_PCIE_ETH_GET_TX_HEAD(pcie_eth_if), next_tx_head;
-	struct mppa_pcie_eth_h2c_ring_buff_entry *entry, *entries;
-	uint64_t daddr = (uintptr_t) addr;
-	uint32_t prev_head;
+	struct mppa_pcie_eth_if_config * cfg = netdev_get_eth_if_config(pcie_eth_if_id);
+	struct mppa_pcie_eth_h2c_ring_buff_entry entry;
 
-	/* Do not add an entry if the ring is full */
-	if (tx_head == tx_tail)
-		return -1;
-	
-	if (tx_head == 0)
-		prev_head = RING_BUFFER_ENTRIES - 1;
-	else
-		prev_head = tx_head - 1;
+	entry.len = dnoc_tx_cfg->mtu;
+	entry.pkt_addr = (uint32_t)dnoc_tx_cfg->fifo_addr;
+	entry.flags = MPPA_PCIE_ETH_NEED_PKT_HDR;
 
-	//dbg_printf("Enqueuing rx for interface %d addr %p, size %d to host tx descriptor %ld\n", pcie_eth_if, addr, size, prev_head);
-	entries = (void *) (uintptr_t) g_eth_if_cfg[pcie_eth_if].tx->ring_buffer_entries_addr;
-	entry = &entries[prev_head];
-
-	//dbg_printf("Entries: %p, Entry addr: %p\n", entries, entry);
-	MPPA_PCIE_ETH_SET_ENTRY_LEN(entry, size);
-	MPPA_PCIE_ETH_SET_ENTRY_ADDR(entry, daddr);
-	MPPA_PCIE_ETH_SET_ENTRY_FLAGS(entry, flags);
-
-	next_tx_head = (tx_head + 1) % RING_BUFFER_ENTRIES;
-	MPPA_PCIE_ETH_SET_TX_HEAD(pcie_eth_if, next_tx_head);
-	mppa_pcie_send_it_to_host();
-
-	return 0;
-}
-
-/**
- * Enqueue tx fifo addr while possible
- */
-static int mppa_pcie_eth_fill_rx(unsigned int pcie_eth_if_id)
-{
-	int ret;
-	unsigned int dnoc_tx_id = g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx;
-	struct mppa_pcie_eth_dnoc_tx_cfg *tx_cfg;
-
-	if (g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count == 0)
-		return 0;
-
-	/* Fill RX descriptors by adding pcie fifo tx addr in a round robbin way */
-	do {
-		tx_cfg = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_id];
-
-		/* Try to enqueue a fifo descriptor */
-		ret = mppa_pcie_eth_enqueue_rx(pcie_eth_if_id, (void *) tx_cfg->fifo_addr, tx_cfg->mtu, MPPA_PCIE_ETH_NEED_PKT_HDR);
-		if (ret == 0) {
-			dnoc_tx_id++;
-			dnoc_tx_id %= g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
-		}
-	} while(ret == 0);
-
-	g_eth_if_cfg[pcie_eth_if_id].current_dnoc_tx = dnoc_tx_id;
-
-	return 0;
-}
-
-int mppa_pcie_eth_handler()
-{
-	unsigned int i;
-
-	for (i = 0; i < eth_control.if_count; i++) {
-		mppa_pcie_eth_fill_rx(i);
-	}
-
-	return 0;
-}
-
-int mppa_pcie_eth_add_forward(unsigned int pcie_eth_if_id, struct mppa_pcie_eth_dnoc_tx_cfg *dnoc_tx_cfg)
-{
-	unsigned int dnoc_tx_count = g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count;
-
-	if (dnoc_tx_count == MAX_DNOC_TX_PER_PCIE_ETH_IF) {
-		dbg_printf("Too many forward for this PCIe eth interface\n");
-		return 1;
-	}
-
-	g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_cfg[dnoc_tx_count] = dnoc_tx_cfg;
-	g_eth_if_cfg[pcie_eth_if_id].dnoc_tx_count++;
-
-	mppa_pcie_eth_fill_rx(pcie_eth_if_id);
-
-	return 0;
+	return netdev_h2c_enqueue_buffer(cfg, &entry);
 }

@@ -36,8 +36,6 @@ int main()
 			fprintf(stderr, "[RPC] Error: Unhandled message\n");
 			exit(1);
 		}
-
-		mppa_pcie_eth_handler();
 	}
 	return 0;
 }
