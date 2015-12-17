@@ -11,6 +11,7 @@
 #include "mppa_pcie_eth.h"
 #include "mppa_pcie_noc.h"
 #include "mppa_pcie_debug.h"
+#include "netdev.h"
 
 #define MAX_DNOC_TX_PER_PCIE_ETH_IF	16	
 
@@ -36,10 +37,6 @@
 /* Double reading */
 #define MPPA_PCIE_ETH_GET_DENTRY_VALUE(__entry, __memb) __builtin_k1_ldu(&__entry->__memb)
 
-struct mppa_pcie_eth_control g_pcie_eth_control = {
-	.magic = 0xDEADBEEF,
-};
-
 /**
  * PCIe ethernet interface config
  */
@@ -52,81 +49,33 @@ struct mppa_pcie_g_eth_if_cfg {
 
 static struct mppa_pcie_g_eth_if_cfg g_eth_if_cfg[MPPA_PCIE_ETH_IF_MAX] = {{{0}, 0, 0, NULL, NULL}};
 
-volatile unsigned int g_pcie_if_count;
-
-static void setup_rx(struct mppa_pcie_eth_ring_buff_desc *rx)
-{
-	struct mppa_pcie_eth_rx_ring_buff_entry *entries;
-
-	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_rx_ring_buff_entry));
-	if(!entries)
-		assert(0);
-
-	/* No rx packet for host by default */
-	rx->head = 0;
-	rx->tail = 0;
- 
-	rx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
-	rx->ring_buffer_entries_addr = (uintptr_t) entries;
-}
-
-static void setup_tx(struct mppa_pcie_eth_ring_buff_desc *tx)
-{
-	struct mppa_pcie_eth_h2c_ring_buff_entry *entries;
-
-	entries = calloc(RING_BUFFER_ENTRIES, sizeof(struct mppa_pcie_eth_h2c_ring_buff_entry));
-	if(!entries)
-		assert(0);
-
-	/* Set the tx as full to avoid the host sending packets
-	 * We will fill the dexcriptor later */
-	tx->head = 0;
-	tx->tail = RING_BUFFER_ENTRIES - 1;
-	tx->ring_buffer_entries_count = RING_BUFFER_ENTRIES;
-	tx->ring_buffer_entries_addr = (uintptr_t) entries;
-}
-
 int mppa_pcie_eth_init(int if_count)
 {
 #if defined(MAGIC_SCALL)
 	return 0;
 #endif
-	unsigned int i;
-	struct mppa_pcie_eth_ring_buff_desc *desc_ptr;
-	g_pcie_if_count = if_count;
-	g_pcie_eth_control.if_count = g_pcie_if_count;
-
 	if (if_count > MPPA_PCIE_ETH_IF_MAX)
 		return 1;
 
-	for (i = 0; i < g_pcie_if_count; i++) {
-		g_pcie_eth_control.configs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
-		g_pcie_eth_control.configs[i].link_status = 0;
-		g_pcie_eth_control.configs[i].mac_addr[5] = '0' + i;
-		memcpy(g_pcie_eth_control.configs[i].mac_addr, "\x02\xde\xad\xbe\xef", 5);
-		g_pcie_eth_control.configs[i].interrupt_status = 1;
-
-		desc_ptr = calloc(2, sizeof(struct mppa_pcie_eth_ring_buff_desc));
-		if(!desc_ptr)
-			return 1;
-
-		setup_rx(&desc_ptr[0]);
-		setup_tx(&desc_ptr[1]);
-
-		g_eth_if_cfg[i].rx = &desc_ptr[0];
-		g_eth_if_cfg[i].tx = &desc_ptr[1];
-
-		g_pcie_eth_control.configs[i].rx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[0];
-		g_pcie_eth_control.configs[i].tx_ring_buf_desc_addr = (uintptr_t) &desc_ptr[1];
-
+	eth_if_cfg_t if_cfgs[if_count];
+	for (int i = 0; i < if_count; ++i){
+		if_cfgs[i].if_id = 0;
+		if_cfgs[i].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
+		if_cfgs[i].n_c2h_entries = RING_BUFFER_ENTRIES;
+		if_cfgs[i].n_h2c_entries = RING_BUFFER_ENTRIES;
+		if_cfgs[i].flags = MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP;
+		if_cfgs[i].if_id = i;
+		memcpy(if_cfgs[i].mac_addr, "\x02\xde\xad\xbe\xef", 5);
+		if_cfgs[i].mac_addr[MAC_ADDR_LEN - 1] = i;
 	}
 
-	/* Ensure coherency */
-	__k1_mb();
-	__builtin_k1_swu(&g_pcie_eth_control.magic, MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC);
-
-	/* Cross fingers for everything to be setup correctly ! */
-	mppa_pcie_send_it_to_host();
+	netdev_init(if_count, if_cfgs);
+	for (int i = 0; i < if_count; ++i){
+		g_eth_if_cfg[i].rx = (void*)(unsigned long)eth_control.configs[i].c2h_ring_buf_desc_addr;
+		g_eth_if_cfg[i].tx = (void*)(unsigned long)eth_control.configs[i].h2c_ring_buf_desc_addr;
+	}
+		
+	netdev_start();
 
 	return 0;
 }
@@ -242,7 +191,7 @@ int mppa_pcie_eth_handler()
 {
 	unsigned int i;
 
-	for (i = 0; i < g_pcie_if_count; i++) {
+	for (i = 0; i < eth_control.if_count; i++) {
 		mppa_pcie_eth_fill_rx(i);
 	}
 

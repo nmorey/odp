@@ -36,8 +36,6 @@ struct mppa_pcie_eth_dnoc_tx_cfg {
 	unsigned int pcie_eth_if;
 };
 
-extern volatile unsigned int g_pcie_if_count;
-
 void
 mppa_pcie_noc_rx_buffer_consumed(uint64_t data);
 
