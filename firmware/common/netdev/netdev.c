@@ -39,7 +39,7 @@ int netdev_c2h_is_full(struct mppa_pcie_eth_if_config *cfg)
 
 int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 			    struct mppa_pcie_eth_c2h_ring_buff_entry *data,
-			    uint64_t * old_entry)
+			    struct mppa_pcie_eth_c2h_ring_buff_entry *old_entry)
 {
 	struct mppa_pcie_eth_ring_buff_desc *c2h =
 		(void*)(unsigned long)cfg->c2h_ring_buf_desc_addr;
@@ -58,8 +58,11 @@ int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 		(void*)(unsigned long)c2h->ring_buffer_entries_addr;
 	struct mppa_pcie_eth_c2h_ring_buff_entry *entry = entry_base + tail;
 
-	if (old_entry)
-		*old_entry = LOAD_U64(entry->pkt_addr);
+	if (old_entry) {
+		old_entry->pkt_addr = LOAD_U64(entry->pkt_addr);
+		old_entry->data = LOAD_U64(entry->data);
+	}
+
 	memcpy(entry, data, sizeof(*entry));
 	__k1_wmb();
 

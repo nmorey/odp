@@ -40,9 +40,11 @@ int netdev_start();
 
 /* C2H */
 int netdev_c2h_is_full(struct mppa_pcie_eth_if_config *cfg);
+
+/* old_entry pkt_addr and data are filled from the RBE just replaced */
 int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 			    struct mppa_pcie_eth_c2h_ring_buff_entry *data,
-			    uint64_t * old_entry);
+			    struct mppa_pcie_eth_c2h_ring_buff_entry *old_entry);
 
 /* H2C */
 int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
