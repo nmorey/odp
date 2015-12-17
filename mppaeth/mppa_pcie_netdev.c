@@ -264,13 +264,24 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 	tx_done = atomic_read(&priv->tx_done);
 	first_tx_done = tx_done;
 	last_tx_done = first_tx_done;
-	if (!(priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)) {
-		tx_size = priv->tx_size;
-	} else {
-		tx_size = atomic_read(&priv->tx_head);
-	}
-	if (tx_size == 0) {
-		return 0;
+
+	tx_size = priv->tx_size;
+	if (priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP) {
+		int tx_head = atomic_read(&priv->tx_head);
+
+		if (!tx_head) {
+			/* No carrier yet. Check if there are any buffers yet */
+			tx_head = readl(priv->tx_head_addr);
+			if (tx_head) {
+				/* We now have buffers */
+				atomic_set(&priv->tx_head, tx_head);
+				netif_carrier_on(netdev);
+
+				netdev_dbg(netdev, "Link now has Tx (%u). Bring it up\n", tx_head);
+			}
+			return 0;
+
+		}
 	}
 
 	/* TX: 2nd step: update TX tail (DMA transfer completed) */
@@ -585,7 +596,15 @@ static int mppa_pcie_netdev_open(struct net_device *netdev)
 	priv->interrupt_status = 1;
 	writel(priv->interrupt_status, priv->interrupt_status_addr);
 
-	netif_carrier_on(netdev);
+	if (!(priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP) ||
+	    atomic_read(&priv->tx_head) != 0) {
+		/* If we are in autoloop mode, we might not have any buffer available et
+		 * so keep the carrier off */
+		netif_carrier_on(netdev);
+	} else {
+		netif_carrier_off(netdev);
+		netdev_dbg(netdev, "Autoloop enabled but no Tx. Mark link as down\n");
+	}
 
 	return 0;
 }
