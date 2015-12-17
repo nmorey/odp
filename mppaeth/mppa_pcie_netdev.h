@@ -80,7 +80,7 @@ struct mppa_pcie_eth_c2h_ring_buff_entry {
 	uint16_t status;	/*< Packet status (errors, etc) */
 	uint32_t checksum;	/*< Packet checksum (computed by MPPA) */
 	uint64_t pkt_addr;	/*< Packet Address */
-	uint64_t data;	/*< Data for MPPA use */
+	uint64_t data;	        /*< Data for MPPA use */
 } __attribute__ ((packed));
 
 /**
