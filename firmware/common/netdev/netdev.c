@@ -18,7 +18,7 @@ __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_contro
 	.magic = 0xDEADBEEF,
 };
 
-int netdev_enqueue_c2h_data(struct mppa_pcie_eth_if_config *cfg,
+int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 			    struct mppa_pcie_eth_c2h_ring_buff_entry *data,
 			    uint64_t * old_entry)
 {
@@ -49,7 +49,7 @@ int netdev_enqueue_c2h_data(struct mppa_pcie_eth_if_config *cfg,
 	return 0;
 }
 
-int netdev_enqueue_h2c_buffer(struct mppa_pcie_eth_if_config *cfg,
+int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 			      struct mppa_pcie_eth_h2c_ring_buff_entry *buffer)
 {
 	struct mppa_pcie_eth_ring_buff_desc *h2c =

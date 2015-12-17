@@ -38,10 +38,9 @@ int netdev_init(uint8_t n_if, const eth_if_cfg_t cfg[n_if]);
 int netdev_init_interface(const eth_if_cfg_t *cfg);
 int netdev_start();
 
-
-int netdev_enqueue_c2h_data(struct mppa_pcie_eth_if_config *cfg,
+int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 			    struct mppa_pcie_eth_c2h_ring_buff_entry *data,
 			    uint64_t * old_entry);
-int netdev_enqueue_h2c_buffer(struct mppa_pcie_eth_if_config *cfg,
+int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 			      struct mppa_pcie_eth_h2c_ring_buff_entry *buffer);
 #endif /* NETDEV__H */
