@@ -179,7 +179,6 @@ static void mppa_pcie_netdev_dma_callback(void *param)
 	mppa_pcie_netdev_schedule_napi(priv);
 }
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED == 0
 static int mppa_pcie_netdev_rx_is_done(struct mppa_pcie_netdev_priv *priv,
 				       int index)
 {
@@ -236,12 +235,6 @@ static int mppa_pcie_netdev_clean_rx(struct mppa_pcie_netdev_priv *priv,
 		priv->rx_used = (priv->rx_used + 1) % priv->rx_size;
 
 		(*work_done)++;
-#if defined(CONFIG_MPPA_NETDEV_LOOPBACK) && CONFIG_MPPA_NETDEV_LOOPBACK == 1
-		/* in loopback mode, free a RX slot means we can process TX */
-		if (priv->tx_used != priv->tx_avail) {
-			worked++;
-		}
-#endif
 	}
 	/* write new RX head */
 	if (work_done) {
@@ -337,20 +330,14 @@ static int mppa_pcie_netdev_clean_rx(struct mppa_pcie_netdev_priv *priv,
 
 	return worked;
 }
-#endif
 
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 2
 static int mppa_pcie_netdev_tx_is_done(struct mppa_pcie_netdev_priv *priv,
 				       int index)
 {
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 3
 	return (priv->pdata->dma.device_tx_status(priv->tx_chan[priv->tx_ring[index].chanidx],
 						  priv->tx_ring[index].cookie,
 						  NULL) == DMA_SUCCESS);
-#else
-	return 1;
-#endif
 }
 
 static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
@@ -403,12 +390,7 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
 	/* write new TX tail */
 	atomic_set(&priv->tx_done, tx_done);
 	if (worked && !(priv->config->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)) {
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED == 0
 		writel(tx_done, priv->tx_tail_addr);
-#else
-		/* fake mppa work */
-		writel(tx_done, priv->tx_head_addr);
-#endif
 	}
 
 	/* TX: 3rd step: free finished TX slot */
@@ -444,50 +426,7 @@ static int mppa_pcie_netdev_clean_tx(struct mppa_pcie_netdev_priv *priv,
  out:
 	return worked;
 }
-#endif
 
-#if defined(CONFIG_MPPA_NETDEV_LOOPBACK) && CONFIG_MPPA_NETDEV_LOOPBACK == 1
-static void mppa_pcie_netdev_loopback_call(struct mppa_pcie_netdev_priv *priv)
-{
-	u64 tmp;
-	struct mppa_pcie_netdev_tx *tx;
-	struct mppa_pcie_netdev_rx *rx;
-	int tx_head = readl(priv->tx_head_addr);
-	int tx_tail = readl(priv->tx_tail_addr);
-	int rx_head = readl(priv->rx_head_addr);
-	int rx_tail = readl(priv->rx_tail_addr);
-
-	while (tx_head != tx_tail) {
-		if ((rx_tail + 1) % priv->rx_size == rx_head) {
-			/* no space left in RX ring */
-			break;
-		}
-
-		netdev_dbg(priv->netdev, "shift\n");
-
-		/* get slots */
-		tx = &(priv->tx_ring[tx_head]);
-		rx = &(priv->rx_ring[rx_tail]);
-
-		/* swap address */
-		tmp = readq(rx->entry_addr + offsetof(struct mppa_pcie_eth_c2h_ring_buff_entry, pkt_addr));
-		writeq(readq(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr)),
-		       rx->entry_addr + offsetof(struct mppa_pcie_eth_c2h_ring_buff_entry, pkt_addr));
-		writeq(tmp, tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-
-		/* set lenght */
-		writel(readl(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len)),
-		       rx->entry_addr + offsetof(struct mppa_pcie_eth_c2h_ring_buff_entry, len));
-
-		/* increment ring pointers */
-		tx_head = (tx_head + 1) % priv->tx_size;
-		rx_tail = (rx_tail + 1) % priv->rx_size;
-	}
-	/* write new pointers */
-	writel(tx_head, priv->tx_head_addr);
-	writel(rx_tail, priv->rx_tail_addr);
-}
-#endif
 
 static int mppa_pcie_netdev_poll(struct napi_struct *napi, int budget)
 {
@@ -498,15 +437,9 @@ static int mppa_pcie_netdev_poll(struct napi_struct *napi, int budget)
 
 	netdev_dbg(priv->netdev, "netdev_poll IN\n");
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 2
 	work = mppa_pcie_netdev_clean_tx(priv, -1);
-#endif
-#if defined(CONFIG_MPPA_NETDEV_LOOPBACK) && CONFIG_MPPA_NETDEV_LOOPBACK == 1
-	mppa_pcie_netdev_loopback_call(priv);
-#endif
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED == 0
 	work += mppa_pcie_netdev_clean_rx(priv, budget, &work_done);
-#endif
+
 	if (work_done < budget && work < budget && !priv->schedule_napi) {
 		napi_complete(napi);
 		netdev_dbg(priv->netdev, "interrupt: enable\n");
@@ -534,20 +467,9 @@ static void mppa_pcie_netdev_poll_controller(struct net_device *netdev)
 static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 					       struct net_device *netdev)
 {
-#if defined(CONFIG_MPPA_NETDEV_FULL_SPEED) && CONFIG_MPPA_NETDEV_FULL_SPEED == 2
-	int len;
-	skb_tx_timestamp(skb);
-	len = skb->len;
-	dev_kfree_skb_any(skb);
-	netdev->stats.tx_bytes += len;
-	netdev->stats.tx_packets += 1;
-	return NETDEV_TX_OK;
-#else
 	struct mppa_pcie_netdev_priv *priv = netdev_priv(netdev);
 	struct mppa_pcie_netdev_tx *tx;
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 3
 	struct dma_async_tx_descriptor *dma_txd;
-#endif
 	int dma_len, ret;
 	uint8_t fifo_mode, requested_engine;
 	struct mppa_pcie_eth_pkt_hdr *hdr;
@@ -618,12 +540,7 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	mppa_pcie_time_get(priv->tx_time, &tx->time);
 
 	/* configure channel */
-#if defined(CONFIG_MPPA_NETDEV_FULL_SPEED) && CONFIG_MPPA_NETDEV_FULL_SPEED == 1
-	if (1)
-#else
-	if (!autoloop)
-#endif
-	{
+	if (!autoloop) {
 		tx->dst_addr = readq(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
 		tx->flags = readl(tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
 	}
@@ -674,10 +591,9 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	tx->skb = skb;
 	tx->len = skb->len;
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED == 0
 	/* write TX entry length field */
-	writel(skb->len, tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
-#endif
+	if (!autoloop)
+		writel(skb->len, tx->entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, len));
 
 	/* prepare sg */
 	sg_init_table(tx->sg, MAX_SKB_FRAGS + 1);
@@ -696,7 +612,6 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 		goto busy;
 	}
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 3
 	/* get transfer descriptor */
 	dma_txd = dmaengine_prep_slave_sg(priv->tx_chan[chanidx], tx->sg, dma_len, DMA_MEM_TO_DEV, 0);
 	if (dma_txd == NULL) {
@@ -704,30 +619,23 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 		netdev_err(netdev, "tx %d: cannot get dma descriptor\n", tx_tail);
 		goto busy;
 	}
-#endif
 	netdev_dbg(netdev, "tx %d: transfer start (h: %d t: %d d: %d)\n", tx_tail,
 		   atomic_read(&priv->tx_head), tx_next_tail, atomic_read(&priv->tx_done));
 
-#if !defined(CONFIG_MPPA_NETDEV_FULL_SPEED) || CONFIG_MPPA_NETDEV_FULL_SPEED != 3
 	/* submit and issue descriptor */
 	tx->cookie = dmaengine_submit(dma_txd);
 	dma_async_issue_pending(priv->tx_chan[chanidx]);
-#endif
 
 	/* Increment tail pointer locally */
 	atomic_set(&priv->tx_tail, tx_next_tail);
 
 	skb_tx_timestamp(skb);
 
-#if defined(CONFIG_MPPA_NETDEV_FULL_SPEED) && CONFIG_MPPA_NETDEV_FULL_SPEED == 3
-	mppa_pcie_netdev_dma_callback(priv);
-#endif
 	return NETDEV_TX_OK;
 
 busy:
 	dma_unmap_sg(&priv->pdata->pdev->dev, tx->sg, tx->sg_len, DMA_TO_DEVICE);
 	return NETDEV_TX_BUSY;
-#endif
 }
 
 
@@ -920,12 +828,6 @@ static struct net_device *mppa_pcie_netdev_create(struct mppa_pcie_device *pdata
 		priv->tx_ring[i].entry_addr = SMEM_BAR_VADDR(pdata)
 			+ entries_addr
 			+ i * sizeof (struct mppa_pcie_eth_h2c_ring_buff_entry);
-#if defined(CONFIG_MPPA_NETDEV_FULL_SPEED) && CONFIG_MPPA_NETDEV_FULL_SPEED == 1
-		priv->tx_ring[i].dst_addr = readq(priv->tx_ring[i].entry_addr
-					  + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, pkt_addr));
-		priv->tx_ring[i].flags = readl(priv->tx_ring[i].entry_addr + offsetof(struct mppa_pcie_eth_h2c_ring_buff_entry, flags));
-#endif
-
 	}
 	priv->tx_cached_head = 0;
 	for(chanidx=0; chanidx <= MPPA_PCIE_NETDEV_NOC_CHAN_COUNT; chanidx ++) {
@@ -1161,67 +1063,6 @@ static irqreturn_t mppa_pcie_netdev_interrupt(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-#if defined(CONFIG_MPPA_NETDEV_LOOPBACK) && CONFIG_MPPA_NETDEV_LOOPBACK == 1
-
-#define MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE 32
-#define MPPA_PCIE_NETDEV_LOOPBACK_SLOT_SIZE 4096
-
-static void mppa_pcie_netdev_loopback_init(struct mppa_pcie_device *pdata)
-{
-	struct mppa_pcie_eth_control control;
-	struct mppa_pcie_eth_ring_buff_desc rx_ring;
-	struct mppa_pcie_eth_ring_buff_desc tx_ring;
-	struct mppa_pcie_eth_c2h_ring_buff_entry rx_entries[MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE];
-	struct mppa_pcie_eth_h2c_ring_buff_entry tx_entries[MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE];
-	u64 addr = MPPA_DDR_START_ADDR;
-	int i;
-
-	/* control */
-	control.magic = MPPA_PCIE_ETH_CONTROL_STRUCT_MAGIC;
-	control.if_count = 1;
-
-	/* config */
-	control.configs[0].c2h_ring_buf_desc_addr = 0x20000;
-	control.configs[0].h2c_ring_buf_desc_addr = 0x30000;
-	control.configs[0].mtu = MPPA_PCIE_ETH_DEFAULT_MTU;
-	memcpy(control.configs[0].mac_addr, "\x02\xde\xad\xbe\xef\x00", 6);
-	control.configs[0].flags = 0;
-	control.configs[0].link_status = 0;
-	control.configs[0].interrupt_status = 1;
-
-	/* RX ring */
-	rx_ring.head = 0;
-	rx_ring.tail = 0;
-	rx_ring.ring_buffer_entries_count = MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE;
-	rx_ring.ring_buffer_entries_addr = 0x40000;
-	for (i = 0; i < MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE; ++i) {
-		rx_entries[i].len = 0;
-		rx_entries[i].status = 0;
-		rx_entries[i].checksum = 0;
-		rx_entries[i].pkt_addr = addr;
-		addr += MPPA_PCIE_NETDEV_LOOPBACK_SLOT_SIZE;
-	}
-
-	/* TX ring */
-	tx_ring.head = 0;
-	tx_ring.tail = 0;
-	tx_ring.ring_buffer_entries_count = MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE;
-	tx_ring.ring_buffer_entries_addr = 0x50000;
-	for (i = 0; i < MPPA_PCIE_NETDEV_LOOPBACK_RING_SIZE; ++i) {
-		tx_entries[i].len = 0;
-		tx_entries[i].flags = 0;
-		tx_entries[i].pkt_addr = addr;
-		addr += MPPA_PCIE_NETDEV_LOOPBACK_SLOT_SIZE;
-	}
-
-	/* write everything in memory */
-	memcpy_toio(SMEM_BAR_VADDR(pdata) + MPPA_PCIE_ETH_CONTROL_STRUCT_ADDR, &control, sizeof(control));
-	memcpy_toio(SMEM_BAR_VADDR(pdata) + 0x20000, &rx_ring, sizeof(rx_ring));
-	memcpy_toio(SMEM_BAR_VADDR(pdata) + 0x30000, &tx_ring, sizeof(tx_ring));
-	memcpy_toio(SMEM_BAR_VADDR(pdata) + 0x40000, &rx_entries, sizeof(rx_entries));
-	memcpy_toio(SMEM_BAR_VADDR(pdata) + 0x50000, &tx_entries, sizeof(tx_entries));
-}
-#endif
 
 static int mppa_pcie_netdev_init(void)
 {
@@ -1252,11 +1093,6 @@ static int mppa_pcie_netdev_init(void)
 		pdata->netdev_reset = &mppa_pcie_netdev_disable;
 		pdata->netdev_pre_reset = &mppa_pcie_netdev_pre_reset_all;
 		pdata->netdev_interrupt = &mppa_pcie_netdev_interrupt;
-
-#if defined(CONFIG_MPPA_NETDEV_LOOPBACK) && CONFIG_MPPA_NETDEV_LOOPBACK == 1
-		/* init for loopback */
-		mppa_pcie_netdev_loopback_init(pdata);
-#endif
 
 		if (mppa_pcie_netdev_is_magic_set(pdata)){
 			mppa_pcie_netdev_enable(pdata);
