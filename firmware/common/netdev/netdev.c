@@ -18,6 +18,25 @@ __attribute__((section(".eth_control"))) struct mppa_pcie_eth_control eth_contro
 	.magic = 0xDEADBEEF,
 };
 
+int netdev_c2h_is_full(struct mppa_pcie_eth_if_config *cfg)
+{
+
+	struct mppa_pcie_eth_ring_buff_desc *c2h =
+		(void*)(unsigned long)cfg->c2h_ring_buf_desc_addr;
+	uint32_t tail = LOAD_U32(c2h->tail);
+	uint32_t next_tail = tail + 1;
+
+	if (next_tail == c2h->ring_buffer_entries_count)
+		next_tail = 0;
+
+	if(next_tail == LOAD_U32(c2h->head)) {
+		/* Ring is full of data */
+		return 1;
+	}
+
+	return 0;
+}
+
 int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 			    struct mppa_pcie_eth_c2h_ring_buff_entry *data,
 			    uint64_t * old_entry)
