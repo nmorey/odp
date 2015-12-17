@@ -53,7 +53,7 @@ int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 
 /* H2C */
 int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
-					   struct mppa_pcie_eth_h2c_ring_buff_entry *buffer);
+			      struct mppa_pcie_eth_h2c_ring_buff_entry *buffer);
 struct mppa_pcie_eth_h2c_ring_buff_entry *
 netdev_h2c_peek_data(const struct mppa_pcie_eth_if_config *cfg);
 #endif /* NETDEV__H */
