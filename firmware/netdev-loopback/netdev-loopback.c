@@ -89,7 +89,7 @@ static eth_if_cfg_t if_cfgs[IF_COUNT] = {
 	  .n_c2h_entries = RING_BUFFER_ENTRIES,
 	  .n_h2c_entries = RING_BUFFER_ENTRIES,
 	  .mac_addr = { 0xde, 0xad, 0xbe, 0xef },
-	  .flags = MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP,
+	  .flags = 0,
 	}
 };
 
