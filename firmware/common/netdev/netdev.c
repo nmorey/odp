@@ -106,6 +106,29 @@ int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 
 }
 
+struct mppa_pcie_eth_h2c_ring_buff_entry *
+netdev_h2c_peek_data(const struct mppa_pcie_eth_if_config *cfg)
+{
+	const struct mppa_pcie_eth_ring_buff_desc *h2c =
+		(void*)(unsigned long)cfg->h2c_ring_buf_desc_addr;
+
+	if (cfg->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)
+		return NULL;
+
+
+	uint32_t head = LOAD_U32(h2c->head);
+	uint32_t tail = LOAD_U32(h2c->tail);
+	if (head == tail)
+		return NULL;
+
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entry_base =
+		(void*)(unsigned long)h2c->ring_buffer_entries_addr;
+	struct mppa_pcie_eth_h2c_ring_buff_entry *entry = entry_base + head;
+	INVALIDATE(entry);
+
+	return entry;
+}
+
 static int netdev_setup_c2h(struct mppa_pcie_eth_if_config *if_cfg,
 			    const eth_if_cfg_t *cfg)
 {
