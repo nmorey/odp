@@ -65,6 +65,9 @@ int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 
 	STORE_U32(c2h->tail, next_tail);
 
+	if (LOAD_U32(cfg->interrupt_status))
+		mppa_pcie_send_it_to_host();
+
 	return 0;
 }
 
