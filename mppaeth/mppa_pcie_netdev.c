@@ -512,6 +512,9 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 	priv->tx_config[chanidx].fifo_mode = fifo_mode;
 	priv->tx_config[chanidx].requested_engine = requested_engine;
 
+	netdev_dbg(netdev, "tx %d: sending to 0x%llx. Fifo=%d Engine=%d\n", tx_submitted,
+		   (uint64_t)tx->dst_addr, fifo_mode, requested_engine);
+
 	/* If the packet needs a header to determine size, add it */
 	if (tx->flags & MPPA_PCIE_ETH_NEED_PKT_HDR) {
 		netdev_dbg(netdev, "tx %d: Adding header to packet\n", tx_submitted);
@@ -565,8 +568,8 @@ static netdev_tx_t mppa_pcie_netdev_start_xmit(struct sk_buff *skb,
 		netdev_err(netdev, "tx %d: cannot get dma descriptor\n", tx_submitted);
 		goto busy;
 	}
-	netdev_dbg(netdev, "tx %d: transfer start (head: %d submitted: %d done: %d)\n", tx_submitted,
-		   atomic_read(&priv->tx_head), tx_next, atomic_read(&priv->tx_done));
+	netdev_dbg(netdev, "tx %d: transfer start (head: %d submitted: %d done: %d) len=%d, sg_len=%d\n", tx_submitted,
+		   atomic_read(&priv->tx_head), tx_next, atomic_read(&priv->tx_done), tx->len, tx->sg_len);
 
 	/* submit and issue descriptor */
 	tx->cookie = dmaengine_submit(dma_txd);
