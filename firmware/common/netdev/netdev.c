@@ -69,7 +69,7 @@ int netdev_c2h_enqueue_data(struct mppa_pcie_eth_if_config *cfg,
 	STORE_U32(c2h->tail, next_tail);
 
 #ifdef VERBOSE
-	printf("C2H data pushed in if:%p | at offset:%lu\n", cfg, tail);
+	printf("C2H data 0x%llx pushed in if:%p | at offset:%lu\n", data->pkt_addr, cfg, tail);
 #endif
 	if (LOAD_U32(cfg->interrupt_status))
 		mppa_pcie_send_it_to_host();
@@ -108,7 +108,7 @@ int netdev_h2c_enqueue_buffer(struct mppa_pcie_eth_if_config *cfg,
 
 	STORE_U32(h2c->head, next_head);
 #ifdef VERBOSE
-	printf("H2C buffer pushed in if:%p | at offset:%lu\n", cfg, head);
+	printf("H2C buffer 0x%llx pushed in if:%p | at offset:%lu\n", buffer->pkt_addr, cfg, head);
 #endif
 
 	if (cfg->flags & MPPA_PCIE_ETH_CONFIG_RING_AUTOLOOP)
