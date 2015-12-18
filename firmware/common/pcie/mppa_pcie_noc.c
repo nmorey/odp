@@ -82,7 +82,8 @@ int mppa_pcie_eth_noc_init()
 	return 0;
 }
 
-static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, unsigned int cluster_id, unsigned int rx_id)
+static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, unsigned int cluster_id,
+				  unsigned int min_rx, unsigned int max_rx)
 {
 	mppa_noc_ret_t nret;
 	mppa_routing_ret_t rret;
@@ -105,7 +106,7 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 	}
 
 	header._.multicast = 0;
-	header._.tag = rx_id;
+	header._.tag = min_rx;
 	header._.valid = 1;
 
 	nret = mppa_noc_dnoc_tx_configure(iface_id, *tx_id, header, config);
@@ -113,6 +114,14 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 		dbg_printf("Tx configure failed\n");
 		return 1;
 	}
+
+	volatile mppa_dnoc_min_max_task_id_t *context =
+		&mppa_dnoc[iface_id]->tx_chan_route[*tx_id].min_max_task_id[0];
+
+	context->_.current_task_id = min_rx;
+	context->_.min_task_id = min_rx;
+	context->_.max_task_id = max_rx;
+	context->_.min_max_task_id_en = 1;
 
 	return 0;
 }
@@ -126,7 +135,7 @@ odp_rpc_cmd_ack_t mppa_pcie_eth_open(unsigned remoteClus, odp_rpc_t * msg)
 	unsigned int tx_id, rx_id = 0;
 
 	dbg_printf("Received request to open PCIe\n");
-	int ret = mppa_pcie_eth_setup_tx(if_id, &tx_id, remoteClus, open_cmd.min_rx);
+	int ret = mppa_pcie_eth_setup_tx(if_id, &tx_id, remoteClus, open_cmd.min_rx, open_cmd.max_rx);
 	if (ret) {
 		fprintf(stderr, "[PCIe] Error: Failed to setup tx on if %d\n", if_id);
 		return ack;
