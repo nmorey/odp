@@ -293,6 +293,10 @@ static void *pktio_direct_recv_thread(void *arg)
 		if (odp_unlikely(pkts <= 0))
 			continue;
 
+		for (int i = 0; i < pkts; ++i){
+			fprintf(stderr, "Got packet of size %lu\n", odp_packet_len(pkt_tbl[i]));
+		}
+
 		if (gbl_args->appl.error_check) {
 			int rx_drops;
 

@@ -208,6 +208,7 @@ static int _reload_rx(int th_id, int rx_id)
 
 	typeof(mppa_dnoc[dma_if]->rx_queues[0]) * const rx_queue =
 		&mppa_dnoc[dma_if]->rx_queues[rx_id];
+	const int nb_bytes = rx_queue->current_offset.reg;
 
 	if (odp_unlikely(!rx_pool->n_spares)) {
 		/* No packets were available. Map small dirty
@@ -287,6 +288,17 @@ static int _reload_rx(int th_id, int rx_id)
 			*(hdr_list->tail) = (odp_buffer_hdr_t *)pkt;
 			hdr_list->tail = &((odp_buffer_hdr_t *)pkt)->next;
 			hdr_list->count++;
+
+			odp_packet_hdr_t *pkt_hdr = odp_packet_hdr(pkt);
+			INVALIDATE(pkt_hdr);
+			uint8_t * base_addr =
+				((uint8_t *)pkt_hdr->buf_hdr.addr) +
+				pkt_hdr->headroom;
+
+			uint8_t * const hdr_addr = base_addr -
+				sizeof(uint32_t);
+			unsigned short len = __builtin_k1_lwu(hdr_addr);
+				printf("Packet at tag %d is %hx/%hu long. Cur offset = %d\n", rx_id, len, len, nb_bytes);
 			return 1 << pktio_id;
 		}
 		return 0;
@@ -313,6 +325,7 @@ static void _poll_masks(int th_id)
 				continue;
 
 			/* We have an event */
+			printf("Mask [%d] = %llx\n", i, mask);
 			while (mask != 0ULL) {
 				const int mask_bit = __k1_ctzdl(mask);
 				const int rx_id = mask_bit + i * 64;

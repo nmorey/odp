@@ -105,6 +105,12 @@ static int mppa_pcie_eth_setup_tx(unsigned int iface_id, unsigned int *tx_id, un
 		return 1;
 	}
 
+	config._.payload_min = 6;
+	config._.payload_max = 32;
+	config._.bw_current_credit = 0xff;
+	config._.bw_max_credit     = 0xff;
+	config._.bw_fast_delay     = 0x00;
+	config._.bw_slow_delay     = 0x00;
 	header._.multicast = 0;
 	header._.tag = min_rx;
 	header._.valid = 1;

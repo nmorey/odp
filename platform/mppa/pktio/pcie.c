@@ -336,8 +336,10 @@ static int pcie_recv(pktio_entry_t *pktio_entry, odp_packet_t pkt_table[],
 			sizeof(uint32_t);
 
 		size = __builtin_k1_lwu(hdr_addr);
+		memset(hdr_addr, 0xab, 4);
 		packet_set_len(pkt, size);
 	}
+	__k1_wmb();
 	return n_packet;
 }
 
