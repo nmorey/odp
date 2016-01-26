@@ -284,3 +284,7 @@ int _odp_term_local(enum init_stage stage)
 
 	return rc;
 }
+
+void odp_platform_init_init(odp_platform_init_t *platform_params ODP_UNUSED)
+{
+}

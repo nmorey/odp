@@ -134,6 +134,14 @@ typedef struct odp_init_t {
  * passing any required platform specific data.
  */
 
+/**
+ * Initialize platform init structure
+ *
+ * Initialize an odp_platform_init_t to its default values for all fields
+ *
+ * @param platform_params Address of the odp_platform_init_t to be initialized
+ */
+void odp_platform_init_init(odp_platform_init_t *platform_params);
 
 /**
  * Global ODP initialization
