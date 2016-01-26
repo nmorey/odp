@@ -144,8 +144,24 @@ void init_test_odp_init_global(void)
 	CU_ASSERT(status == 0);
 }
 
+/* test normal ODP global init with platform params*/
+void init_test_odp_init_global_with_platform_params(void)
+{
+	int status;
+	odp_platform_init_t platform_params;
+
+	odp_platform_init_init(&platform_params);
+
+	status = odp_init_global(NULL, &platform_params);
+	CU_ASSERT_FATAL(status == 0);
+
+	status = odp_term_global();
+	CU_ASSERT(status == 0);
+}
+
 odp_testinfo_t init_suite_ok[] = {
 	ODP_TEST_INFO(init_test_odp_init_global),
+	ODP_TEST_INFO(init_test_odp_init_global_with_platform_params),
 	ODP_TEST_INFO_NULL,
 };
 

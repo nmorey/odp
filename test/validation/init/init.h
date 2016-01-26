@@ -13,6 +13,7 @@
 void init_test_odp_init_global_replace_abort(void);
 void init_test_odp_init_global_replace_log(void);
 void init_test_odp_init_global(void);
+void init_test_odp_init_global_with_platform_params(void);
 
 /* test arrays: */
 extern odp_testinfo_t init_suite_abort[];
