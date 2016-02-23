@@ -80,7 +80,7 @@ static void print_log(test_globals_t *gbls)
 
 	err_num = odp_atomic_load_u32(&gbls->err_counter);
 	if (err_num)
-		printf("Number of errors: %u\n", err_num);
+		printf("Number of errors: %" PRIu32 "\n", err_num);
 }
 
 static void
@@ -187,7 +187,7 @@ static int run_thread(void *ptr)
 	 * buffer is not the same thread.
 	 */
 	id = odp_atomic_fetch_inc_u32(&gbls->id_counter);
-	sprintf(queue_name, QUEUE_NAME_PREFIX "%d", id);
+	sprintf(queue_name, QUEUE_NAME_PREFIX "%" PRIu32 "", id);
 	queue = odp_queue_create(queue_name, NULL);
 	if (queue == ODP_QUEUE_INVALID)
 		EXAMPLE_ABORT("Cannot create thread queue, thread %d", thr);
