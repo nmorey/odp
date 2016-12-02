@@ -6,7 +6,7 @@ AM_LDFLAGS += -static
 
 LIBCUNIT_COMMON = $(top_builddir)/test/common_plat/common/libcunit_common.la
 LIB   = $(top_builddir)/lib
-LIBODP = $(LIB)/libodphelper-linux.la $(LIB)/libodp-linux.la
+LIBODP = $(LIB)/libodphelper@ODP_LIB_FLAVOR@.la $(LIB)/libodp@ODP_LIB_FLAVOR@.la
 
 INCCUNIT_COMMON = -I$(top_srcdir)/test/common_plat/common
 INCODP =  \
