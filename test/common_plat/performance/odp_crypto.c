@@ -271,8 +271,13 @@ static void
 fill_time_record(time_record_t *rec)
 {
 	gettimeofday(&rec->tv, NULL);
+#ifdef HAVE_GETRUSAGE
 	getrusage(RUSAGE_SELF, &rec->ru_self);
 	getrusage(RUSAGE_THREAD, &rec->ru_thread);
+#else
+	memset(&rec->ru_self, 0, sizeof(struct rusage));
+	memset(&rec->ru_thread, 0, sizeof(struct rusage));
+#endif
 }
 
 /**
