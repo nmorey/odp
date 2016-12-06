@@ -138,7 +138,7 @@ noinst_HEADERS = \
 		  ${srcdir}/include/protocols/udp.h \
 		  ${srcdir}/Makefile.inc
 
-__LIB__libodp_linux_la_SOURCES = \
+__LIB__libodp@ODP_LIB_FLAVOR@_la_SOURCES = \
 			   odp_atomic.c \
 			   odp_barrier.c \
 			   odp_buffer.c \
@@ -198,5 +198,5 @@ __LIB__libodp_linux_la_SOURCES = \
 			   arch/@ARCH_DIR@/odp_sysinfo_parse.c
 
 if HAVE_PCAP
-__LIB__libodp_linux_la_SOURCES += pktio/pcap.c
+__LIB__libodp@ODP_LIB_FLAVOR@_la_SOURCES += pktio/pcap.c
 endif
