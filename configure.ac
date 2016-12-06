@@ -231,6 +231,19 @@ AC_ARG_ENABLE([debug-print],
 ODP_CFLAGS="$ODP_CFLAGS -DODP_DEBUG_PRINT=$ODP_DEBUG_PRINT"
 
 ##########################################################################
+# Enable/disable ODPH_DEBUG_PRINT
+##########################################################################
+ODPH_DEBUG_PRINT=0
+AC_ARG_ENABLE([helper-debug-print],
+    [  --enable-helper-debug-print    display debugging information for ODP helpers],
+    [if test "x$enableval" = "xyes"; then
+	ODPH_DEBUG_PRINT=1
+     else
+	ODPH_DEBUG_PRINT=0
+    fi])
+ODPH_CFLAGS="$ODPH_CFLAGS -DODPH_DEBUG_PRINT=$ODPH_DEBUG_PRINT"
+
+##########################################################################
 # Enable/disable ODP_DEBUG
 ##########################################################################
 ODP_DEBUG=0
@@ -311,6 +324,7 @@ AC_SUBST([CFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_SUBST([LDFLAGS])
 AC_SUBST([EXEEXT])
+AC_SUBST([ODPH_CFLAGS])
 
 AC_OUTPUT
 AC_MSG_RESULT([
