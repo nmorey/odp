@@ -62,7 +62,10 @@ AM_PROG_LIBTOOL
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
-AC_CHECK_FUNCS([bzero clock_gettime gethostbyname getpagesize gettimeofday memset munmap socket strchr strerror strrchr strstr strtoull])
+AC_CHECK_FUNCS([backtrace bzero clock_gettime gethostbyname getpagesize \
+				getrlimit getrusage gettimeofday memset munmap \
+				sched_setaffinity setrlimit sigaction socket strchr strerror \
+				strrchr strstr strtoull sync])
 
 # Checks for header files.
 AC_HEADER_RESOLV
